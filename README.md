@@ -40,7 +40,7 @@ You might generate new random maps using the code in *src/map_generator.py*. The
 
     python3 map_generator.py --create_map --seed=0
 
-It is also possible to automatically look for adversarial maps for the Hierarchical RL baseline. To do so, we generate *num_eval_maps* random maps and rank them according to the difference between the reward obtained by an optimal policy and the reward obtained by an optimal myopic policy. The code will display the random seeds of top *num_adv_maps* ranked maps. (You might then display those maps using the *--create_map* flag.)
+It is also possible to automatically look for adversarial maps for the Hierarchical RL baseline. To do so, we generate *num_eval_maps* random maps and rank them according to the difference between the reward obtained by an optimal policy and the reward obtained by an optimal myopic policy. The code will display the random seeds of the top *num_adv_maps* ranked maps. (You might then display those maps using the *--create_map* flag.)
 
     python3 map_generator.py --adversarial --num_adv_maps=5 --num_eval_maps=1000
 
