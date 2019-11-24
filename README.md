@@ -34,6 +34,15 @@ The results will be printed and saved in './tmp'. After running LPOPL over all t
 
 The overall results will be saved in the './results' folder.
 
+## Generating new random maps
+
+You might generate new random maps using the code in *src/map_generator.py*. The only parameter required is the random seed to be used. The resulting map will be displayed in the console along with the number of steps that an optimal policy would need to solve the "sequence", "interleaving", and "safety" tasks (this value is computed using value iteration and might take a few minutes):
+
+    python3 map_generator.py --create_map --seed=0
+
+It is also possible to automatically look for adversarial maps for the Hierarchical RL baseline. To do so, we generate *num_eval_maps* random maps and rank them according to the difference between the reward obtained by an optimal policy and the reward obtained by an optimal myopic policy. The code will display the random seeds of top *num_adv_maps* ranked maps. (You might then display those maps using the *--create_map* flag.)
+
+    python3 map_generator.py --adversarial --num_adv_maps=5 --num_eval_maps=1000
 
 ## Acknowledgments
 
