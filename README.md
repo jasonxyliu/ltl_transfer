@@ -17,7 +17,7 @@ This code is meant to be a clean and usable version of our approach, called LPOP
 
 You might clone this repository by running:
 
-    git clone https://RToroIcarte@bitbucket.org/RToroIcarte/lpopl.git
+    git clone https://bitbucket.org/RToroIcarte/lpopl.git
 
 LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy](http://www.numpy.org/), [tensorflow](https://www.tensorflow.org/), and [sympy](http://www.sympy.org). 
 
