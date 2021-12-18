@@ -11,8 +11,8 @@
 # Convert 1D indexing to 2D
 i=`expr $SLURM_ARRAY_TASK_ID % 3`
 j=`expr $SLURM_ARRAY_TASK_ID / 3`
-k=`expr $j % 2`
-l=`expr $j / 2`
+k=`expr $j % 10`
+l=`expr $j / 10`
 
 algo="lpopl"
 tasks=( "sequence" "interleaving" "safety" )
@@ -20,7 +20,7 @@ task=${tasks[$i]}
 maps=( 0 1 2 3 4 5 6 7 8 9)
 map=${maps[$k]}
 
-# export PATH=/users/xliu53/anaconda/ltl_pomdp/bin:$PATH
+# export PATH=/users/xliu53/anaconda/lpopl/bin:$PATH
 module load anaconda/3-5.2.0
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
