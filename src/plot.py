@@ -42,9 +42,9 @@ def make_plot(task):
             ax.set_ylim(bottom=0)
             ax.yaxis.tick_right()
             ax.set_yticks(np.linspace(0, 1, 6))
-            ax.set_title("5 %s maps"%map_type)
-            ax.set_xlabel("Number of training steps")
-            ax.set_ylabel("Normalized reward")
+            ax.set_title("5 %s maps"%map_type, fontsize=18)
+            ax.set_xlabel("Number of training steps", fontsize=12)
+            ax.set_ylabel("Normalized reward", fontsize=12)
     for ax in ax1, ax2:
         ax.grid(True)
     # plt.show()
