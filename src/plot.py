@@ -13,18 +13,18 @@ def make_plot(task):
     }
 
     results = {}
-    results_dpath = os.path.join("results", task)
+    results_task_dpath = os.path.join("results", task)
     # create 2 subplots for random and adversarial maps
     fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, figsize=[12, 5])
     xs = range(1000, 101000, 1000)
     for map_type, ax in zip(["random", "adversarial"], [ax1, ax2]):
         results[map_type] = {}
-        results_fpath = os.path.join(results_dpath, map_type)
+        results_map_dpath = os.path.join(results_task_dpath, map_type)
         for algo in algorithms:
-            if algo != "lpopl":
-                continue
+            # if algo != "lpopl" and algo != "dqn-l":
+            #     continue
             results[map_type][algo] = defaultdict(list)
-            results_fpath = os.path.join(results_fpath, algo+".txt")
+            results_fpath = os.path.join(results_map_dpath, algo+".txt")
             with open(results_fpath, "r") as rf:
                 lines = rf.readlines()
                 for line in lines:
@@ -34,12 +34,12 @@ def make_plot(task):
                     results[map_type][algo]["75"].append(float(line_items[3]))
 
             ax.fill_between(xs, results[map_type][algo]["75"], results[map_type][algo]["25"],
-                            facecolor=algo_colors[algo][1], alpha=0.25)
+                            facecolor=algo_colors[algo][1], alpha=0.5)
             ax.plot(xs, results[map_type][algo]["50"], color=algo_colors[algo][0])
             ax.set_xlim(left=0, right=100000)
             ax.ticklabel_format(style="sci", scilimits=(5, 5))
             ax.set_xticks(np.arange(20000, 120000, 20000))
-            ax.set_ylim(bottom=0)
+            # ax.set_ylim(bottom=0)
             ax.yaxis.tick_right()
             ax.set_yticks(np.linspace(0, 1, 6))
             ax.set_title("5 %s maps"%map_type, fontsize=18)
