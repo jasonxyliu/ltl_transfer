@@ -13,7 +13,7 @@ def addElements(map, elements, num_per_type):
                 if map[i][j] == " ":
                     map[i][j] = e
                     break
-    
+
 def getObjects(map):
     objs = {}
     for i in range(len(map)):
@@ -23,7 +23,7 @@ def getObjects(map):
             elif e not in " X":
                 if e not in objs: objs[e] = []
                 objs[e].append((i,j))
-    return objs, agent  
+    return objs, agent
 
 def getMD(a, o):
     return sum([abs(a[i]-o[i]) for i in range(len(a))])
@@ -74,7 +74,7 @@ def createMap(conf_params, seed, show):
     # configuration parameters
     map_width, map_height, resources, fancy_resources, workstations, num_resource_per_type, num_fancy_resources_per_type, num_workstations_per_type, shelter_locations, tasks = conf_params
     random.seed(seed)
-    
+
     # Creating a new map layout
     map = [["X"]+[" " for _ in range(map_width-2)]+["X"] for _ in range(map_height)]
     map[0] = ["X" for _ in range(map_width)]
@@ -90,7 +90,7 @@ def createMap(conf_params, seed, show):
 
     # Adding the work stations
     addElements(map, workstations, num_workstations_per_type)
-    
+
     # Adding resources
     addElements(map, resources, num_resource_per_type)
     addElements(map, fancy_resources, num_fancy_resources_per_type)
@@ -109,7 +109,7 @@ def createMap(conf_params, seed, show):
 
     # Computing optimal and myopic optimals for each task
     return computeOptimalSolutions(map, tasks)
-    
+
 
 if __name__ == '__main__':
 
@@ -124,13 +124,13 @@ if __name__ == '__main__':
     num_workstations_per_type = 2
     shelter_locations = [(i,j) for i in range(8,13) for j in range(11,20)]
     # NOTE: the map's difficulty is measure by the difference between the reward obtained by an optimal myopic policy vs a globally optimal policy (over the sequential tasks)
-    tasks = ["ab", "ac", "de", "db", "fae", "abdc", "acfb", "acfc", "faeg", "acfbh"] 
+    tasks = ["ab", "ac", "de", "db", "fae", "abdc", "acfb", "acfc", "faeg", "acfbh"]
     conf_params = map_width, map_height, resources, fancy_resources, workstations, num_resource_per_type, num_fancy_resources_per_type, num_workstations_per_type, shelter_locations, tasks
 
-    # EXAMPLE 1 (create a map): 
+    # EXAMPLE 1 (create a map):
     #    python3 map_generator.py --create_map --seed=0
 
-    # EXAMPLE 2 (search for adversarial seeds): 
+    # EXAMPLE 2 (search for adversarial seeds):
     #    python3 map_generator.py --adversarial --num_adv_maps=5 --num_eval_maps=1000
 
     # Getting params
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', default=0, type=int, help='This parameter indicates the random seed that will generate the map')
     parser.add_argument('--adversarial', help='This flag indicates that a set of random seeds will be tried in order to find adversarial maps', action='store_true')
     parser.add_argument('--num_adv_maps', default=5, type=int, help='This parameter indicates the number of adversarial maps to be displayed')
-    parser.add_argument('--num_eval_maps', default=1000, type=int, help='This parameter indicates how many maps to generate when looking for adversarial maps')    
+    parser.add_argument('--num_eval_maps', default=1000, type=int, help='This parameter indicates how many maps to generate when looking for adversarial maps')
     args = parser.parse_args()
 
     if args.create_map:

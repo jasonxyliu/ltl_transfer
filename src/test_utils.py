@@ -4,7 +4,7 @@ import os, json, tasks, argparse
 
 
 class TestingParameters:
-    def __init__(self, test = True, test_freq=1000, num_steps = 100):
+    def __init__(self, test=True, test_freq=1000, num_steps=100):
         """Parameters
         -------
         test: bool
@@ -18,33 +18,13 @@ class TestingParameters:
         self.test_freq = test_freq
         self.num_steps = num_steps
 
-class Saver:
-
-    def __init__(self, alg_name, tester, curriculum):
-        folder = "../tmp/"
-        exp_name = tester.experiment
-        exp_dir = os.path.join(folder, exp_name)
-        if not os.path.exists(exp_dir):
-            os.makedirs(exp_dir)
-        self.file_out = os.path.join(exp_dir, alg_name + ".json")
-        self.tester = tester
-        
-    def save_results(self):
-        results = {}
-        results['tasks'] = [str(t) for t in self.tester.tasks]
-        results['optimal'] = dict([(str(t), self.tester.optimal[t]) for t in self.tester.optimal])
-        results['steps'] = self.tester.steps      
-        results['results'] = dict([(str(t), self.tester.results[t]) for t in self.tester.results])        
-        # Saving results
-        save_json(self.file_out, results)
-
 
 def _get_optimal_values(file, experiment):
     f = open(file)
     lines = [l.rstrip() for l in f]
     f.close()
     return eval(lines[experiment])
-    
+
 
 class Tester:
     def __init__(self, learning_params, testing_params, map_id, tasks_id, file_results=None):
@@ -82,7 +62,7 @@ class Tester:
             # so I'm changing the 'steps' to strings
             for i in range(len(self.steps)):
                 self.steps[i] = str(self.steps[i])
-            
+
     def get_LTL_tasks(self):
         return self.tasks
 
@@ -99,11 +79,11 @@ class Tester:
                 self.results[t][step] = []
             if len(self.steps) == 0 or self.steps[-1] < step:
                 self.steps.append(step)
-            self.results[t][step].append(reward) 
+            self.results[t][step].append(reward)
 
     def show_results(self):
         average_reward = {}
-        
+
         # Computing average perfomance per task
         for t in self.tasks:
             for s in self.steps:
@@ -114,7 +94,7 @@ class Tester:
 
         # Showing average perfomance across all the task
         print("\nAverage discounted reward on this map --------------------")
-        print("\tsteps\tP25\tP50\tP75")            
+        print("\tsteps\tP25\tP50\tP75")
         num_tasks = float(len(self.tasks))
         for s in self.steps:
             normalized_rewards = average_reward[s] / num_tasks
@@ -123,7 +103,7 @@ class Tester:
 
     def export_results(self):
         average_reward = {}
-        
+
         # Showing perfomance per task
         for t in self.tasks:
             for s in self.steps:
@@ -139,6 +119,27 @@ class Tester:
             normalized_rewards = average_reward[s] / num_tasks
             ret.append([s, normalized_rewards])
         return ret
+
+
+class Saver:
+    def __init__(self, alg_name, tester, curriculum):
+        folder = "../tmp/"
+        exp_name = tester.experiment
+        exp_dir = os.path.join(folder, exp_name)
+        if not os.path.exists(exp_dir):
+            os.makedirs(exp_dir)
+        self.file_out = os.path.join(exp_dir, alg_name + ".json")
+        self.tester = tester
+
+    def save_results(self):
+        results = {}
+        results['tasks'] = [str(t) for t in self.tester.tasks]
+        results['optimal'] = dict([(str(t), self.tester.optimal[t]) for t in self.tester.optimal])
+        results['steps'] = self.tester.steps
+        results['results'] = dict([(str(t), self.tester.results[t]) for t in self.tester.results])
+        # Saving results
+        save_json(self.file_out, results)
+
 
 def get_precentiles_str(a):
     p25 = "%0.2f"%float(np.percentile(a, 25))
@@ -187,11 +188,11 @@ if __name__ == "__main__":
     tasks      = ["sequence", "interleaving", "safety"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
-    parser.add_argument('--algorithm', default='lpopl', type=str, 
+    parser.add_argument('--algorithm', default='lpopl', type=str,
                         help='This parameter indicated which RL algorithm to use. The options are: ' + str(algorithms))
-    parser.add_argument('--tasks', default='sequence', type=str, 
+    parser.add_argument('--tasks', default='sequence', type=str,
                         help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
-    
+
     args = parser.parse_args()
     if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
     if args.tasks not in tasks: raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")

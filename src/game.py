@@ -31,7 +31,7 @@ class Game:
     def execute_action(self, action):
         """
         We execute 'action' in the game
-        Returns the reward that the agent gets after executing the action 
+        Returns the reward that the agent gets after executing the action
         """
         agent = self.agent
         self.hour = (self.hour + 1)%24
@@ -39,7 +39,7 @@ class Game:
         # Getting new position after executing action
         i,j = agent.i,agent.j
         ni,nj = self._get_next_position(action)
-        
+
         # Interacting with the objects that is in the next position
         action_succeeded = self.map_array[ni][nj].interact(agent)
 
@@ -61,13 +61,13 @@ class Game:
         """
         agent = self.agent
         ni,nj = agent.i, agent.j
-            
+
         # OBS: Invalid actions behave as NO-OP
         if action == Actions.up   : ni-=1
         if action == Actions.down : ni+=1
         if action == Actions.left : nj-=1
         if action == Actions.right: nj+=1
-        
+
         return ni,nj
 
     def get_actions(self):
@@ -122,7 +122,7 @@ class Game:
                 obj = self.map_array[i][j]
                 if str(obj) in class_ids:
                     ret.append(self._manhattan_distance(obj))
-        
+
         # Adding the number of steps before night (if need it)
         if self.consider_night:
             ret.append(self._steps_before_dark())
@@ -172,7 +172,7 @@ class Game:
             - self.map_array: array containing all the static objects in the map
                 - e.g. self.map_array[i][j]: contains the object located on row 'i' and column 'j'
             - self.agent: is the agent!
-            - self.map_height: number of rows in every room 
+            - self.map_height: number of rows in every room
             - self.map_width: number of columns in every room
         The inputs:
             - file_map: path to the map file
@@ -187,7 +187,7 @@ class Game:
         for l in f:
             # I don't consider empty lines!
             if(len(l.rstrip()) == 0): continue
-            
+
             # this is not an empty line!
             row = []
             j = 0
@@ -229,7 +229,7 @@ def play(params, max_time):
         if a in str_to_action and str_to_action[a] in acts:
             reward = game.execute_action(str_to_action[a])
             if game.ltl_game_over or game.env_game_over: # Game Over
-                break 
+                break
         else:
             print("Forbidden action")
     game.show_map()

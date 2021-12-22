@@ -19,7 +19,7 @@ class MetaController:
         self.epsilon = epsilon
         self.alpha = alpha
         self.use_dfa = use_dfa # 'use_dfa = True' means that we use the DFA to prune useless options from consideration
-    
+
     def learn(self, s1, a, r, s2, done, steps, dfa, ltl):
         if done:
             q_new = r
@@ -27,14 +27,14 @@ class MetaController:
             if r > 0: print("ERROR!")
             q_new = (r + (self.gamma**steps)*self._get_max_q_value(s2, dfa, ltl))
 
-        self.Q[s1][a] += self.alpha*(q_new - self.Q[s1][a]) 
+        self.Q[s1][a] += self.alpha*(q_new - self.Q[s1][a])
 
     def _get_options(self, s, dfa, ltl):
         # removing the option of picking a subgoal that is already true
         true_props = s[2]
         ret = [p for p in self.subpolicies if p not in true_props]
         if self.use_dfa:
-            ret = [p for p in ret if ltl not in [dfa.progress_LTL(ltl, p), "False"]]   
+            ret = [p for p in ret if ltl not in [dfa.progress_LTL(ltl, p), "False"]]
         return ret
 
     def get_action_epsilon_greedy(self, s, dfa, ltl):
@@ -85,7 +85,7 @@ def _run_HRL(sess, meta_controllers, policy_bank, task_params, tester, curriculu
     # Initializing parameters
     task = Game(task_params)
     actions = task.get_actions()
-    
+
     # Creating the neuralnet
     num_features = len(task.get_features())
 
@@ -113,14 +113,14 @@ def _run_HRL(sess, meta_controllers, policy_bank, task_params, tester, curriculu
             s1 = task.get_features()
 
             # Choosing an action according to option mc_a
-            if random.random() < exploration.value(t): 
+            if random.random() < exploration.value(t):
                 a = random.choice(actions)
-            else: 
+            else:
                 a = Actions(policy_bank.get_best_action(_get_LTL_formula(task, mc_a), s1.reshape((1,num_features))))
-            
+
             # updating the curriculum
             curriculum.add_step()
-            
+
             # Executing the action
             reward = task.execute_action(a)
             training_reward += reward
@@ -129,14 +129,14 @@ def _run_HRL(sess, meta_controllers, policy_bank, task_params, tester, curriculu
             # updating the reward for the meta controller
             mc_r.append(reward)
 
-            # Saving this transition 
+            # Saving this transition
             s2 = task.get_features()
             next_goals = np.zeros((policy_bank.get_number_LTL_policies(),), dtype=np.float64)
             for ltl in policy_bank.get_LTL_policies():
                 ltl_id = policy_bank.get_id(ltl)
                 if task.env_game_over:
                     ltl_next_id = policy_bank.get_id("False") # env deadends are equal to achive the 'False' formula
-                else: 
+                else:
                     ltl_next_id = policy_bank.get_id(policy_bank.get_policy_next_LTL(ltl, true_props))
                 next_goals[ltl_id-2] = ltl_next_id
             replay_buffer.add(s1, a.value, s2, next_goals)
@@ -146,7 +146,7 @@ def _run_HRL(sess, meta_controllers, policy_bank, task_params, tester, curriculu
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
                 S1, A, S2, Goal = replay_buffer.sample(learning_params.batch_size)
                 policy_bank.learn(S1, A, S2, Goal)
-                
+
             # Updating the target network
             if curriculum.get_current_step() > learning_params.learning_starts and curriculum.get_current_step() % learning_params.target_network_update_freq == 0:
                 # Update target network periodically.
@@ -169,20 +169,20 @@ def _run_HRL(sess, meta_controllers, policy_bank, task_params, tester, curriculu
                 curriculum.update_succ_rate(t, reward)
                 if curriculum.stop_task(t):
                     curriculum_stop = True
-            
+
             # checking the steps time-out
             if curriculum.stop_learning():
                 curriculum_stop = True
 
             t += 1
-            if t == learning_params.max_timesteps_per_task or curriculum_stop or mc_done: 
+            if t == learning_params.max_timesteps_per_task or curriculum_stop or mc_done:
                 break
-        
+
         # learning on the meta controller
         mc_s2 = _get_features_meta_controller(task)
         meta_controller.learn(mc_s1, mc_a, _get_discounted_reward(mc_r, learning_params.gamma), mc_s2, mc_done, len(mc_r), task.dfa, task.get_LTL_goal())
 
-    if show_print: 
+    if show_print:
         print("Done! Total reward:", training_reward)
 
 
@@ -211,7 +211,7 @@ def _test_HRL(sess, task_params, learning_params, testing_params, meta_controlle
 
             # Choosing an action to perform
             a = Actions(policy_bank.get_best_action(_get_LTL_formula(task, mc_a), s1.reshape((1,num_features))))
-            
+
             # Executing the action
             r_total += task.execute_action(a) * learning_params.gamma**t
 
@@ -252,7 +252,7 @@ def run_experiments(alg_name, tester, curriculum, saver, num_times, show_print, 
 
         # Reseting default values
         curriculum.restart()
-        
+
         # Initializing experience replay buffer
         replay_buffer = ReplayBuffer(learning_params.buffer_size)
         # initializing the meta controllers

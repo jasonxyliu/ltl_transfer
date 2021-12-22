@@ -56,7 +56,7 @@ def get_safety_constraints():
     tasks.append(('and', _get_sequence_night('fc'), _get_sequence_night('ac')))
     tasks.append(('and', _get_sequence_night('aeg'), _get_sequence_night('feg')))
     tasks.append(('and', _get_sequence_night('fbh'), _get_sequence_night('acbh')))
-    return tasks 
+    return tasks
 
 def get_option(goal):
     return _get_sequence(goal)

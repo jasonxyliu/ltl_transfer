@@ -28,7 +28,7 @@ class DFA:
         for v2 in self.nodelist[v1]:
             if _evaluate_DNF(self.nodelist[v1][v2], true_props):
                 return v2
-        return -1 # we broke the LTL :/        
+        return -1 # we broke the LTL :/
 
     def progress_LTL(self, ltl_formula, true_props):
         """
@@ -63,8 +63,8 @@ class DFA:
 
 
 """
-Evaluates 'formula' assuming 'true_props' are the only true propositions and the rest are false. 
-e.g. _evaluate_DNF("a&b|!c&d","d") returns True 
+Evaluates 'formula' assuming 'true_props' are the only true propositions and the rest are false.
+e.g. _evaluate_DNF("a&b|!c&d","d") returns True
 """
 def _evaluate_DNF(formula,true_props):
     # ORs

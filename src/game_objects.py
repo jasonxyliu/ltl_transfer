@@ -2,7 +2,7 @@ from enum import Enum
 import random
 
 """
-The following classes are the types of objects that we are currently supporting 
+The following classes are the types of objects that we are currently supporting
 """
 
 class Entity:
@@ -13,7 +13,7 @@ class Entity:
     def change_position(self,i,j):
         self.i = i
         self.j = j
-        
+
     def idem_position(self,i,j):
         return self.i==i and self.j==j
 
@@ -30,7 +30,7 @@ class Agent(Entity):
     def get_actions(self):
         return self.actions
 
-    def update_reward(self, r):	
+    def update_reward(self, r):
         self.reward += r
 
     def __str__(self):

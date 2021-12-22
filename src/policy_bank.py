@@ -47,24 +47,24 @@ class PolicyBank:
 
     def reconnect(self):
         # Redefining connections between the different DQN networks
-        num_policies = self.get_number_LTL_policies() 
+        num_policies = self.get_number_LTL_policies()
         self.next_goal = tf.placeholder(tf.int32, [None, num_policies])
         batch_size = tf.shape(self.next_goal)[0]
-        
+
         # concatenating q_target of every policy
         Q_target_all = tf.concat([self.policies[i].get_q_target_value() for i in range(len(self.policies))], 1)
 
-        # Indexing the right target using 'goal' 
+        # Indexing the right target using 'goal'
         aux_range = tf.reshape(tf.range(batch_size),[-1,1])
         aux_ones = tf.ones([1, num_policies], tf.int32)
-        delta = tf.matmul(aux_range * (num_policies+2), aux_ones) 
+        delta = tf.matmul(aux_range * (num_policies+2), aux_ones)
         Q_target_index = tf.reshape(self.next_goal+delta, [-1])
         Q_target_flat = tf.reshape(Q_target_all, [-1])
-        self.Q_target = tf.reshape(tf.gather(Q_target_flat, Q_target_index),[-1,num_policies]) 
-        # NOTE: Q_target is batch_size x num_policies tensor such that 
+        self.Q_target = tf.reshape(tf.gather(Q_target_flat, Q_target_index),[-1,num_policies])
+        # NOTE: Q_target is batch_size x num_policies tensor such that
         #       Q_target[i,j] is the target Q-value for policy "j+2" in instance 'i'
 
-    
+
     def learn(self, s1, a, s2, next_goal):
         # computing the q_target values per policy
         Q_target = self.sess.run(self.Q_target, {self.s2: s2, self.next_goal: next_goal})
@@ -77,7 +77,7 @@ class PolicyBank:
             train.append(p.train)
         self.sess.run(train, values)
 
-    """    
+    """
     def getLoss(self, s1, a, s2, next_goal):
         # computing the q_target values per policy
         Q_target = self.sess.run(self.Q_target, {self.s2: s2, self.next_goal: next_goal})
@@ -97,7 +97,7 @@ class PolicyBank:
     def update_target_network(self):
         for i in range(self.get_number_LTL_policies()):
             self.policies[i+2].update_target_network()
-    
+
     def get_policy_next_LTL(self, ltl, true_props):
         return self.policies[self.get_id(ltl)].dfa.progress_LTL(ltl, true_props)
 
@@ -113,7 +113,7 @@ class ConstantPolicy:
         self.q_target_value = tf.matmul(s2, W) + b
 
     def get_q_target_value(self):
-        # Returns a vector of 'value' 
+        # Returns a vector of 'value'
         return self.q_target_value
 
 class Policy:
@@ -134,14 +134,14 @@ class Policy:
             self.best_action = tf.argmax(self.q_values, 1)
             # Q_target -> set target value 'r + gamma * max Q_t' (r = 0 because ltl != True )
             self.q_target_value = tf.reshape(gamma * tf.reduce_max(self.q_target, axis=1), [-1,1])
-            
+
             # Optimizing with respect to 'self.Q_target'
             action_mask = tf.one_hot(indices=a, depth=num_actions, dtype=tf.float64)
             Q_current = tf.reduce_sum(tf.multiply(self.q_values, action_mask), 1)
             self.loss = 0.5 * tf.reduce_sum(tf.square(Q_current - self.Q_target))
             optimizer = tf.train.AdamOptimizer(learning_rate=lr)
             self.train = optimizer.minimize(loss=self.loss)
-            
+
             # Initializing the network values
             self.sess.run(tf.variables_initializer(self._get_network_variables()))
             self.update_target_network() #copying weights to target net

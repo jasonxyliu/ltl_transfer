@@ -9,7 +9,7 @@ The result is directly updated in 'V'
 def value_iteration(S, actions, T, V, discount=1, v_init=0, e=0.01):
     # Initializing V
     for s in S:
-        if s not in V: 
+        if s not in V:
             V[s] = v_init
     # Learning
     while True:
@@ -78,7 +78,7 @@ def evaluate_optimal_policy(map, agent_i, agent_j, consider_night, tasks, task_i
                     for ltl in dfa.ltl2state:
                         if ltl not in ['True', 'False']:
                             S.add((i,j,ltl))
-                    
+
         # Adding 2 terminal states: one for 'True' and one for 'False'
         S.add('False')
         S.add('True')
@@ -114,9 +114,9 @@ def evaluate_optimal_policy(map, agent_i, agent_j, consider_night, tasks, task_i
                         true_props += "n"
                     s2_ltl = dfa.progress_LTL(ltl, true_props)
                     # Adding transition
-                    if s2_ltl in ['False','True']: 
+                    if s2_ltl in ['False','True']:
                         s2 = s2_ltl
-                    else: 
+                    else:
                         if consider_night:
                             s2 = (s2_i,s2_j,s2_t,s2_ltl)
                         else:
@@ -133,9 +133,9 @@ def evaluate_optimal_policy(map, agent_i, agent_j, consider_night, tasks, task_i
             s = (agent_i, agent_j, hour_init, dfa.get_LTL())
         else:
             s = (agent_i, agent_j, dfa.get_LTL())
-        
+
         summary.append(int(-V[s]))
 
     print(summary, "# Value optimal policy for solution experiment", task_id)
 
-    
+

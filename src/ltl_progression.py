@@ -10,8 +10,8 @@ This module contains functions to progress co-safe LTL formulas such as:
         ('until','True', ('and', 'd', ('until','True','c'))),
         ('until','True', ('and', 'a', ('until','True', ('and', 'b', ('until','True','c')))))
     )
-The main function is 'get_dfa' which receives a co-safe LTL formula and progresses 
-it over all possible valuations of the propositions. It returns all possible progressions 
+The main function is 'get_dfa' which receives a co-safe LTL formula and progresses
+it over all possible valuations of the propositions. It returns all possible progressions
 of the formula in the form of a DFA.
 """
 
@@ -29,7 +29,7 @@ def get_dfa(ltl_formula):
     edges = {}
 
     visited, queue = set([ltl_formula]), collections.deque([ltl_formula])
-    while queue: 
+    while queue:
         formula = queue.popleft()
         if formula in ['True', 'False']:
             continue
@@ -44,17 +44,17 @@ def get_dfa(ltl_formula):
             if edge not in edges:
                 edges[edge] = []
             edges[edge].append(truth_assignment)
-            
-            if f_progressed not in visited: 
-                visited.add(f_progressed) 
-                queue.append(f_progressed) 
+
+            if f_progressed not in visited:
+                visited.add(f_progressed)
+                queue.append(f_progressed)
 
     # Adding initial and accepting states
     initial_state = 0
     accepting_states = [ltl2states['True']]
 
-    # Reducing edges formulas to its minimal form... 
-    # NOTE: this might take a while since we are using a very 
+    # Reducing edges formulas to its minimal form...
+    # NOTE: this might take a while since we are using a very
     #       inefficient python library for logic manipulations
     edges_tuple = []
     for e in edges:
@@ -79,20 +79,20 @@ def _get_truth_assignments(propositions):
                 p_id += 1
             truth_assignments.append(truth_assignment)
     return truth_assignments
-    
+
 
 def _get_propositions(ltl_formula):
     if type(ltl_formula) == str:
         if ltl_formula in ['True','False']:
             return []
         return [ltl_formula]
-    
+
     if ltl_formula[0] in ['not', 'next']:
         return _get_propositions(ltl_formula[1])
-    
+
     # 'and', 'or', 'until'
     return _get_propositions(ltl_formula[1]) + _get_propositions(ltl_formula[2])
-    
+
 def _is_prop_formula(f):
     # returns True if the formula does not contains temporal operators
     return 'next' not in str(f) and 'until' not in str(f)
@@ -127,7 +127,7 @@ def _progress(ltl_formula, truth_assignment):
             else:
                 return 'False'
         return ltl_formula
-    
+
     if ltl_formula[0] == 'not':
         # negations should be over propositions only according to the cosafe ltl syntactic restriction
         result = _progress(ltl_formula[1], truth_assignment)
@@ -161,10 +161,10 @@ def _progress(ltl_formula, truth_assignment):
         if _subsume_until(res1, res2): return res1
         if _subsume_until(res2, res1): return res2
         return ('or',res1,res2)
-    
+
     if ltl_formula[0] == 'next':
         return _progress(ltl_formula[1], truth_assignment)
-    
+
     if ltl_formula[0] == 'until':
         res1 = _progress(ltl_formula[1], truth_assignment)
         res2 = _progress(ltl_formula[2], truth_assignment)
@@ -175,7 +175,7 @@ def _progress(ltl_formula, truth_assignment):
             f1 = ('until', ltl_formula[1], ltl_formula[2])
         else:
             f1 = ('and', res1, ('until', ltl_formula[1], ltl_formula[2]))
-        
+
         if res2 == 'True':
             return 'True'
         if res2 == 'False':

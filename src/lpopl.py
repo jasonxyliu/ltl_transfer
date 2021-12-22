@@ -165,4 +165,3 @@ def run_experiments(alg_name, tester, curriculum, saver, num_times, show_print):
     # Showing results
     tester.show_results()
     print("Time:", "%0.2f"%((time.time() - time_init)/60), "mins")
-

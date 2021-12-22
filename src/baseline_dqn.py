@@ -8,7 +8,7 @@ import random, time, os.path, shutil
 from network import get_MLP
 
 """
-This baseline solves the problem using standard q-learning over the cross product 
+This baseline solves the problem using standard q-learning over the cross product
 between the LTL instruction and the MDP
 """
 
@@ -26,7 +26,7 @@ class BaselineDQN:
         self.learning_starts = learning_params.learning_starts
         self.replay_buffer = DQNReplayBuffer(learning_params.buffer_size)
         # Adding the feature proxi (which include the ltl state to the feature vector)
-        self.feature_proxy = feature_proxy # NOTE: we use this attribute at test time 
+        self.feature_proxy = feature_proxy # NOTE: we use this attribute at test time
 
 
     def create_network(self, lr, gamma):
@@ -43,14 +43,14 @@ class BaselineDQN:
         # Creating target and current networks
         num_neurons = 64
         num_hidden_layers = 2
-        
+
         with tf.variable_scope(self.ltl_scope_name): # helps to give different names to this variables for this network
             # Defining regular and target neural nets
             q_values, q_target, self.update_target = get_MLP(self.s1, self.s2, total_features, total_actions, num_neurons, num_hidden_layers)
-            
+
             # Q_values -> get optimal actions
             self.best_action = tf.argmax(q_values, 1)
-            
+
             # Optimizing with respect to q_target
             action_mask = tf.one_hot(indices=self.a, depth=total_actions, dtype=tf.float64)
             q_current = tf.reduce_sum(tf.multiply(q_values, action_mask), 1)
@@ -61,7 +61,7 @@ class BaselineDQN:
             loss = 0.5 * tf.reduce_sum(tf.square(q_current - q_target_value))
             optimizer = tf.train.AdamOptimizer(learning_rate=lr)
             self.train = optimizer.minimize(loss=loss)
-            
+
             # Initializing the network values
             self.sess.run(tf.variables_initializer(self.get_network_variables()))
             self.update_target_network() #copying weights to target net
@@ -122,7 +122,7 @@ class DQNReplayBuffer(object):
 
 class FeatureProxy:
     def __init__(self, task):
-        # NOTE: I have to add a representations for 'True' and 'False' 
+        # NOTE: I have to add a representations for 'True' and 'False'
         #       (even if they are not important in practice)
         num_states = len(task.dfa.ltl2state) - 2
         ltl2hotvector = {}
@@ -169,7 +169,7 @@ def _run_DQN(sess, policies, task_params, tester, curriculum, show_print):
         else: a = Actions(dqn.get_best_action(s1.reshape((1,num_features))))
         # updating the curriculum
         curriculum.add_step()
-        
+
         # Executing the action
         reward = task.execute_action(a)
         training_reward += reward
@@ -183,7 +183,7 @@ def _run_DQN(sess, policies, task_params, tester, curriculum, show_print):
         # Learning
         if dqn.get_steps() > learning_params.learning_starts and dqn.get_steps() % learning_params.train_freq == 0:
             dqn.learn()
-            
+
         # Updating the target network
         if dqn.get_steps() > learning_params.learning_starts and dqn.get_steps() % learning_params.target_network_update_freq == 0:
             # Update target network periodically.
@@ -199,9 +199,9 @@ def _run_DQN(sess, policies, task_params, tester, curriculum, show_print):
 
         # Restarting the environment (Game Over)
         if done:
-            # NOTE: Game over occurs for one of three reasons: 
-            # 1) DFA reached a terminal state, 
-            # 2) DFA reached a deadend, or 
+            # NOTE: Game over occurs for one of three reasons:
+            # 1) DFA reached a terminal state,
+            # 2) DFA reached a deadend, or
             # 3) The agent reached an environment deadend (e.g. a PIT)
             task = Game(task_params) # Restarting
 
@@ -209,12 +209,12 @@ def _run_DQN(sess, policies, task_params, tester, curriculum, show_print):
             curriculum.update_succ_rate(t, reward)
             if curriculum.stop_task(t):
                 break
-        
+
         # checking the steps time-out
         if curriculum.stop_learning():
             break
 
-    if show_print: 
+    if show_print:
         print("Done! Total reward:", training_reward)
 
 
@@ -232,7 +232,7 @@ def _test_DQN(sess, task_params, learning_params, testing_params, policies):
 
         # Choosing an action to perform
         a = Actions(dqn.get_best_action(s1.reshape((1,len(s1)))))
-        
+
         # Executing the action
         r_total += task.execute_action(a) * learning_params.gamma**t
 
@@ -251,7 +251,7 @@ def _initialize_policies(sess, learning_params, curriculum, tester):
         num_actions  = len(task_aux.get_actions())
         policies[ltl_task] = BaselineDQN(sess, num_actions, num_features, ltl_task, learning_params, feature_proxy)
     return policies
-    
+
 def run_experiments(alg_name, tester, curriculum, saver, num_times, show_print):
 
     # Running the tasks 'num_times'
