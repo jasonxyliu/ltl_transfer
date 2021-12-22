@@ -27,7 +27,8 @@ class MetaController:
             if r > 0: print("ERROR!")
             q_new = (r + (self.gamma**steps)*self._get_max_q_value(s2, dfa, ltl))
 
-        self.Q[s1][a] += self.alpha*(q_new - self.Q[s1][a])
+        q_curr = self._get_q_value(s1, a)
+        self.Q[s1][a] += self.alpha * (q_new - q_curr)
 
     def _get_options(self, s, dfa, ltl):
         # removing the option of picking a subgoal that is already true
