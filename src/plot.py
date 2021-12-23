@@ -37,7 +37,7 @@ def make_plot(task):
                             facecolor=algo_colors[algo][1], alpha=0.5)
             ax.plot(xs, results[map_type][algo]["50"], color=algo_colors[algo][0])
             ax.set_xlim(left=0, right=100000)
-            ax.ticklabel_format(style="sci", scilimits=(5, 5))
+            ax.ticklabel_format(axis="x", style="sci", scilimits=(5, 5))
             ax.set_xticks(np.arange(20000, 120000, 20000))
             # ax.set_ylim(bottom=0)
             ax.yaxis.tick_right()
