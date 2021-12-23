@@ -2,20 +2,20 @@
 #SBATCH -n 1
 #SBATCH --mem=3G
 #SBATCH -t 24:00:00
-#SBATCH --array=0-59
+#SBATCH --array=0-119
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
 #SBATCH -e sbatch_out/arrayjob-%A-%a.err
 #SBATCH -o sbatch_out/arrayjob-%A-%a.out
 
 # Convert 1D indexing to 2D
-i=`expr $SLURM_ARRAY_TASK_ID % 2`
-j=`expr $SLURM_ARRAY_TASK_ID / 2`
+i=`expr $SLURM_ARRAY_TASK_ID % 4`
+j=`expr $SLURM_ARRAY_TASK_ID / 4`
 k=`expr $j % 3`
 l=`expr $j / 3`
 m=`expr $l % 10`
 
-algos=( "hrl-e" "hrl-l" )
+algos=( "dqn-l" "hrl-e" "hrl-l" "lpopl" )
 algo=${algos[$i]}
 tasks=( "sequence" "interleaving" "safety" )
 task=${tasks[$k]}
