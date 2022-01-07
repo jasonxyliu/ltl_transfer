@@ -28,7 +28,7 @@ class DFA:
         for v2 in self.nodelist[v1]:
             if _evaluate_DNF(self.nodelist[v1][v2], true_props):
                 return v2
-        return -1 # we broke the LTL :/
+        return -1  # we broke the LTL :/
 
     def progress_LTL(self, ltl_formula, true_props):
         """
@@ -45,7 +45,7 @@ class DFA:
     def in_terminal_state(self):
         return self.state in self.terminal
 
-    def get_LTL(self, s = None):
+    def get_LTL(self, s=None):
         if s is None: s = self.state
         return self.state2ltl[s]
 
@@ -58,7 +58,7 @@ class DFA:
     def __str__(self):
         aux = []
         for v1 in self.nodelist:
-            aux.extend([str((v1,v2,self.nodelist[v1][v2])) for v2 in self.nodelist[v1]])
+            aux.extend([str((v1, v2, self.nodelist[v1][v2])) for v2 in self.nodelist[v1]])
         return "\n".join(aux)
 
 
@@ -66,22 +66,22 @@ class DFA:
 Evaluates 'formula' assuming 'true_props' are the only true propositions and the rest are false.
 e.g. _evaluate_DNF("a&b|!c&d","d") returns True
 """
-def _evaluate_DNF(formula,true_props):
+def _evaluate_DNF(formula, true_props):
     # ORs
     if "|" in formula:
         for f in formula.split("|"):
-            if _evaluate_DNF(f,true_props):
+            if _evaluate_DNF(f, true_props):
                 return True
         return False
     # ANDs
     if "&" in formula:
         for f in formula.split("&"):
-            if not _evaluate_DNF(f,true_props):
+            if not _evaluate_DNF(f, true_props):
                 return False
         return True
     # NOT
     if formula.startswith("!"):
-        return not _evaluate_DNF(formula[1:],true_props)
+        return not _evaluate_DNF(formula[1:], true_props)
 
     # Base cases
     if formula == "True":  return True

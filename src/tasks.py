@@ -13,6 +13,7 @@ The set of propositional symbols are {a,b,c,d,e,f,g,h,n,s}:
     s: at_shelter
 """
 
+
 def get_sequence_of_subtasks():
     # Experiment 1: Sequences of Sub-Tasks (Section 5.2 in paper)
     tasks = []
@@ -27,6 +28,7 @@ def get_sequence_of_subtasks():
     tasks.append(_get_sequence('faeg'))
     tasks.append(_get_sequence('acfbh'))
     return tasks
+
 
 def get_interleaving_subtasks():
     # Experiment 2: Interleaving Sub-Tasks (Section 5.3 in paper)
@@ -43,6 +45,7 @@ def get_interleaving_subtasks():
     tasks.append(('and', _get_sequence('fbh'), _get_sequence('acbh')))
     return tasks
 
+
 def get_safety_constraints():
     # Experiment 3: Safety Constraints (Section 5.4 in paper)
     tasks = []
@@ -58,29 +61,32 @@ def get_safety_constraints():
     tasks.append(('and', _get_sequence_night('fbh'), _get_sequence_night('acbh')))
     return tasks
 
+
 def get_option(goal):
     return _get_sequence(goal)
+
 
 def get_option_night(goal):
     return _get_sequence_night(goal)
 
-
-
-def _snp(proposition):
-    # adds the special constraint to go to the shelter for a proposition
-    return ('or',('and', ('not','n'), proposition),('and','s',proposition))
-
-def _sn():
-    # returns formula to stay on the shelter
-    return ('or',('not','n'),'s')
 
 def _get_sequence(seq):
     if len(seq) == 1:
         return ('until','True',seq)
     return ('until','True', ('and', seq[0], _get_sequence(seq[1:])))
 
+
+def _sn():
+    # returns formula to stay on the shelter
+    return ('or',('not','n'),'s')
+
+
+def _snp(proposition):
+    # adds the special constraint to go to the shelter for a proposition
+    return ('or',('and', ('not','n'), proposition),('and','s',proposition))
+
+
 def _get_sequence_night(seq):
     if len(seq) == 1:
         return ('until',_sn(),_snp(seq))
     return ('until',_sn(), ('and', _snp(seq[0]), _get_sequence_night(seq[1:])))
-

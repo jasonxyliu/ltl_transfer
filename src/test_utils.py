@@ -30,9 +30,9 @@ class Tester:
     def __init__(self, learning_params, testing_params, map_id, tasks_id, file_results=None):
         if file_results is None:
             # setting the test attributes
-            self.experiment = "task_%d/map_%d"%(tasks_id,map_id)
             self.learning_params = learning_params
             self.testing_params = testing_params
+            self.experiment = "task_%d/map_%d"%(tasks_id, map_id)
             self.map     = '../experiments/maps/map_%d.txt'%map_id
             self.consider_night = False
             if tasks_id == 0:
@@ -148,7 +148,7 @@ def get_precentiles_str(a):
     return p25, p50, p75
 
 def export_results(algorithm, task, task_id):
-    for map_type, maps in [("random",range(0,5)),("adversarial",range(5,10))]:
+    for map_type, maps in [("random", range(0, 5)), ("adversarial", range(5, 10))]:
         # Computing the summary of the results
         normalized_rewards = None
         for map_id in maps:
@@ -164,7 +164,7 @@ def export_results(algorithm, task, task_id):
         folders_out = "../results/%s/%s"%(task, map_type)
         if not os.path.exists(folders_out): os.makedirs(folders_out)
         file_out = "%s/%s.txt"%(folders_out, algorithm)
-        f_out = open(file_out,"w")
+        f_out = open(file_out, "w")
         for j in range(len(normalized_rewards)):
             p25, p50, p75 = get_precentiles_str(normalized_rewards[j][1])
             f_out.write(str(normalized_rewards[j][0]) + "\t" + p25 + "\t" + p50 + "\t" + p75 + "\n")
@@ -180,7 +180,6 @@ def read_json(file):
     return data
 
 if __name__ == "__main__":
-
     # EXAMPLE: python3 test_utils.py --algorithm="lpopl" --tasks="sequence"
 
     # Getting params
@@ -198,4 +197,3 @@ if __name__ == "__main__":
     if args.tasks not in tasks: raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
 
     export_results(args.algorithm, args.tasks, tasks.index(args.tasks))
-

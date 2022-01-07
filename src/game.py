@@ -1,6 +1,5 @@
 from game_objects import *
 from dfa import *
-import random, math, os
 import numpy as np
 
 """
@@ -12,8 +11,8 @@ class GameParams:
         self.ltl_task = ltl_task
         self.consider_night = consider_night
 
-class Game:
 
+class Game:
     def __init__(self, params):
         self.params = params
         self._load_map(params.file_map)
@@ -34,11 +33,10 @@ class Game:
         Returns the reward that the agent gets after executing the action
         """
         agent = self.agent
-        self.hour = (self.hour + 1)%24
+        self.hour = (self.hour + 1) % 24
 
         # Getting new position after executing action
-        i,j = agent.i,agent.j
-        ni,nj = self._get_next_position(action)
+        ni, nj = self._get_next_position(action)
 
         # Interacting with the objects that is in the next position
         action_succeeded = self.map_array[ni][nj].interact(agent)
@@ -46,7 +44,7 @@ class Game:
         # So far, an action can only fail if the new position is a wall
         if action_succeeded:
             # changing agent position
-            agent.change_position(ni,nj)
+            agent.change_position(ni, nj)
 
         # Progressing the LTL reward and dealing with the consequences...
         reward, self.ltl_game_over, self.env_game_over = self._get_rewards()
@@ -55,12 +53,12 @@ class Game:
         # we continue playing
         return reward
 
-    def _get_next_position(self,action):
+    def _get_next_position(self, action):
         """
         Returns the position where the agent would be if we execute action
         """
         agent = self.agent
-        ni,nj = agent.i, agent.j
+        ni, nj = agent.i, agent.j
 
         # OBS: Invalid actions behave as NO-OP
         if action == Actions.up   : ni-=1
@@ -68,7 +66,7 @@ class Game:
         if action == Actions.left : nj-=1
         if action == Actions.right: nj+=1
 
-        return ni,nj
+        return ni, nj
 
     def get_actions(self):
         """
@@ -99,7 +97,7 @@ class Game:
     def _steps_before_dark(self):
         if self.sunrise - 1 <= self.hour <= self.sunset:
             return 1 + self.sunset - self.hour
-        return 0 # it is night
+        return 0  # it is night
 
     """
     Returns the string with the propositions that are True in this state
@@ -114,8 +112,8 @@ class Game:
     # The following methods return a feature representations of the map ------------
     def get_features(self):
         # map from object classes to numbers
-        class_ids = self.class_ids #{"a":0,"b":1}
-        N,M = self.map_height, self.map_width
+        class_ids = self.class_ids  #{"a":0,"b":1}
+        N, M = self.map_height, self.map_width
         ret = []
         for i in range(N):
             for j in range(M):
@@ -128,7 +126,6 @@ class Game:
             ret.append(self._steps_before_dark())
 
         return np.array(ret, dtype=np.float64)
-
 
     def _manhattan_distance(self, obj):
         """
@@ -155,18 +152,18 @@ class Game:
         for i in range(self.map_height):
             s = ""
             for j in range(self.map_width):
-                if self.agent.idem_position(i,j):
+                if self.agent.idem_position(i, j):
                     s += str(self.agent)
                 else:
                     s += str(self.map_array[i][j])
-            if(i > 0):
+            if i > 0:
                 r += "\n"
             r += s
         return r
 
 
     # The following methods create the map ----------------------------------------------
-    def _load_map(self,file_map):
+    def _load_map(self, file_map):
         """
         This method adds the following attributes to the game:
             - self.map_array: array containing all the static objects in the map
@@ -181,9 +178,9 @@ class Game:
         actions = self._load_actions()
         # loading the map
         self.map_array = []
-        self.class_ids = {} # I use the lower case letters to define the features
+        self.class_ids = {}  # I use the lower case letters to define the features
         f = open(file_map)
-        i,j = 0,0
+        i, j = 0, 0
         for l in f:
             # I don't consider empty lines!
             if(len(l.rstrip()) == 0): continue
@@ -193,12 +190,12 @@ class Game:
             j = 0
             for e in l.rstrip():
                 if e in "abcdefghijklmnopqrstuvwxyzH":
-                    entity = Empty(i,j,label=e)
+                    entity = Empty(i, j, label=e)
                     if e not in self.class_ids:
                         self.class_ids[e] = len(self.class_ids)
-                if e in " A": entity = Empty(i,j)
-                if e == "X":  entity = Obstacle(i,j)
-                if e == "A":  self.agent = Agent(i,j,actions)
+                if e in " A": entity = Empty(i, j)
+                if e == "X":  entity = Obstacle(i, j)
+                if e == "A":  self.agent = Agent(i, j, actions)
                 row.append(entity)
                 j += 1
             self.map_array.append(row)
@@ -213,7 +210,7 @@ class Game:
 
 def play(params, max_time):
     # commands
-    str_to_action = {"w":Actions.up,"d":Actions.right,"s":Actions.down,"a":Actions.left}
+    str_to_action = {"w": Actions.up, "d": Actions.right, "s": Actions.down, "a": Actions.left}
     # play the game!
     game = Game(params)
     for t in range(max_time):
@@ -228,7 +225,7 @@ def play(params, max_time):
         # Executing action
         if a in str_to_action and str_to_action[a] in acts:
             reward = game.execute_action(str_to_action[a])
-            if game.ltl_game_over or game.env_game_over: # Game Over
+            if game.ltl_game_over or game.env_game_over:  # Game Over
                 break
         else:
             print("Forbidden action")

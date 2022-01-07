@@ -39,11 +39,11 @@ class LearningParameters:
         self.lr = lr
         self.max_timesteps_per_task = max_timesteps_per_task
         self.buffer_size = buffer_size
+        self.print_freq = print_freq
         self.exploration_fraction = exploration_fraction
         self.exploration_final_eps = exploration_final_eps
         self.train_freq = train_freq
         self.batch_size = batch_size
-        self.print_freq = print_freq
         self.learning_starts = learning_starts
         self.gamma = gamma
         self.target_network_update_freq = target_network_update_freq
@@ -60,32 +60,32 @@ def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, show_print):
     tester = Tester(learning_params, testing_params, map_id, tasks_id)
 
     # Setting the curriculum learner
-    curriculum = CurriculumLearner(tester.tasks, r_good = r_good)
+    curriculum = CurriculumLearner(tester.tasks, r_good=r_good)
 
     # Setting up the saver
     saver = Saver(alg_name, tester, curriculum)
 
     # Baseline 1 (standard DQN with Michael Littman's approach)
     if alg_name == "dqn-l":
-        baseline_dqn.run_experiments(alg_name, tester, curriculum, saver, num_times, show_print)
+        baseline_dqn.run_experiments(tester, curriculum, saver, num_times, show_print)
 
     # Baseline 2 (Hierarchical RL)
     if alg_name == "hrl-e":
-        baseline_hrl.run_experiments(alg_name, tester, curriculum, saver, num_times, show_print, use_dfa=False)
+        baseline_hrl.run_experiments(tester, curriculum, saver, num_times, show_print, use_dfa=False)
 
     # Baseline 3 (Hierarchical RL with LTL constraints)
     if alg_name == "hrl-l":
-        baseline_hrl.run_experiments(alg_name, tester, curriculum, saver, num_times, show_print, use_dfa=True)
+        baseline_hrl.run_experiments(tester, curriculum, saver, num_times, show_print, use_dfa=True)
 
     # LPOPL
     if alg_name == "lpopl":
-        lpopl.run_experiments(alg_name, tester, curriculum, saver, num_times, show_print)
+        lpopl.run_experiments(tester, curriculum, saver, num_times, show_print)
 
 
 def run_multiple_experiments(alg, tasks_id):
     num_times = 3
-    show_print = False
     r_good     = 0.5 if tasks_id == 2 else 0.9
+    show_print = True
 
     for map_id in range(10):
         print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
@@ -94,8 +94,8 @@ def run_multiple_experiments(alg, tasks_id):
 
 def run_single_experiment(alg, tasks_id, map_id):
     num_times  = 1  # each algo was run 3 times per map in the paper
-    show_print = True
     r_good     = 0.5 if tasks_id == 2 else 0.9
+    show_print = True
 
     print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
     run_experiment(alg, map_id, tasks_id, num_times, r_good, show_print)

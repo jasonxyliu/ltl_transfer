@@ -1,6 +1,4 @@
 import tensorflow as tf
-import os.path, time
-import numpy as np
 from network import get_MLP
 
 """
@@ -21,7 +19,7 @@ class PolicyBank:
         self.policy2id = {}
         # adding 'False' and 'True' policies
         self._add_constant_policy("False", 0.0)
-        self._add_constant_policy("True", 1/learning_params.gamma) # this ensures that reaching 'True' gives reward of 1
+        self._add_constant_policy("True", 1/learning_params.gamma)  # this ensures that reaching 'True' gives reward of 1
 
     def _add_constant_policy(self, ltl, value):
         policy = ConstantPolicy(ltl, value, self.s2, self.num_features)
@@ -32,18 +30,18 @@ class PolicyBank:
             policy = Policy(ltl, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr)
             self._add_policy(ltl, policy)
 
+    def _add_policy(self, ltl, policy):
+        self.policy2id[ltl] = len(self.policies)
+        self.policies.append(policy)
+
     def get_id(self, ltl):
         return self.policy2id[ltl]
 
     def get_LTL_policies(self):
         return set(self.policy2id.keys()) - set(['True', 'False'])
 
-    def _add_policy(self, ltl, policy):
-        self.policy2id[ltl] = len(self.policies)
-        self.policies.append(policy)
-
     def get_number_LTL_policies(self):
-        return len(self.policies) - 2 # The '-2' is because of the two constant policies ('False' and 'True')
+        return len(self.policies) - 2  # The '-2' is because of the two constant policies ('False' and 'True')
 
     def reconnect(self):
         # Redefining connections between the different DQN networks
@@ -116,9 +114,10 @@ class ConstantPolicy:
         # Returns a vector of 'value'
         return self.q_target_value
 
+
 class Policy:
     def __init__(self, ltl, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr):
-        self.dfa, self.sess = dfa, sess
+        self.dfa, self.ltl, self.sess = dfa, ltl, sess
         self.ltl_scope_name = str(ltl).replace("&","AND").replace("|","OR").replace("!","NOT").replace("(","P1_").replace(")","_P2").replace("'","").replace(" ","").replace(",","_")
         self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
 
@@ -144,8 +143,7 @@ class Policy:
 
             # Initializing the network values
             self.sess.run(tf.variables_initializer(self._get_network_variables()))
-            self.update_target_network() #copying weights to target net
-
+            self.update_target_network()  # copying weights to target net
 
     def _get_network_variables(self):
         return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.ltl_scope_name)
@@ -158,4 +156,3 @@ class Policy:
 
     def get_q_target_value(self):
         return self.q_target_value
-

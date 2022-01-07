@@ -241,7 +241,7 @@ def _initialize_option_policies(sess, subgoals, learning_params, curriculum, tes
     return policy_bank
 
 
-def run_experiments(alg_name, tester, curriculum, saver, num_times, show_print, use_dfa):
+def run_experiments(tester, curriculum, saver, num_times, show_print, use_dfa):
     learning_params = tester.learning_params
 
     # Running the tasks 'num_times'

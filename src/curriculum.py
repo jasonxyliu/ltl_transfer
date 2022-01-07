@@ -19,17 +19,17 @@ class CurriculumLearner:
         total_steps: int
             total number of training steps that the agent has to learn all the tasks
         """
+        self.tasks = tasks
         self.r_good = r_good
         self.num_steps = num_steps
         self.min_steps = min_steps
         self.total_steps = total_steps
-        self.tasks = tasks
 
     def restart(self):
         self.current_step = 0
         self.succ_rate = {}
         for t in self.tasks:
-            self.succ_rate[t] = (0,0) # (hits, total)
+            self.succ_rate[t] = (0, 0)  # (hits, total)
         self.current_task = -1
 
     def add_step(self):
@@ -43,7 +43,7 @@ class CurriculumLearner:
 
     def get_next_task(self):
         self.last_restart = -1
-        self.current_task = (self.current_task+1)%len(self.tasks)
+        self.current_task = (self.current_task+1) % len(self.tasks)
         return self.get_current_task()
 
     def get_current_task(self):

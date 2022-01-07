@@ -252,7 +252,7 @@ def _initialize_policies(sess, learning_params, curriculum, tester):
         policies[ltl_task] = BaselineDQN(sess, num_actions, num_features, ltl_task, learning_params, feature_proxy)
     return policies
 
-def run_experiments(alg_name, tester, curriculum, saver, num_times, show_print):
+def run_experiments(tester, curriculum, saver, num_times, show_print):
 
     # Running the tasks 'num_times'
     time_init = time.time()
