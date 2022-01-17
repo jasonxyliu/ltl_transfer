@@ -1,4 +1,3 @@
-# Imports
 import argparse, baseline_dqn, baseline_hrl, lpopl
 from test_utils import Tester, Saver, TestingParameters
 from curriculum import CurriculumLearner
@@ -63,7 +62,7 @@ def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, show_print):
     curriculum = CurriculumLearner(tester.tasks, r_good=r_good)
 
     # Setting up the saver
-    saver = Saver(alg_name, tester, curriculum)
+    saver = Saver(alg_name, tester)
 
     # Baseline 1 (standard DQN with Michael Littman's approach)
     if alg_name == "dqn-l":
@@ -101,14 +100,12 @@ def run_single_experiment(alg, tasks_id, map_id):
     run_experiment(alg, map_id, tasks_id, num_times, r_good, show_print)
 
 
-
 if __name__ == "__main__":
-
     # EXAMPLE: python3 run_experiments.py --algorithm="lpopl" --tasks="sequence" --map=0
 
     # Getting params
     algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
-    tasks      = ["sequence", "interleaving", "safety"]
+    tasks      = ["sequence", "interleaving", "safety", "transfer"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
     parser.add_argument('--algorithm', default='lpopl', type=str,

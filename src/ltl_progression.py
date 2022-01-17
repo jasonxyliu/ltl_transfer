@@ -1,8 +1,3 @@
-from sympy import *
-from sympy.logic import simplify_logic
-from sympy.logic.boolalg import And, Or, Not
-import collections
-
 """
 This module contains functions to progress co-safe LTL formulas such as:
     (
@@ -14,6 +9,10 @@ The main function is 'get_dfa' which receives a co-safe LTL formula and progress
 it over all possible valuations of the propositions. It returns all possible progressions
 of the formula in the form of a DFA.
 """
+from sympy import *
+from sympy.logic import simplify_logic
+from sympy.logic.boolalg import And, Or, Not
+import collections
 
 
 def get_dfa(ltl_formula):
@@ -152,7 +151,7 @@ def _progress(ltl_formula, truth_assignment):
         if res1 == res2:   return res1
         if _subsume_until(res1, res2): return res2
         if _subsume_until(res2, res1): return res1
-        return ('and',res1,res2)
+        return ('and', res1, res2)
 
     if ltl_formula[0] == 'or':
         res1 = _progress(ltl_formula[1], truth_assignment)
@@ -188,6 +187,9 @@ def _progress(ltl_formula, truth_assignment):
 
 
 def _get_formula(truth_assignments, propositions):
+    """
+    e.g. ["ab", "abc"], "abc" -> (a & b & ~c) | (a & b & c) -> a & b
+    """
     dnfs = []
     props = dict([(p, symbols(p)) for p in propositions])
     for truth_assignment in truth_assignments:
@@ -200,5 +202,5 @@ def _get_formula(truth_assignments, propositions):
         dnfs.append(And(*dnf))
     formula = Or(*dnfs)
     formula = simplify_logic(formula, form='dnf')
-    formula = str(formula).replace('(','').replace(')','').replace('~','!').replace(' ','')
+    formula = str(formula).replace('(', '').replace(')', '').replace('~', '!').replace(' ', '')
     return formula

@@ -1,10 +1,11 @@
 import tensorflow as tf
 from network import get_MLP
 
-"""
-This class includes a list of policies (a.k.a neural nets) for achieving different LTL goals
-"""
+
 class PolicyBank:
+    """
+    This class includes a list of policies (a.k.a neural nets) for achieving different LTL goals
+    """
     def __init__(self, sess, num_actions, num_features, learning_params):
         self.sess = sess
         self.num_actions = num_actions
@@ -53,15 +54,14 @@ class PolicyBank:
         Q_target_all = tf.concat([self.policies[i].get_q_target_value() for i in range(len(self.policies))], 1)
 
         # Indexing the right target using 'goal'
-        aux_range = tf.reshape(tf.range(batch_size),[-1,1])
+        aux_range = tf.reshape(tf.range(batch_size), [-1, 1])
         aux_ones = tf.ones([1, num_policies], tf.int32)
         delta = tf.matmul(aux_range * (num_policies+2), aux_ones)
         Q_target_index = tf.reshape(self.next_goal+delta, [-1])
         Q_target_flat = tf.reshape(Q_target_all, [-1])
-        self.Q_target = tf.reshape(tf.gather(Q_target_flat, Q_target_index),[-1,num_policies])
+        self.Q_target = tf.reshape(tf.gather(Q_target_flat, Q_target_index), [-1, num_policies])
         # NOTE: Q_target is batch_size x num_policies tensor such that
-        #       Q_target[i,j] is the target Q-value for policy "j+2" in instance 'i'
-
+        #       Q_target[i, j] is the target Q-value for policy "j+2" in instance 'i'
 
     def learn(self, s1, a, s2, next_goal):
         # computing the q_target values per policy
@@ -71,7 +71,7 @@ class PolicyBank:
         train = []
         for i in range(self.get_number_LTL_policies()):
             p = self.policies[i+2]
-            values[p.Q_target] = Q_target[:,i]
+            values[p.Q_target] = Q_target[:, i]
             train.append(p.train)
         self.sess.run(train, values)
 
@@ -120,19 +120,20 @@ class Policy:
         self.dfa, self.ltl, self.sess = dfa, ltl, sess
         self.ltl_scope_name = str(ltl).replace("&","AND").replace("|","OR").replace("!","NOT").replace("(","P1_").replace(")","_P2").replace("'","").replace(" ","").replace(",","_")
         self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
+        self.edge2classifier = {}
 
     def _initialize_model(self, s1, a, s2, num_features, num_actions, gamma, lr):
         num_neurons = 64
         num_hidden_layers = 2
         self.Q_target = tf.placeholder(tf.float64)
 
-        with tf.variable_scope(self.ltl_scope_name): # helps to give different names to this variables for this network
+        with tf.variable_scope(self.ltl_scope_name):  # helps to give different names to this variables for this network
             # Defining regular and target neural nets
             self.q_values, self.q_target, self.update_target = get_MLP(s1, s2, num_features, num_actions, num_neurons, num_hidden_layers)
             # Q_values -> get optimal actions
             self.best_action = tf.argmax(self.q_values, 1)
             # Q_target -> set target value 'r + gamma * max Q_t' (r = 0 because ltl != True )
-            self.q_target_value = tf.reshape(gamma * tf.reduce_max(self.q_target, axis=1), [-1,1])
+            self.q_target_value = tf.reshape(gamma * tf.reduce_max(self.q_target, axis=1), [-1, 1])
 
             # Optimizing with respect to 'self.Q_target'
             action_mask = tf.one_hot(indices=a, depth=num_actions, dtype=tf.float64)
@@ -156,3 +157,12 @@ class Policy:
 
     def get_q_target_value(self):
         return self.q_target_value
+
+    def get_edge_labels(self):
+        """
+        Return proposition formula representing outgoing edges, e.g. a & b
+        """
+        return self.dfa.nodelist[self.dfa.ltl2state[self.ltl]].values()
+
+    def add_initiation_set_classifier(self, edge, classifier):
+        self.edge2classifier[edge] = classifier

@@ -42,6 +42,10 @@ class Tester:
             if tasks_id == 2:
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
+            if tasks_id == 3:
+                # self.tasks = tasks.get_training_tasks()
+                self.tasks = tasks.get_sequence_of_subtasks()  # to test relabeling
+                self.transfer_tasks = tasks.get_transfer_tasks()
             optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt'%(map_id), tasks_id)
 
             # I store the results here
@@ -51,6 +55,11 @@ class Tester:
             for i in range(len(self.tasks)):
                 self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
                 self.results[self.tasks[i]] = {}
+            # save results for transfer learning
+            if tasks_id == 3:
+                self.transfer_results = {}
+                for idx, transfer_task in enumerate(self.transfer_tasks):
+                    self.transfer_results[transfer_task] = {}
         else:
             # Loading precomputed results
             data = read_json(file_results)
@@ -66,8 +75,11 @@ class Tester:
     def get_LTL_tasks(self):
         return self.tasks
 
-    def get_task_params(self, t):
-        return GameParams(self.map, t, self.consider_night)
+    def get_transfer_tasks(self):
+        return self.transfer_tasks
+
+    def get_task_params(self, ltl_task):
+        return GameParams(self.map, ltl_task, self.consider_night)
 
     def run_test(self, step, sess, test_function, *test_args):
         # 'test_function' parameters should be (sess, task_params, learning_params, testing_params, *test_args)
@@ -82,9 +94,8 @@ class Tester:
             self.results[t][step].append(reward)
 
     def show_results(self):
-        average_reward = {}
-
         # Computing average perfomance per task
+        average_reward = {}
         for t in self.tasks:
             for s in self.steps:
                 normalized_rewards = [r/self.optimal[t] for r in self.results[t][s]]
@@ -102,9 +113,8 @@ class Tester:
             print("\t" + str(s) + "\t" + p25 + "\t" + p50 + "\t" + p75)
 
     def export_results(self):
-        average_reward = {}
-
         # Showing perfomance per task
+        average_reward = {}
         for t in self.tasks:
             for s in self.steps:
                 normalized_rewards = [r/self.optimal[t] for r in self.results[t][s]]
@@ -122,13 +132,14 @@ class Tester:
 
 
 class Saver:
-    def __init__(self, alg_name, tester, curriculum):
+    def __init__(self, alg_name, tester):
         folder = "../tmp/"
         exp_name = tester.experiment
         exp_dir = os.path.join(folder, exp_name)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
-        self.file_out = os.path.join(exp_dir, alg_name + ".json")
+        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # if tasks_id=3, results for training tasks
+        self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")
         self.tester = tester
 
     def save_results(self):
@@ -137,8 +148,13 @@ class Saver:
         results['optimal'] = dict([(str(t), self.tester.optimal[t]) for t in self.tester.optimal])
         results['steps'] = self.tester.steps
         results['results'] = dict([(str(t), self.tester.results[t]) for t in self.tester.results])
-        # Saving results
         save_json(self.file_out, results)
+
+    def save_transfer_results(self):
+        results = {
+            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks]
+        }
+        save_json(self.transfer_file_out, results)
 
 
 def get_precentiles_str(a):
@@ -146,6 +162,7 @@ def get_precentiles_str(a):
     p50 = "%0.2f"%float(np.percentile(a, 50))
     p75 = "%0.2f"%float(np.percentile(a, 75))
     return p25, p50, p75
+
 
 def export_results(algorithm, task, task_id):
     for map_type, maps in [("random", range(0, 5)), ("adversarial", range(5, 10))]:
@@ -170,14 +187,17 @@ def export_results(algorithm, task, task_id):
             f_out.write(str(normalized_rewards[j][0]) + "\t" + p25 + "\t" + p50 + "\t" + p75 + "\n")
         f_out.close()
 
+
 def save_json(file, data):
     with open(file, 'w') as outfile:
         json.dump(data, outfile)
+
 
 def read_json(file):
     with open(file) as data_file:
         data = json.load(data_file)
     return data
+
 
 if __name__ == "__main__":
     # EXAMPLE: python3 test_utils.py --algorithm="lpopl" --tasks="sequence"

@@ -19,14 +19,14 @@ def get_sequence_of_subtasks():
     tasks = []
     tasks.append(_get_sequence('ab'))
     tasks.append(_get_sequence('ac'))
-    tasks.append(_get_sequence('de'))
-    tasks.append(_get_sequence('db'))
-    tasks.append(_get_sequence('fae'))
-    tasks.append(_get_sequence('abdc'))
-    tasks.append(_get_sequence('acfb'))
-    tasks.append(_get_sequence('acfc'))
-    tasks.append(_get_sequence('faeg'))
-    tasks.append(_get_sequence('acfbh'))
+    # tasks.append(_get_sequence('de'))
+    # tasks.append(_get_sequence('db'))
+    # tasks.append(_get_sequence('fae'))
+    # tasks.append(_get_sequence('abdc'))
+    # tasks.append(_get_sequence('acfb'))
+    # tasks.append(_get_sequence('acfc'))
+    # tasks.append(_get_sequence('faeg'))
+    # tasks.append(_get_sequence('acfbh'))
     return tasks
 
 
@@ -72,21 +72,34 @@ def get_option_night(goal):
 
 def _get_sequence(seq):
     if len(seq) == 1:
-        return ('until','True',seq)
-    return ('until','True', ('and', seq[0], _get_sequence(seq[1:])))
+        return ('until', 'True', seq)
+    return ('until', 'True', ('and', seq[0], _get_sequence(seq[1:])))
 
 
 def _sn():
     # returns formula to stay on the shelter
-    return ('or',('not','n'),'s')
+    return ('or', ('not', 'n'), 's')
 
 
 def _snp(proposition):
     # adds the special constraint to go to the shelter for a proposition
-    return ('or',('and', ('not','n'), proposition),('and','s',proposition))
+    return ('or', ('and', ('not', 'n'), proposition), ('and', 's', proposition))
 
 
 def _get_sequence_night(seq):
     if len(seq) == 1:
-        return ('until',_sn(),_snp(seq))
-    return ('until',_sn(), ('and', _snp(seq[0]), _get_sequence_night(seq[1:])))
+        return ('until', _sn(), _snp(seq))
+    return ('until', _sn(), ('and', _snp(seq[0]), _get_sequence_night(seq[1:])))
+
+
+######### The following methods are for transfer learning #########
+def get_training_tasks():
+    """ Training tasks for the transfer tasks. """
+    tasks = []
+    return tasks
+
+
+def get_transfer_tasks():
+    """ Testing tasks for the transfer tasks. """
+    tasks = []
+    return tasks

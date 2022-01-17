@@ -1,5 +1,8 @@
 import numpy as np
 import random, time, shutil
+import dill
+from multiprocessing import pool
+from collections import defaultdict
 import tensorflow as tf
 from policy_bank import *
 from schedules import LinearSchedule
@@ -32,10 +35,10 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
 
         # Choosing an action to perform
         if random.random() < exploration.value(t): a = random.choice(actions)
-        else: a = Actions(policy_bank.get_best_action(ltl_goal, s1.reshape((1,num_features))))
+        else: a = Actions(policy_bank.get_best_action(ltl_goal, s1.reshape((1, num_features))))
         # updating the curriculum
         curriculum.add_step()
-                
+
         # Executing the action
         reward = task.execute_action(a)
         training_reward += reward
@@ -47,18 +50,18 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
         for ltl in policy_bank.get_LTL_policies():
             ltl_id = policy_bank.get_id(ltl)
             if task.env_game_over:
-                ltl_next_id = policy_bank.get_id("False") # env deadends are equal to achive the 'False' formula
+                ltl_next_id = policy_bank.get_id("False")  # env deadends are equal to achive the 'False' formula
             else: 
                 ltl_next_id = policy_bank.get_id(policy_bank.get_policy_next_LTL(ltl, true_props))
             next_goals[ltl_id-2] = ltl_next_id
         replay_buffer.add(s1, a.value, s2, next_goals)
-        
+
         # Learning
         if curriculum.get_current_step() > learning_params.learning_starts and curriculum.get_current_step() % learning_params.train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
             S1, A, S2, Goal = replay_buffer.sample(learning_params.batch_size)
             policy_bank.learn(S1, A, S2, Goal)
-            
+
         # Updating the target network
         if curriculum.get_current_step() > learning_params.learning_starts and curriculum.get_current_step() % learning_params.target_network_update_freq == 0:
             # Update target network periodically.
@@ -78,13 +81,13 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
             # 1) DFA reached a terminal state, 
             # 2) DFA reached a deadend, or 
             # 3) The agent reached an environment deadend (e.g. a PIT)
-            task = Game(task_params) # Restarting
+            task = Game(task_params)  # Restarting
 
             # updating the hit rates
             curriculum.update_succ_rate(t, reward)
             if curriculum.stop_task(t):
                 break
-        
+
         # checking the steps time-out
         if curriculum.stop_learning():
             break
@@ -104,8 +107,8 @@ def _test_LPOPL(sess, task_params, learning_params, testing_params, policy_bank,
         s1 = task.get_features()
 
         # Choosing an action to perform
-        a = Actions(policy_bank.get_best_action(task.get_LTL_goal(), s1.reshape((1,num_features))))
-        
+        a = Actions(policy_bank.get_best_action(task.get_LTL_goal(), s1.reshape((1, num_features))))
+
         # Executing the action
         r_total += task.execute_action(a) * learning_params.gamma**t
 
@@ -156,12 +159,81 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
             task_params = tester.get_task_params(task)
             _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
 
+        # Relabel state-centric options to transition-centric options
+        relabel(tester, policy_bank, curriculum)
+        # run_transfer_experiments(tester, policy_bank)
+
         tf.reset_default_graph()
         sess.close()
 
         # Backing up the results
         saver.save_results()
+        saver.save_transfer_results()
 
     # Showing results
     tester.show_results()
     print("Time:", "%0.2f"%((time.time() - time_init)/60), "mins")
+
+
+def relabel(tester, policy_bank, curriculum):
+    """
+    Rollout every state-centric option's policy to try to satisfy each outgoing edge
+    to learn an initiation set classifier for each relabeled transition-centric option
+    """
+    for policy in policy_bank.policies:
+        learn_naive_classifier(tester, policy, max_depth=curriculum.num_steps)
+
+
+def learn_naive_classifier(tester, policy, n_rollouts=100, max_depth=100):
+    """
+    After n_rollouts from a loc, this loc is in the initiation set of the option
+    whose policy satisfies the edge subtask more times than other option's policies
+    The initiation sets of all options are non-overlapping.
+    """
+    task_aux = Game(tester.get_task_params(tester.get_transfer_tasks()[0]))
+    edge2locs = defaultdict(list)  # classifier for every edge
+
+    for y in task_aux.map_height:
+        for x in task_aux.map_width:
+            edge2locs[rollout(task_aux, policy, (x, y), n_rollouts, max_depth)].append((x, y))
+
+    for edge, classifier in edge2locs.items():
+        policy.add_initiation_set_classifier(edge, classifier)
+
+
+def rollout(task_aux, policy, init_loc, n_rollouts, max_depth):
+    """
+    Rollout trained policy from init_loc to see which outgoing edge it satisfies
+    """
+    edge2hits = defaultdict(int)
+    for _ in range(n_rollouts):
+        depth = 0
+        traversed_edge = None
+        task_aux.set_agent_loc(init_loc)
+        while depth <= max_depth:
+            s1 = task_aux.get_features()
+            action = Actions(policy.sess.run(policy.get_best_action(), {policy.s1: s1}))
+            prev_state = task_aux.dfa.state
+            reward = task_aux.execute_action(action)
+            if reward == 1:
+                traversed_edge = task_aux.dfa.nodelist[prev_state][task_aux.dfa.state]
+                break
+            if task_aux.ltl_game_over or task_aux.env_game_over:
+                break
+            depth += 1
+        if traversed_edge:
+            edge2hits[traversed_edge] += 1
+    return max(edge2hits.items(), key=lambda kv: kv[1])[0]
+
+
+def run_transfer_experiments(tester, policy_bank):
+    transfer_tasks = tester.get_transfer_tasks()
+    training_edges = set([policy.get_edge_labels() for policy in policy_bank.policies])
+
+    for transfer_task in transfer_tasks:
+        new_dfa = DFA(transfer_task)
+        # wrapper for NetworkX
+
+        # graph search through DFA
+        # check if an edge seen in training
+        # find a path with all seen edges

@@ -2,10 +2,11 @@ from game_objects import *
 from dfa import *
 import numpy as np
 
-"""
-Auxiliary class with the configuration parameters that the Game class needs
-"""
+
 class GameParams:
+    """
+    Auxiliary class with the configuration parameters that the Game class needs
+    """
     def __init__(self, file_map, ltl_task, consider_night):
         self.file_map = file_map
         self.ltl_task = ltl_task
@@ -68,12 +69,6 @@ class Game:
 
         return ni, nj
 
-    def get_actions(self):
-        """
-        Returns the list with the actions that the agent can perform
-        """
-        return self.agent.get_actions()
-
     def _get_rewards(self):
         """
         This method progress the dfa and returns the 'reward' and if its game over
@@ -85,82 +80,18 @@ class Game:
         env_game_over = False
         return reward, ltl_game_over, env_game_over
 
-    def get_LTL_goal(self):
-        """
-        Returns the next LTL goal
-        """
-        return self.dfa.get_LTL()
-
-    def _is_night(self):
-        return not(self.sunrise <= self.hour <= self.sunset)
-
-    def _steps_before_dark(self):
-        if self.sunrise - 1 <= self.hour <= self.sunset:
-            return 1 + self.sunset - self.hour
-        return 0  # it is night
-
-    """
-    Returns the string with the propositions that are True in this state
-    """
     def get_true_propositions(self):
+        """
+        Returns the string with the propositions that are True in this state
+        """
         ret = str(self.map_array[self.agent.i][self.agent.j]).strip()
         # adding the is_night proposition
         if self.consider_night and self._is_night():
             ret += "n"
         return ret
 
-    # The following methods return a feature representations of the map ------------
-    def get_features(self):
-        # map from object classes to numbers
-        class_ids = self.class_ids  #{"a":0,"b":1}
-        N, M = self.map_height, self.map_width
-        ret = []
-        for i in range(N):
-            for j in range(M):
-                obj = self.map_array[i][j]
-                if str(obj) in class_ids:
-                    ret.append(self._manhattan_distance(obj))
-
-        # Adding the number of steps before night (if need it)
-        if self.consider_night:
-            ret.append(self._steps_before_dark())
-
-        return np.array(ret, dtype=np.float64)
-
-    def _manhattan_distance(self, obj):
-        """
-        Returns the Manhattan distance between 'obj' and the agent
-        """
-        return abs(obj.i - self.agent.i) + abs(obj.j - self.agent.j)
-
-
-    # The following methods create a string representation of the current state ---------
-    def show_map(self):
-        """
-        Prints the current map
-        """
-        print(self.__str__())
-        if self.consider_night:
-            print("Steps before night:", self._steps_before_dark(), "Current time:", self.hour)
-        print("Reward:", self.agent.reward, "Agent has", self.agent.num_keys, "keys.", "Goal", self.get_LTL_goal())
-
-    def __str__(self):
-        return self._get_map_str()
-
-    def _get_map_str(self):
-        r = ""
-        for i in range(self.map_height):
-            s = ""
-            for j in range(self.map_width):
-                if self.agent.idem_position(i, j):
-                    s += str(self.agent)
-                else:
-                    s += str(self.map_array[i][j])
-            if i > 0:
-                r += "\n"
-            r += s
-        return r
-
+    def _is_night(self):
+        return not(self.sunrise <= self.hour <= self.sunset)
 
     # The following methods create the map ----------------------------------------------
     def _load_map(self, file_map):
@@ -206,6 +137,79 @@ class Game:
 
     def _load_actions(self):
         return [Actions.up, Actions.right, Actions.down, Actions.left]
+
+    def set_agent_loc(self, loc):
+        self.agent = Agent(loc[0], loc[1], self._load_actions())
+
+    def _steps_before_dark(self):
+        if self.sunrise - 1 <= self.hour <= self.sunset:
+            return 1 + self.sunset - self.hour
+        return 0  # it is night
+
+    def get_features(self):
+        """
+        return a feature representations of the map
+        """
+        # map from object classes to numbers
+        class_ids = self.class_ids  # {"a":0,"b":1}
+        N, M = self.map_height, self.map_width
+        ret = []
+        for i in range(N):
+            for j in range(M):
+                obj = self.map_array[i][j]
+                if str(obj) in class_ids:
+                    ret.append(self._manhattan_distance(obj))
+
+        # Adding the number of steps before night (if need it)
+        if self.consider_night:
+            ret.append(self._steps_before_dark())
+
+        return np.array(ret, dtype=np.float64)
+
+    def _manhattan_distance(self, obj):
+        """
+        Returns the Manhattan distance between 'obj' and the agent
+        """
+        return abs(obj.i - self.agent.i) + abs(obj.j - self.agent.j)
+
+    def get_actions(self):
+        """
+        Returns the list with the actions that the agent can perform
+        """
+        return self.agent.get_actions()
+
+    def get_LTL_goal(self):
+        """
+        Returns the next LTL goal
+        """
+        return self.dfa.get_LTL()
+
+    # The following methods create a string representation of the current state ---------
+    def show_map(self):
+        """
+        Prints the current map
+        """
+        print(self.__str__())
+        if self.consider_night:
+            print("Steps before night:", self._steps_before_dark(), "Current time:", self.hour)
+        print("Reward:", self.agent.reward, "Agent has", self.agent.num_keys, "keys.", "Goal", self.get_LTL_goal())
+
+    def __str__(self):
+        return self._get_map_str()
+
+    def _get_map_str(self):
+        r = ""
+        for i in range(self.map_height):
+            s = ""
+            for j in range(self.map_width):
+                if self.agent.idem_position(i, j):
+                    s += str(self.agent)
+                else:
+                    s += str(self.map_array[i][j])
+            if i > 0:
+                r += "\n"
+            r += s
+        return r
 
 
 def play(params, max_time):
