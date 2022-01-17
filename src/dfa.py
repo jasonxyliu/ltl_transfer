@@ -1,5 +1,6 @@
 import ltl_progression
 
+
 class DFA:
     def __init__(self, ltl_formula):
         # Progressing formula

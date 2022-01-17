@@ -32,14 +32,11 @@ class CurriculumLearner:
             self.succ_rate[t] = (0, 0)  # (hits, total)
         self.current_task = -1
 
-    def add_step(self):
-        self.current_step += 1
+    def stop_learning(self):
+        return self.total_steps <= self.current_step
 
     def get_current_step(self):
         return self.current_step
-
-    def stop_learning(self):
-        return self.total_steps <= self.current_step
 
     def get_next_task(self):
         self.last_restart = -1
@@ -48,6 +45,9 @@ class CurriculumLearner:
 
     def get_current_task(self):
         return self.tasks[self.current_task]
+
+    def add_step(self):
+        self.current_step += 1
 
     def update_succ_rate(self, step, reward):
         t = self.get_current_task()
