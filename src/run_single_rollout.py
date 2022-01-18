@@ -27,42 +27,47 @@ def rollout(task_aux, policy, init_state, n_rollouts, max_depth):
             depth += 1
         if traversed_edge:
             edge2hits[traversed_edge] += 1
-    return max(edge2hits.items(), key=lambda kv: kv[1])[0]
+    max_edge = None
+    if edge2hits:
+        max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
+    return max_edge
 
 
 def load_policy(policy_id):
     pass
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="run_single_rollout", description='Rollout a trained policy from a given state.')
-    parser.add_argument('--tester_fpath', default=os.path.join("results", "classifier", "tester.pkl"), type=str,
-                        help='This parameter indicated the path to the file where parameters are stored')
+    parser.add_argument('--map_id', default=0, type=int,
+                        help='This parameter indicated the ID of map to run rollouts')
     parser.add_argument('--policy_id', default=0, type=int,
                         help='This parameter indicated the ID of trained policy to rollout')
-    parser.add_argument('--states_dpath', default=os.path.join("results", "classifier", "states.pkl"), type=str,
-                        help='This parameter indicated the folder where states are stored')
     parser.add_argument('--init_state_id', default=0, type=int,
                         help='This parameter indicated the ID of state in which rollouts start')
     parser.add_argument('--n_rollouts', default=100, type=int,
                         help='This parameter indicated the number of rollouts')
     parser.add_argument('--max_depth', default=100, type=int,
                         help='This parameter indicated maximum depth of a rollout')
-    parser.add_argument('--results_fpath', default=os.path.join("results", "classifier", "results.txt"), type=str,
-                        help='This parameter indicated the path to result file')
     args = parser.parse_args()
 
-    with open(args.tester_fpath, "rb") as file:
+    classifier_dname = os.path.join("results", "classifier", args.map_id)
+
+    with open(os.path.join(classifier_dname, "tester.pkl"), "rb") as file:
         tester = dill.load(file)
     task_aux = Game(tester.get_task_params(tester.get_transfer_tasks()[0]))
 
-    policy = load_policy(args.policy_id)
+    policy = load_policy(os.path.join(classifier_dname, args.policy_id))
 
-    with open(args.states_dpath, "rb") as file:
+    with open(os.path.join(classifier_dname, "states.pkl"), "rb") as file:
         id2state = dill.load(file)
     init_state = id2state[args.init_state_id]
 
     max_edge = rollout(task_aux, policy, init_state, args.n_rollouts, args.max_depth)
 
-    with open(args.results_fpath, "a") as file:
-        file.write("%d %d %s\n" % (args.policy_id, args.init_state_id, max_edge))
+    with open(os.path.join(classifier_dname, "results.txt"), "a") as file:
+        line = " "
+        if max_edge:
+            line = "%d %d %s\n" % (args.policy_id, args.init_state_id, max_edge)
+        file.write(line)

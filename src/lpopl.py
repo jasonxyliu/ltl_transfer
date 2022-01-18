@@ -11,12 +11,12 @@ from replay_buffer import ReplayBuffer
 from dfa import *
 from game import *
 
-    
+
 def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print):
     # Initializing parameters
     learning_params = tester.learning_params
     testing_params = tester.testing_params
-    
+
     # Initializing the game
     task = Game(task_params)
     actions = task.get_actions()
@@ -162,6 +162,8 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
 
         # Relabel state-centric options to transition-centric options
         save_classifier_data(tester, policy_bank)
+        # run_rollouts(tester, policy_bank)
+        load_classifier_results(tester, policy_bank)
         # relabel(tester, policy_bank, curriculum)
         # run_transfer_experiments(tester, policy_bank)
 
@@ -182,7 +184,7 @@ def save_classifier_data(tester, policy_bank):
     Save all data needed to learn classifiers in parallel
     """
     # create folder to save needed data
-    classifier_dname = os.path.join()
+    classifier_dname = os.path.join("results", "classifier", tester.map_id)
     os.makedirs(classifier_dname, exist_ok=True)
 
     # save tester
@@ -192,7 +194,7 @@ def save_classifier_data(tester, policy_bank):
     # save policies
     policy_bank.save_policy_models()
 
-    # save valid agent locations
+    # save valid agent locations from which rollouts start
     task_aux = Game(tester.get_task_params(tester.get_transfer_tasks()[0]))
     id2state = {}
     for x in task_aux.map_width:
@@ -203,10 +205,12 @@ def save_classifier_data(tester, policy_bank):
         dill.dump(id2state, file)
 
 
-def load_classifier_results(policy_bank, results_fpath):
+def load_classifier_results(tester, policy_bank):
     """
-    Load results from learning classifiers in parallel
+    Aggregate results from learning classifiers in parallel
     """
+    results_fpath = os.path.join("results", "classifier", tester.map_id, "results.txt")
+
     with open(os.path.join("results", "classifier", "states.pkl"), "rb") as file:
         id2state = dill.load(file)
 
@@ -215,10 +219,11 @@ def load_classifier_results(policy_bank, results_fpath):
 
     policy2edge2locs = defaultdict(lambda: defaultdict(list))
     for line in lines:
-        policy_id, state_id, edge = line.strip().split(" ")
-        policy = policy_bank.policies[int(policy_id)]
-        state = id2state[int(state_id)]
-        policy2edge2locs[policy][edge].append(state)
+        if line :
+            policy_id, state_id, edge = line.strip().split(" ")
+            policy = policy_bank.policies[int(policy_id)]
+            loc = id2state[int(state_id)]
+            policy2edge2locs[policy][edge].append(loc)
 
     for policy, edge2locs in policy2edge2locs.items():
         for edge, classifier in edge2locs.items():

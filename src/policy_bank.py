@@ -180,7 +180,7 @@ class Policy:
 
     def save_policy_model(self, pid):
         # save class attributes
-        # save trained weights, session
+        # save tf model and session
         pass
 
     def load_policy_model(self, pid):

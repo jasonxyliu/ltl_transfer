@@ -32,6 +32,7 @@ class Tester:
             # setting the test attributes
             self.learning_params = learning_params
             self.testing_params = testing_params
+            self.map_id = map_id
             self.experiment = "task_%d/map_%d"%(tasks_id, map_id)
             self.map     = '../experiments/maps/map_%d.txt'%map_id
             self.consider_night = False
