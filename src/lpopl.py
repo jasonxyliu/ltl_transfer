@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import random, time, shutil
 import dill
@@ -160,7 +161,8 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
             _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
 
         # Relabel state-centric options to transition-centric options
-        relabel(tester, policy_bank, curriculum)
+        save_classifier_data(tester, policy_bank)
+        # relabel(tester, policy_bank, curriculum)
         # run_transfer_experiments(tester, policy_bank)
 
         tf.reset_default_graph()
@@ -173,6 +175,54 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
     # Showing results
     tester.show_results()
     print("Time:", "%0.2f"%((time.time() - time_init)/60), "mins")
+
+
+def save_classifier_data(tester, policy_bank):
+    """
+    Save all data needed to learn classifiers in parallel
+    """
+    # create folder to save needed data
+    classifier_dname = os.path.join()
+    os.makedirs(classifier_dname, exist_ok=True)
+
+    # save tester
+    with open(os.path.join(classifier_dname, "tester.pkl"), "wb") as file:
+        dill.dump(tester, file)
+
+    # save policies
+    policy_bank.save_policy_models()
+
+    # save valid agent locations
+    task_aux = Game(tester.get_task_params(tester.get_transfer_tasks()[0]))
+    id2state = {}
+    for x in task_aux.map_width:
+        for y in task_aux.map_height:
+            if task_aux.is_valid_agent_loc(x, y):
+                id2state[len(id2state)] = (x, y)
+    with open(os.path.join(classifier_dname, "states.pkl"), "wb") as file:
+        dill.dump(id2state, file)
+
+
+def load_classifier_results(policy_bank, results_fpath):
+    """
+    Load results from learning classifiers in parallel
+    """
+    with open(os.path.join("results", "classifier", "states.pkl"), "rb") as file:
+        id2state = dill.load(file)
+
+    with open(results_fpath, "r") as file:
+        lines = file.readlines()
+
+    policy2edge2locs = defaultdict(lambda: defaultdict(list))
+    for line in lines:
+        policy_id, state_id, edge = line.strip().split(" ")
+        policy = policy_bank.policies[int(policy_id)]
+        state = id2state[int(state_id)]
+        policy2edge2locs[policy][edge].append(state)
+
+    for policy, edge2locs in policy2edge2locs.items():
+        for edge, classifier in edge2locs.items():
+            policy.add_initiation_set_classifier(edge, classifier)
 
 
 def relabel(tester, policy_bank, curriculum):
@@ -195,7 +245,8 @@ def learn_naive_classifier(tester, policy, n_rollouts=100, max_depth=100):
 
     for y in task_aux.map_height:
         for x in task_aux.map_width:
-            edge2locs[rollout(task_aux, policy, (x, y), n_rollouts, max_depth)].append((x, y))
+            if task_aux.is_valid_agent_loc(x, y):
+                edge2locs[rollout(task_aux, policy, (x, y), n_rollouts, max_depth)].append((x, y))
 
     for edge, classifier in edge2locs.items():
         policy.add_initiation_set_classifier(edge, classifier)

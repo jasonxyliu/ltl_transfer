@@ -138,7 +138,13 @@ class Game:
     def _load_actions(self):
         return [Actions.up, Actions.right, Actions.down, Actions.left]
 
+    def is_valid_agent_loc(self, x, y):
+        return not isinstance(self.map_array[x][y], Obstacle)
+
     def set_agent_loc(self, loc):
+        """
+        should have checked loc is a valid agent location
+        """
         self.agent = Agent(loc[0], loc[1], self._load_actions())
 
     def _steps_before_dark(self):
