@@ -37,7 +37,6 @@ def load_policy(policy_id):
     pass
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="run_single_rollout", description='Rollout a trained policy from a given state.')
     parser.add_argument('--map_id', default=0, type=int,

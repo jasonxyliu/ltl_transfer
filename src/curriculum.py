@@ -3,19 +3,19 @@ class CurriculumLearner:
     Decides when to stop one task and which to execute next
     In addition, it controls how many steps the agent has given so far
     """
-    def __init__(self, tasks, r_good=0.9, num_steps=100, min_steps=1000, total_steps=100000):
+    def __init__(self, tasks, r_good=0.9, num_steps=100, min_steps=1000, total_steps=2000):
         """Parameters
         -------
         tasks: list of strings
             list with the path to the ltl sketch for each task
         r_good: float
-            suceess rate threshold to decide moving to the next task
+            success rate threshold to decide moving to the next task
         num_steps: int
-            max number of steps that the agent has to complete the task.
-            if it does it, we consider a hit on its 'suceess rate'
+            max number of steps per episode that the agent has to complete the task.
+            if it does it, we consider a hit on its 'success rate'
             (this emulates considering the average reward after running a rollout for 'num_steps')
         min_steps: int
-            minimum number of training steps required to the agent before considering moving to another task
+            min number of training steps per task required to the agent before moving on to another task
         total_steps: int
             total number of training steps that the agent has to learn all the tasks
         """

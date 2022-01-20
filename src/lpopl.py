@@ -155,16 +155,20 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
 
         # Running the tasks
         while not curriculum.stop_learning():
-            if show_print: print("Current step:", curriculum.get_current_step(), "from", curriculum.total_steps)
             task = curriculum.get_next_task()
+            if show_print:
+                print("Current step:", curriculum.get_current_step(), "from", curriculum.total_steps)
+                print("Current task: ", task)
             task_params = tester.get_task_params(task)
             _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
 
         # Relabel state-centric options to transition-centric options
-        save_classifier_data(tester, policy_bank)
+        # saver.save_classifier_data(policy_bank, curriculum, t)
         # run_rollouts(tester, policy_bank)
-        load_classifier_results(tester, policy_bank)
-        # relabel(tester, policy_bank, curriculum)
+        # load_classifier_results(tester, policy_bank, curriculum)
+        saver.save_policy_bank(policy_bank, t)
+        policy_bank = load_policy_bank(saver, t)
+        relabel(tester, policy_bank, curriculum)
         # run_transfer_experiments(tester, policy_bank)
 
         tf.reset_default_graph()
@@ -179,30 +183,12 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
     print("Time:", "%0.2f"%((time.time() - time_init)/60), "mins")
 
 
-def save_classifier_data(tester, policy_bank):
-    """
-    Save all data needed to learn classifiers in parallel
-    """
-    # create folder to save needed data
-    classifier_dname = os.path.join("results", "classifier", tester.map_id)
-    os.makedirs(classifier_dname, exist_ok=True)
-
-    # save tester
-    with open(os.path.join(classifier_dname, "tester.pkl"), "wb") as file:
-        dill.dump(tester, file)
-
-    # save policies
-    policy_bank.save_policy_models()
-
-    # save valid agent locations from which rollouts start
-    task_aux = Game(tester.get_task_params(tester.get_transfer_tasks()[0]))
-    id2state = {}
-    for x in task_aux.map_width:
-        for y in task_aux.map_height:
-            if task_aux.is_valid_agent_loc(x, y):
-                id2state[len(id2state)] = (x, y)
-    with open(os.path.join(classifier_dname, "states.pkl"), "wb") as file:
-        dill.dump(id2state, file)
+def run_rollouts(tester, policy_bank):
+    # run single rollout in parallel
+    for ltl in policy_bank.get_LTL_policies():
+        print(ltl)
+        policy = policy_bank.policies[policy_bank.get_id(ltl)]
+        print(policy.get_edge_labels())
 
 
 def load_classifier_results(tester, policy_bank):
@@ -219,7 +205,7 @@ def load_classifier_results(tester, policy_bank):
 
     policy2edge2locs = defaultdict(lambda: defaultdict(list))
     for line in lines:
-        if line :
+        if line:
             policy_id, state_id, edge = line.strip().split(" ")
             policy = policy_bank.policies[int(policy_id)]
             loc = id2state[int(state_id)]
@@ -230,56 +216,75 @@ def load_classifier_results(tester, policy_bank):
             policy.add_initiation_set_classifier(edge, classifier)
 
 
+def load_policy_bank(saver, run_idx):
+    policy_bank_fpath = os.path.join(saver.policy_dname, run_idx)
+    policy_bank = None
+    return policy_bank
+
+
 def relabel(tester, policy_bank, curriculum):
     """
     Rollout every state-centric option's policy to try to satisfy each outgoing edge
     to learn an initiation set classifier for each relabeled transition-centric option
     """
-    for policy in policy_bank.policies:
-        learn_naive_classifier(tester, policy, max_depth=curriculum.num_steps)
+    for ltl in policy_bank.get_LTL_policies():
+        print(ltl)
+        policy = policy_bank.policies[policy_bank.get_id(ltl)]
+        print(policy.get_edge_labels())
+        learn_naive_classifier(tester, policy_bank, ltl, curriculum, max_depth=curriculum.num_steps)
 
 
-def learn_naive_classifier(tester, policy, n_rollouts=100, max_depth=100):
+def learn_naive_classifier(tester, policy_bank, ltl, curriculum, n_rollouts=100, max_depth=100):
     """
     After n_rollouts from a loc, this loc is in the initiation set of the option
     whose policy satisfies the edge subtask more times than other option's policies
     The initiation sets of all options are non-overlapping.
     """
-    task_aux = Game(tester.get_task_params(tester.get_transfer_tasks()[0]))
+    task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     edge2locs = defaultdict(list)  # classifier for every edge
 
-    for y in task_aux.map_height:
-        for x in task_aux.map_width:
+    for y in range(task_aux.map_height):
+        for x in range(task_aux.map_width):
             if task_aux.is_valid_agent_loc(x, y):
-                edge2locs[rollout(task_aux, policy, (x, y), n_rollouts, max_depth)].append((x, y))
+                edge2locs[rollout(task_aux, policy_bank, ltl, (x, y), n_rollouts, max_depth)].append((x, y))
 
+    print(edge2locs)
+
+    policy = policy_bank.policies[policy_bank.get_id(ltl)]
     for edge, classifier in edge2locs.items():
         policy.add_initiation_set_classifier(edge, classifier)
 
 
-def rollout(task_aux, policy, init_loc, n_rollouts, max_depth):
+def rollout(task_aux, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     Rollout trained policy from init_loc to see which outgoing edge it satisfies
     """
+    print(init_loc)
     edge2hits = defaultdict(int)
-    for _ in range(n_rollouts):
+    for rollout in range(n_rollouts):
         depth = 0
         traversed_edge = None
         task_aux.set_agent_loc(init_loc)
         while depth <= max_depth:
             s1 = task_aux.get_features()
-            action = Actions(policy.sess.run(policy.get_best_action(), {policy.s1: s1}))
+            action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task_aux.get_features())))))
             prev_state = task_aux.dfa.state
             reward = task_aux.execute_action(action)
             if reward == 1:
                 traversed_edge = task_aux.dfa.nodelist[prev_state][task_aux.dfa.state]
+                print("hit: ", traversed_edge)
                 break
             if task_aux.ltl_game_over or task_aux.env_game_over:
                 break
             depth += 1
         if traversed_edge:
             edge2hits[traversed_edge] += 1
-    return max(edge2hits.items(), key=lambda kv: kv[1])[0]
+    max_edge = None
+    if edge2hits:
+        max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
+        print(ltl)
+        print(edge2hits)
+    return max_edge
 
 
 def run_transfer_experiments(tester, policy_bank):

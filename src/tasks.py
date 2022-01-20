@@ -19,14 +19,14 @@ def get_sequence_of_subtasks():
     tasks = []
     tasks.append(_get_sequence('ab'))
     tasks.append(_get_sequence('ac'))
-    # tasks.append(_get_sequence('de'))
-    # tasks.append(_get_sequence('db'))
-    # tasks.append(_get_sequence('fae'))
-    # tasks.append(_get_sequence('abdc'))
-    # tasks.append(_get_sequence('acfb'))
-    # tasks.append(_get_sequence('acfc'))
-    # tasks.append(_get_sequence('faeg'))
-    # tasks.append(_get_sequence('acfbh'))
+    tasks.append(_get_sequence('de'))
+    tasks.append(_get_sequence('db'))
+    tasks.append(_get_sequence('fae'))
+    tasks.append(_get_sequence('abdc'))
+    tasks.append(_get_sequence('acfb'))
+    tasks.append(_get_sequence('acfc'))
+    tasks.append(_get_sequence('faeg'))
+    tasks.append(_get_sequence('acfbh'))
     return tasks
 
 
@@ -95,7 +95,18 @@ def _get_sequence_night(seq):
 ######### The following methods are for transfer learning #########
 def get_training_tasks():
     """ Training tasks for the transfer tasks. """
-    tasks = []
+    tasks = [
+        _get_sequence('ab'),
+        _get_sequence('ac'),
+        # _get_sequence('de'),
+        # _get_sequence('db'),
+        # _get_sequence('fae'),
+        # _get_sequence('abdc'),
+        # _get_sequence('acfb'),
+        # _get_sequence('acfc'),
+        # _get_sequence('faeg'),
+        # _get_sequence('acfbh')
+    ]
     return tasks
 
 

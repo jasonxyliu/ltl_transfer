@@ -1,6 +1,11 @@
+import os
+import json
+import dill
+import argparse
 import numpy as np
-from game import GameParams
-import os, json, tasks, argparse
+import tensorflow as tf
+from game import GameParams, Game
+import tasks
 
 
 class TestingParameters:
@@ -45,7 +50,7 @@ class Tester:
                 self.consider_night = True
             if tasks_id == 3:
                 # self.tasks = tasks.get_training_tasks()
-                self.tasks = tasks.get_sequence_of_subtasks()  # to test relabeling
+                self.tasks = tasks.get_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
             optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt'%(map_id), tasks_id)
 
@@ -134,6 +139,8 @@ class Tester:
 
 class Saver:
     def __init__(self, alg_name, tester):
+        self.tester = tester
+
         folder = "../tmp/"
         exp_name = tester.experiment
         exp_dir = os.path.join(folder, exp_name)
@@ -141,7 +148,13 @@ class Saver:
             os.makedirs(exp_dir)
         self.file_out = os.path.join(exp_dir, alg_name + ".json")  # if tasks_id=3, results for training tasks
         self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")
-        self.tester = tester
+
+        self.tf_saver = tf.train.Saver()
+        self.policy_dname = os.path.join(exp_name, "policy_model")
+        os.makedirs(self.policy_dname, exist_ok=True)
+
+        self.classifier_dname = os.path.join(exp_name, "classifier")
+        os.makedirs(self.classifier_dname, exist_ok=True)
 
     def save_results(self):
         results = {}
@@ -156,6 +169,31 @@ class Saver:
             'transfer_tasks': [str(t) for t in self.tester.transfer_tasks]
         }
         save_json(self.transfer_file_out, results)
+
+    def save_policy_bank(self, policy_bank, run_idx):
+        self.tf_saver.save(policy_bank.sess, os.path.join(self.policy_dname, "policy_bank"), global_step=run_idx)
+        policy_bank.save_policy_models()
+
+    def save_classifier_data(self, policy_bank, curriculum, run_idx):
+        """
+        Save all data needed to learn classifiers in parallel
+        """
+        # save tester
+        with open(os.path.join(self.classifier_dname, "tester.pkl"), "wb") as file:
+            dill.dump(self.tester, file)
+
+        # save valid agent locations from which rollouts start
+        task_aux = Game(self.tester.get_task_params(curriculum.get_current_task()))
+        id2state = {}
+        for x in range(task_aux.map_width):
+            for y in range(task_aux.map_height):
+                if task_aux.is_valid_agent_loc(x, y):
+                    id2state[len(id2state)] = (x, y)
+        with open(os.path.join(self.classifier_dname, "states.pkl"), "wb") as file:
+            dill.dump(id2state, file)
+
+        # save policies
+        self.save_policy_bank(policy_bank, run_idx)
 
 
 def get_precentiles_str(a):
