@@ -1,5 +1,8 @@
-import argparse, baseline_dqn, baseline_hrl, lpopl
-from test_utils import Tester, Saver, TestingParameters
+import argparse
+import baseline_dqn
+import baseline_hrl
+import lpopl
+from test_utils import TestingParameters, Tester, Saver, Loader
 from curriculum import CurriculumLearner
 
 
@@ -48,7 +51,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, show_print):
+def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, load_trained, show_print):
     # configuration of testing params
     testing_params = TestingParameters()
 
@@ -63,6 +66,7 @@ def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, show_print):
 
     # Setting up the saver
     saver = Saver(alg_name, tester)
+    loader = Loader(tester, saver)
 
     # Baseline 1 (standard DQN with Michael Littman's approach)
     if alg_name == "dqn-l":
@@ -78,26 +82,26 @@ def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, show_print):
 
     # LPOPL
     if alg_name == "lpopl":
-        lpopl.run_experiments(tester, curriculum, saver, num_times, show_print)
+        lpopl.run_experiments(tester, curriculum, saver, loader, num_times, load_trained, show_print)
 
 
-def run_multiple_experiments(alg, tasks_id):
+def run_multiple_experiments(alg, tasks_id, load_trained):
     num_times = 3
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
         print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-        run_experiment(alg, map_id, tasks_id, num_times, r_good, show_print)
+        run_experiment(alg, map_id, tasks_id, num_times, r_good, load_trained, show_print)
 
 
-def run_single_experiment(alg, tasks_id, map_id):
+def run_single_experiment(alg, tasks_id, map_id, load_trained):
     num_times  = 1  # each algo was run 3 times per map in the paper
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-    run_experiment(alg, map_id, tasks_id, num_times, r_good, show_print)
+    run_experiment(alg, map_id, tasks_id, num_times, r_good, load_trained, show_print)
 
 
 if __name__ == "__main__":
@@ -125,7 +129,9 @@ if __name__ == "__main__":
     tasks_id = tasks.index(args.tasks)
     map_id   = args.map
 
+    load_trained = True
+
     if map_id > -1:
-        run_single_experiment(alg, tasks_id, map_id)
+        run_single_experiment(alg, tasks_id, map_id, load_trained)
     else:
-        run_multiple_experiments(alg, tasks_id)
+        run_multiple_experiments(alg, tasks_id, load_trained)

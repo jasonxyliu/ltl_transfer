@@ -99,7 +99,7 @@ class PolicyBank:
     def get_policy_next_LTL(self, ltl, true_props):
         return self.policies[self.get_id(ltl)].dfa.progress_LTL(ltl, true_props)
 
-    def save_policy_models(self):
+    def save_policy_models(self, policy_bank_dname):
         for policy, pid in self.policy2id.items():
             policy.save(pid)
 
@@ -118,18 +118,11 @@ class ConstantPolicy:
         # Returns a vector of 'value'
         return self.q_target_value
 
-    def save_policy_model(self, pid):
-        # save class attributes
-        pass
-
-    def load_policy_model(self, pid):
-        pass
-
 
 class Policy:
     def __init__(self, ltl, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr):
         self.dfa, self.ltl, self.sess = dfa, ltl, sess
-        self.ltl_scope_name = str(ltl).replace("&","AND").replace("|","OR").replace("!","NOT").replace("(","P1_").replace(")","_P2").replace("'","").replace(" ","").replace(",","_")
+        self.ltl_scope_name = str(ltl).replace("&", "AND").replace("|", "OR").replace("!", "NOT").replace("(", "P1_").replace(")", "_P2").replace("'", "").replace(" ", "").replace(",", "_")
         self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
         self.edge2classifier = {}
 

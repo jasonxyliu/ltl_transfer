@@ -135,7 +135,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     return policy_bank
 
 
-def run_experiments(tester, curriculum, saver, num_times, show_print):
+def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, show_print):
     # Running the tasks 'num_times'
     time_init = time.time()
     learning_params = tester.learning_params
@@ -153,21 +153,23 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
         # Initializing policies per each subtask
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
 
-        # Running the tasks
-        while not curriculum.stop_learning():
-            task = curriculum.get_next_task()
-            if show_print:
-                print("Current step:", curriculum.get_current_step(), "from", curriculum.total_steps)
-                print("Current task: ", task)
-            task_params = tester.get_task_params(task)
-            _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
+        if load_trained:
+            loader.load_policy_bank(t, sess)
+        else:
+            # Running the tasks
+            while not curriculum.stop_learning():
+                task = curriculum.get_next_task()
+                if show_print:
+                    print("Current step:", curriculum.get_current_step(), "from", curriculum.total_steps)
+                    print("Current task: ", task)
+                task_params = tester.get_task_params(task)
+                _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
 
         # Relabel state-centric options to transition-centric options
         # saver.save_classifier_data(policy_bank, curriculum, t)
         # run_rollouts(tester, policy_bank)
         # load_classifier_results(tester, policy_bank, curriculum)
-        saver.save_policy_bank(policy_bank, t)
-        policy_bank = load_policy_bank(saver, t)
+        # saver.save_policy_bank(policy_bank, t)
         relabel(tester, policy_bank, curriculum)
         # run_transfer_experiments(tester, policy_bank)
 
@@ -214,12 +216,6 @@ def load_classifier_results(tester, policy_bank):
     for policy, edge2locs in policy2edge2locs.items():
         for edge, classifier in edge2locs.items():
             policy.add_initiation_set_classifier(edge, classifier)
-
-
-def load_policy_bank(saver, run_idx):
-    policy_bank_fpath = os.path.join(saver.policy_dname, run_idx)
-    policy_bank = None
-    return policy_bank
 
 
 def relabel(tester, policy_bank, curriculum):

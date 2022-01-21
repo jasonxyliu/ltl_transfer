@@ -97,7 +97,7 @@ def get_training_tasks():
     """ Training tasks for the transfer tasks. """
     tasks = [
         _get_sequence('ab'),
-        _get_sequence('ac'),
+        # _get_sequence('ac'),
         # _get_sequence('de'),
         # _get_sequence('db'),
         # _get_sequence('fae'),

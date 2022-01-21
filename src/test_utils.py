@@ -149,12 +149,11 @@ class Saver:
         self.file_out = os.path.join(exp_dir, alg_name + ".json")  # if tasks_id=3, results for training tasks
         self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")
 
-        self.tf_saver = tf.train.Saver()
-        self.policy_dname = os.path.join(exp_name, "policy_model")
-        os.makedirs(self.policy_dname, exist_ok=True)
+        self.policy_dpath = os.path.join(exp_dir, "policy_model")
+        os.makedirs(self.policy_dpath, exist_ok=True)
 
-        self.classifier_dname = os.path.join(exp_name, "classifier")
-        os.makedirs(self.classifier_dname, exist_ok=True)
+        self.classifier_dpath = os.path.join(exp_dir, "classifier")
+        os.makedirs(self.classifier_dpath, exist_ok=True)
 
     def save_results(self):
         results = {}
@@ -171,8 +170,10 @@ class Saver:
         save_json(self.transfer_file_out, results)
 
     def save_policy_bank(self, policy_bank, run_idx):
-        self.tf_saver.save(policy_bank.sess, os.path.join(self.policy_dname, "policy_bank"), global_step=run_idx)
-        policy_bank.save_policy_models()
+        self.tf_saver = tf.train.Saver()
+        policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_idx, "policy_bank")
+        self.tf_saver.save(policy_bank.sess, policy_bank_prefix)
+        # policy_bank.save_policy_models(policy_bank_dname)
 
     def save_classifier_data(self, policy_bank, curriculum, run_idx):
         """
@@ -194,6 +195,18 @@ class Saver:
 
         # save policies
         self.save_policy_bank(policy_bank, run_idx)
+
+
+class Loader:
+    def __init__(self, tester, saver):
+        self.tester = tester
+        self.saver = saver
+
+    def load_policy_bank(self, run_idx, sess):
+        run_dpath = os.path.join(self.saver.policy_dpath, "run_%d" % run_idx)
+        policy_bank_prefix = os.path.join(run_dpath, "policy_bank")
+        saver = tf.train.import_meta_graph(policy_bank_prefix+".meta")
+        saver.restore(sess, tf.train.latest_checkpoint(run_dpath))
 
 
 def get_precentiles_str(a):
