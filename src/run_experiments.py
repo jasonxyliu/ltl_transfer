@@ -118,6 +118,8 @@ if __name__ == "__main__":
                         help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
+    parser.add_argument('--load_trained', default=True, type=bool,
+                        help='This parameter indicated whether to load trained policy models ')
 
     args = parser.parse_args()
     if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
@@ -129,9 +131,7 @@ if __name__ == "__main__":
     tasks_id = tasks.index(args.tasks)
     map_id   = args.map
 
-    load_trained = True
-
     if map_id > -1:
-        run_single_experiment(alg, tasks_id, map_id, load_trained)
+        run_single_experiment(alg, tasks_id, map_id, args.load_trained)
     else:
-        run_multiple_experiments(alg, tasks_id, load_trained)
+        run_multiple_experiments(alg, tasks_id, args.load_trained)

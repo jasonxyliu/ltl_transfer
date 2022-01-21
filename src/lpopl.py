@@ -164,13 +164,14 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
                     print("Current task: ", task)
                 task_params = tester.get_task_params(task)
                 _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
+            saver.save_policy_bank(policy_bank, t)
 
         # Relabel state-centric options to transition-centric options
         # saver.save_classifier_data(policy_bank, curriculum, t)
         # run_rollouts(tester, policy_bank)
         # load_classifier_results(tester, policy_bank, curriculum)
-        # saver.save_policy_bank(policy_bank, t)
         relabel(tester, policy_bank, curriculum)
+
         # run_transfer_experiments(tester, policy_bank)
 
         tf.reset_default_graph()

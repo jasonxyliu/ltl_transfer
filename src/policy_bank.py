@@ -99,10 +99,6 @@ class PolicyBank:
     def get_policy_next_LTL(self, ltl, true_props):
         return self.policies[self.get_id(ltl)].dfa.progress_LTL(ltl, true_props)
 
-    def save_policy_models(self, policy_bank_dname):
-        for policy, pid in self.policy2id.items():
-            policy.save(pid)
-
 
 class ConstantPolicy:
     def __init__(self, ltl, value, s2, num_features):
@@ -170,11 +166,3 @@ class Policy:
 
     def add_initiation_set_classifier(self, edge, classifier):
         self.edge2classifier[edge] = classifier
-
-    def save_policy_model(self, pid):
-        # save class attributes
-        # save tf model and session
-        pass
-
-    def load_policy_model(self, pid):
-        pass
