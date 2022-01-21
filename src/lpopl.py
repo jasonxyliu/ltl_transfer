@@ -155,6 +155,9 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
         if load_trained:
             loader.load_policy_bank(t, sess)
+            task = curriculum.get_current_step()
+            task_params = tester.get_task_params(task)
+            tester.run_test(task, sess, _test_LPOPL, policy_bank, len(Game(task_params).get_features))
         else:
             # Running the tasks
             while not curriculum.stop_learning():
@@ -167,11 +170,11 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
             saver.save_policy_bank(policy_bank, t)
 
         # Relabel state-centric options to transition-centric options
+        # relabel(tester, policy_bank, curriculum)
+
         # saver.save_classifier_data(policy_bank, curriculum, t)
         # run_rollouts(tester, policy_bank)
         # load_classifier_results(tester, policy_bank, curriculum)
-        relabel(tester, policy_bank, curriculum)
-
         # run_transfer_experiments(tester, policy_bank)
 
         tf.reset_default_graph()
@@ -225,9 +228,9 @@ def relabel(tester, policy_bank, curriculum):
     to learn an initiation set classifier for each relabeled transition-centric option
     """
     for ltl in policy_bank.get_LTL_policies():
-        print(ltl)
+        print("ltl (sub)task: ", ltl)
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
-        print(policy.get_edge_labels())
+        print("edges: ", policy.get_edge_labels())
         learn_naive_classifier(tester, policy_bank, ltl, curriculum, max_depth=curriculum.num_steps)
 
 
