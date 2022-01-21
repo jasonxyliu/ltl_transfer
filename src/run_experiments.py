@@ -118,7 +118,7 @@ if __name__ == "__main__":
                         help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--load_trained', default=True, type=bool,
+    parser.add_argument('--load_trained', action="store_false",
                         help='This parameter indicated whether to load trained policy models ')
 
     args = parser.parse_args()
