@@ -204,8 +204,9 @@ class Loader:
 
     def load_policy_bank(self, run_idx, sess):
         run_dpath = os.path.join(self.saver.policy_dpath, "run_%d" % run_idx)
-        policy_bank_prefix = os.path.join(run_dpath, "policy_bank")
-        saver = tf.train.import_meta_graph(policy_bank_prefix+".meta")
+        # policy_bank_prefix = os.path.join(run_dpath, "policy_bank")
+        # saver = tf.train.import_meta_graph(policy_bank_prefix+".meta")
+        saver = tf.train.Saver()
         saver.restore(sess, tf.train.latest_checkpoint(run_dpath))
 
 

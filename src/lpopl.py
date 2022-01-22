@@ -1,9 +1,9 @@
 import os
-import numpy as np
 import random, time, shutil
 import dill
 from multiprocessing import pool
 from collections import defaultdict
+import numpy as np
 import tensorflow as tf
 from policy_bank import *
 from schedules import LinearSchedule
@@ -155,9 +155,10 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
         if load_trained:
             loader.load_policy_bank(t, sess)
-            task = curriculum.get_current_step()
-            task_params = tester.get_task_params(task)
-            tester.run_test(task, sess, _test_LPOPL, policy_bank, len(Game(task_params).get_features))
+            task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
+            num_features = len(task_aux.get_features())
+            tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 for test after loading, not during training
+            print(tester.results)
         else:
             # Running the tasks
             while not curriculum.stop_learning():
@@ -169,8 +170,12 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
                 _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
             saver.save_policy_bank(policy_bank, t)
 
+            # Backing up the results
+            saver.save_results()
+            saver.save_transfer_results()
+
         # Relabel state-centric options to transition-centric options
-        # relabel(tester, policy_bank, curriculum)
+        relabel(tester, policy_bank, curriculum)
 
         # saver.save_classifier_data(policy_bank, curriculum, t)
         # run_rollouts(tester, policy_bank)
@@ -179,10 +184,6 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
         tf.reset_default_graph()
         sess.close()
-
-        # Backing up the results
-        saver.save_results()
-        saver.save_transfer_results()
 
     # Showing results
     tester.show_results()
@@ -232,7 +233,7 @@ def relabel(tester, policy_bank, curriculum):
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
         print("edges: ", policy.get_edge_labels())
         learn_naive_classifier(tester, policy_bank, ltl, curriculum, max_depth=curriculum.num_steps)
-
+        print("\n")
 
 def learn_naive_classifier(tester, policy_bank, ltl, curriculum, n_rollouts=100, max_depth=100):
     """
