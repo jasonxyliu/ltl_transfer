@@ -7,16 +7,20 @@ class GameParams:
     """
     Auxiliary class with the configuration parameters that the Game class needs
     """
-    def __init__(self, file_map, ltl_task, consider_night):
+    def __init__(self, file_map, ltl_task, consider_night, init_dfa_state, init_loc):
         self.file_map = file_map
         self.ltl_task = ltl_task
         self.consider_night = consider_night
+        self.init_dfa_state = init_dfa_state
+        self.init_loc = init_loc
 
 
 class Game:
     def __init__(self, params):
         self.params = params
         self._load_map(params.file_map)
+        if params.init_loc:
+            self._set_agent_loc(params.init_loc)
         # Adding day and night if need it
         self.consider_night = params.consider_night
         self.hour = 12
@@ -24,7 +28,7 @@ class Game:
             self.sunrise = 5
             self.sunset  = 21
         # Loading and progressing the LTL reward
-        self.dfa = DFA(params.ltl_task)
+        self.dfa = DFA(params.ltl_task, params.init_dfa_state)
         reward, self.ltl_game_over, self.env_game_over = self._get_rewards()
         self.agent.update_reward(reward)
 
@@ -141,11 +145,12 @@ class Game:
     def is_valid_agent_loc(self, x, y):
         return not isinstance(self.map_array[x][y], Obstacle)
 
-    def set_agent_loc(self, loc):
+    def _set_agent_loc(self, loc):
         """
+        set agent's start location instead of reading from map_x.txt
         should have checked loc is a valid agent location
         """
-        self.agent = Agent(loc[0], loc[1], self._load_actions())
+        self.agent.change_position(loc[0], loc[1])
 
     def _steps_before_dark(self):
         if self.sunrise - 1 <= self.hour <= self.sunset:

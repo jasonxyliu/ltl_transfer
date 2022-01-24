@@ -128,7 +128,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
         dfa = DFA(f_task)
         for ltl in dfa.ltl2state:
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
-            policy_bank.add_LTL_policy(ltl, dfa)
+            policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
     print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
@@ -157,8 +157,8 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
             loader.load_policy_bank(t, sess)
             task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
             num_features = len(task_aux.get_features())
-            tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 for test after loading, not during training
-            print(tester.results)
+            tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
+            # print(tester.results)
         else:
             # Running the tasks
             while not curriculum.stop_learning():
@@ -175,7 +175,7 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
             saver.save_transfer_results()
 
         # Relabel state-centric options to transition-centric options
-        relabel(tester, policy_bank, curriculum)
+        relabel(tester, curriculum, policy_bank)
 
         # saver.save_classifier_data(policy_bank, curriculum, t)
         # run_rollouts(tester, policy_bank)
@@ -187,6 +187,7 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
     # Showing results
     tester.show_results()
+    tester.show_transfer_results()
     print("Time:", "%0.2f"%((time.time() - time_init)/60), "mins")
 
 
@@ -223,19 +224,22 @@ def load_classifier_results(tester, policy_bank):
             policy.add_initiation_set_classifier(edge, classifier)
 
 
-def relabel(tester, policy_bank, curriculum):
+def relabel(tester, curriculum, policy_bank):
     """
     Rollout every state-centric option's policy to try to satisfy each outgoing edge
     to learn an initiation set classifier for each relabeled transition-centric option
     """
-    for ltl in policy_bank.get_LTL_policies():
-        print("ltl (sub)task: ", ltl)
+    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+        # if policy_bank.get_id(ltl) != 3:
+        #     continue
+        print(ltl_idx, ": ltl (sub)task: ", ltl)
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
         print("edges: ", policy.get_edge_labels())
-        learn_naive_classifier(tester, policy_bank, ltl, curriculum, max_depth=curriculum.num_steps)
+        learn_naive_classifier(tester, curriculum, policy_bank, ltl, max_depth=curriculum.num_steps)
         print("\n")
 
-def learn_naive_classifier(tester, policy_bank, ltl, curriculum, n_rollouts=100, max_depth=100):
+
+def learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts=100, max_depth=100):
     """
     After n_rollouts from a loc, this loc is in the initiation set of the option
     whose policy satisfies the edge subtask more times than other option's policies
@@ -244,47 +248,52 @@ def learn_naive_classifier(tester, policy_bank, ltl, curriculum, n_rollouts=100,
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     edge2locs = defaultdict(list)  # classifier for every edge
 
-    for y in range(task_aux.map_height):
-        for x in range(task_aux.map_width):
-            if task_aux.is_valid_agent_loc(x, y):
-                edge2locs[rollout(task_aux, policy_bank, ltl, (x, y), n_rollouts, max_depth)].append((x, y))
+    rollout(tester, policy_bank, ltl, (10, 10), n_rollouts, max_depth)
 
-    print(edge2locs)
+    # for y in range(task_aux.map_height):
+    #     for x in range(task_aux.map_width):
+    #         if task_aux.is_valid_agent_loc(x, y):
+    #             edge2locs[rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)].append((x, y))
+    #
+    # print(edge2locs)
+    #
+    # policy = policy_bank.policies[policy_bank.get_id(ltl)]
+    # for edge, classifier in edge2locs.items():
+    #     policy.add_initiation_set_classifier(edge, classifier)
 
-    policy = policy_bank.policies[policy_bank.get_id(ltl)]
-    for edge, classifier in edge2locs.items():
-        policy.add_initiation_set_classifier(edge, classifier)
 
-
-def rollout(task_aux, policy_bank, ltl, init_loc, n_rollouts, max_depth):
+def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     Rollout trained policy from init_loc to see which outgoing edge it satisfies
     """
-    print(init_loc)
+    print("init_loc: ", init_loc)
     edge2hits = defaultdict(int)
     for rollout in range(n_rollouts):
+        # print("rollout:", rollout)
+
+        task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
+        # print(task.dfa.state)
+        # print(policy_bank.policies[policy_bank.get_id(ltl)].f_task)
+
         depth = 0
         traversed_edge = None
-        task_aux.set_agent_loc(init_loc)
-        while depth <= max_depth:
-            s1 = task_aux.get_features()
-            action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task_aux.get_features())))))
-            prev_state = task_aux.dfa.state
-            reward = task_aux.execute_action(action)
-            if reward == 1:
-                traversed_edge = task_aux.dfa.nodelist[prev_state][task_aux.dfa.state]
-                print("hit: ", traversed_edge)
-                break
-            if task_aux.ltl_game_over or task_aux.env_game_over:
+        while not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
+            s1 = task.get_features()
+            action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task.get_features())))))
+            prev_state = task.dfa.state
+            _ = task.execute_action(action)
+            # print(prev_state, action, task.dfa.state)
+            if prev_state != task.dfa.state:
+                traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
+                # print(traversed_edge)
                 break
             depth += 1
         if traversed_edge:
             edge2hits[traversed_edge] += 1
+    print(edge2hits)
     max_edge = None
     if edge2hits:
         max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
-        print(ltl)
-        print(edge2hits)
     return max_edge
 
 

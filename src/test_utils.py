@@ -84,8 +84,8 @@ class Tester:
     def get_transfer_tasks(self):
         return self.transfer_tasks
 
-    def get_task_params(self, ltl_task):
-        return GameParams(self.map, ltl_task, self.consider_night)
+    def get_task_params(self, ltl_task, init_dfa_state=None, init_loc=None):
+        return GameParams(self.map, ltl_task, self.consider_night, init_dfa_state, init_loc)
 
     def run_test(self, step, sess, test_function, *test_args):
         # 'test_function' parameters should be (sess, task_params, learning_params, testing_params, *test_args)
@@ -117,6 +117,9 @@ class Tester:
             normalized_rewards = average_reward[s] / num_tasks
             p25, p50, p75 = get_precentiles_str(normalized_rewards)
             print("\t" + str(s) + "\t" + p25 + "\t" + p50 + "\t" + p75)
+
+    def show_transfer_results(self):
+        print()
 
     def export_results(self):
         # Showing perfomance per task

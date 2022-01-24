@@ -2,10 +2,12 @@ import ltl_progression
 
 
 class DFA:
-    def __init__(self, ltl_formula):
+    def __init__(self, ltl_formula, init_dfa_state=None):
         # Progressing formula
         initial_state, accepting_states, ltl2state, edges = ltl_progression.get_dfa(ltl_formula)
-
+        # Set DFA initial state if given
+        if init_dfa_state:
+            initial_state = ltl2state[init_dfa_state]
         # setting the DFA
         self.formula   = ltl_formula
         self.state     = initial_state    # initial state id

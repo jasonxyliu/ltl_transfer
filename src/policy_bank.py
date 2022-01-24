@@ -26,9 +26,9 @@ class PolicyBank:
         policy = ConstantPolicy(ltl, value, self.s2, self.num_features)
         self._add_policy(ltl, policy)
 
-    def add_LTL_policy(self, ltl, dfa):
+    def add_LTL_policy(self, ltl, f_task, dfa):
         if ltl not in self.policy2id:
-            policy = Policy(ltl, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr)
+            policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr)
             self._add_policy(ltl, policy)
 
     def _add_policy(self, ltl, policy):
@@ -116,8 +116,8 @@ class ConstantPolicy:
 
 
 class Policy:
-    def __init__(self, ltl, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr):
-        self.dfa, self.ltl, self.sess = dfa, ltl, sess
+    def __init__(self, ltl, f_task, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr):
+        self.ltl, self.f_task, self.dfa, self.sess = ltl, f_task, dfa, sess
         self.ltl_scope_name = str(ltl).replace("&", "AND").replace("|", "OR").replace("!", "NOT").replace("(", "P1_").replace(")", "_P2").replace("'", "").replace(" ", "").replace(",", "_")
         self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
         self.edge2classifier = {}
