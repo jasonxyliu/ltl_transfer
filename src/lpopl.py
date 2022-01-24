@@ -230,8 +230,8 @@ def relabel(tester, curriculum, policy_bank):
     to learn an initiation set classifier for each relabeled transition-centric option
     """
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
-        # if policy_bank.get_id(ltl) != 3:
-        #     continue
+        if policy_bank.get_id(ltl) != 3:
+            continue
         print(ltl_idx, ": ltl (sub)task: ", ltl)
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
         print("edges: ", policy.get_edge_labels())
@@ -248,7 +248,7 @@ def learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts=100,
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     edge2locs = defaultdict(list)  # classifier for every edge
 
-    rollout(tester, policy_bank, ltl, (10, 10), n_rollouts, max_depth)
+    rollout(tester, policy_bank, ltl, (13, 10), n_rollouts, max_depth)
 
     # for y in range(task_aux.map_height):
     #     for x in range(task_aux.map_width):
@@ -271,12 +271,18 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     for rollout in range(n_rollouts):
         # print("rollout:", rollout)
 
+        task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
+        prev_state = task_aux.dfa.state
+        # print(prev_state)
+
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
         # print(task.dfa.state)
         # print(policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
-        depth = 0
         traversed_edge = None
+        if prev_state != task.dfa.state:  # if agent starts at a given loc that triggers a desired transition
+            traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
+        depth = 0
         while not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
             s1 = task.get_features()
             action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task.get_features())))))
