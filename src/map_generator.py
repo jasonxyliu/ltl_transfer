@@ -1,5 +1,5 @@
-import random, os, argparse
-from collections import deque
+import argparse
+import random
 from tasks import get_sequence_of_subtasks, get_interleaving_subtasks, get_safety_constraints
 from value_iteration import evaluate_optimal_policy
 
@@ -14,28 +14,34 @@ def addElements(map, elements, num_per_type):
                     map[i][j] = e
                     break
 
+
 def getObjects(map):
     objs = {}
     for i in range(len(map)):
         for j in range(len(map[i])):
             e = map[i][j]
-            if e == "A": agent = i,j
+            if e == "A": agent = i, j
             elif e not in " X":
                 if e not in objs: objs[e] = []
-                objs[e].append((i,j))
+                objs[e].append((i, j))
     return objs, agent
+
 
 def getMD(a, o):
     return sum([abs(a[i]-o[i]) for i in range(len(a))])
+
 
 def getMyopicSolution(agent, objs, task):
     if task == "": return 0
     min_cost = min([getMD(agent, pos) for pos in objs[task[0]]])
     return min([getMD(agent, pos) + getMyopicSolution(pos, objs, task[1:]) for pos in objs[task[0]] if getMD(agent, pos) == min_cost])
 
-# This method returns a list with all the possible path's cost to solve the problem
-# then you just need to take the minimum one :P
+
 def getOptimalSolution(agent, objs, task):
+    """
+    This method returns a list with all the possible path's cost to solve the problem
+    then you just need to take the minimum one :P
+    """
     if task == "": return 0
     return min([getMD(agent, pos) + getOptimalSolution(pos, objs, task[1:]) for pos in objs[task[0]]])
 
@@ -66,7 +72,7 @@ def getAdversarialMaps(conf_params, num_adv_maps, num_eval_maps):
             if value < min_seeds[max_seed][0]:
                 min_seeds[max_seed] = (value, seed)
 
-    for v,s in min_seeds:
+    for v, s in min_seeds:
         print("Seed", s, "got", v)
 
 
@@ -85,7 +91,7 @@ def createMap(conf_params, seed, show):
     agent_i, agent_j = map_height//2, map_width//2
 
     # Adding the Shelter
-    for i,j in shelter_locations:
+    for i, j in shelter_locations:
         map[i][j] = "s"
 
     # Adding the work stations
@@ -112,7 +118,6 @@ def createMap(conf_params, seed, show):
 
 
 if __name__ == '__main__':
-
     # configuration parameters for creating a map
     map_width  = 21
     map_height = 21
@@ -122,7 +127,7 @@ if __name__ == '__main__':
     num_resource_per_type = 5
     num_fancy_resources_per_type = 2
     num_workstations_per_type = 2
-    shelter_locations = [(i,j) for i in range(8,13) for j in range(11,20)]
+    shelter_locations = [(i, j) for i in range(8, 13) for j in range(11, 20)]
     # NOTE: the map's difficulty is measure by the difference between the reward obtained by an optimal myopic policy vs a globally optimal policy (over the sequential tasks)
     tasks = ["ab", "ac", "de", "db", "fae", "abdc", "acfb", "acfc", "faeg", "acfbh"]
     conf_params = map_width, map_height, resources, fancy_resources, workstations, num_resource_per_type, num_fancy_resources_per_type, num_workstations_per_type, shelter_locations, tasks

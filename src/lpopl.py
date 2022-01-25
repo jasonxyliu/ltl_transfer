@@ -175,7 +175,7 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
             saver.save_transfer_results()
 
         # Relabel state-centric options to transition-centric options
-        relabel(tester, curriculum, policy_bank)
+        relabel(tester, saver, curriculum, policy_bank)
 
         # saver.save_classifier_data(policy_bank, curriculum, t)
         # run_rollouts(tester, policy_bank)
@@ -224,19 +224,24 @@ def load_classifier_results(tester, policy_bank):
             policy.add_initiation_set_classifier(edge, classifier)
 
 
-def relabel(tester, curriculum, policy_bank):
+def relabel(tester, saver, curriculum, policy_bank):
     """
     Rollout every state-centric option's policy to try to satisfy each outgoing edge
     to learn an initiation set classifier for each relabeled transition-centric option
     """
+    n_rollouts = 100
+    policy2loc2edge2hits = {"n_rollouts": n_rollouts}
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         if policy_bank.get_id(ltl) != 3:
             continue
         print(ltl_idx, ": ltl (sub)task: ", ltl)
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
         print("edges: ", policy.get_edge_labels())
-        learn_naive_classifier(tester, curriculum, policy_bank, ltl, max_depth=curriculum.num_steps)
+        loc2edge2hits = learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts, curriculum.num_steps)
+        policy2loc2edge2hits[str(ltl)] = loc2edge2hits
         print("\n")
+    print(policy2loc2edge2hits)
+    saver.save_rollout_results(policy2loc2edge2hits)
 
 
 def learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts=100, max_depth=100):
@@ -245,21 +250,28 @@ def learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts=100,
     whose policy satisfies the edge subtask more times than other option's policies
     The initiation sets of all options are non-overlapping.
     """
+    # edge2hits = rollout(tester, policy_bank, ltl, (13, 10), n_rollouts, max_depth)
+    # loc2edge2hits = {"(13, 10)": edge2hits}
+
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     edge2locs = defaultdict(list)  # classifier for every edge
+    loc2edge2hits = {}
+    for y in range(task_aux.map_height):
+        for x in range(task_aux.map_width):
+            edge2hits = rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)
+            loc2edge2hits[str((x, y))] = edge2hits
+            max_edge = None
+            if edge2hits:
+                max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
+            edge2locs[max_edge].append((x, y))
 
-    rollout(tester, policy_bank, ltl, (13, 10), n_rollouts, max_depth)
+    print(edge2locs)
 
-    # for y in range(task_aux.map_height):
-    #     for x in range(task_aux.map_width):
-    #         if task_aux.is_valid_agent_loc(x, y):
-    #             edge2locs[rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)].append((x, y))
-    #
-    # print(edge2locs)
-    #
-    # policy = policy_bank.policies[policy_bank.get_id(ltl)]
-    # for edge, classifier in edge2locs.items():
-    #     policy.add_initiation_set_classifier(edge, classifier)
+    policy = policy_bank.policies[policy_bank.get_id(ltl)]
+    for edge, classifier in edge2locs.items():
+        policy.add_initiation_set_classifier(edge, classifier)
+
+    return loc2edge2hits
 
 
 def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
@@ -272,7 +284,7 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
         # print("rollout:", rollout)
 
         task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-        prev_state = task_aux.dfa.state
+        prev_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
         # print(prev_state)
 
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
@@ -297,10 +309,7 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
         if traversed_edge:
             edge2hits[traversed_edge] += 1
     print(edge2hits)
-    max_edge = None
-    if edge2hits:
-        max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
-    return max_edge
+    return edge2hits
 
 
 def run_transfer_experiments(tester, policy_bank):

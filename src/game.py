@@ -142,9 +142,6 @@ class Game:
     def _load_actions(self):
         return [Actions.up, Actions.right, Actions.down, Actions.left]
 
-    def is_valid_agent_loc(self, x, y):
-        return not isinstance(self.map_array[x][y], Obstacle)
-
     def _set_agent_loc(self, loc):
         """
         set agent's start location instead of reading from map_x.txt

@@ -26,7 +26,7 @@ class TestingParameters:
 
 def _get_optimal_values(file, experiment):
     f = open(file)
-    lines = [l.rstrip() for l in f]
+    lines = [line.rstrip() for line in f]
     f.close()
     return eval(lines[experiment])
 
@@ -38,8 +38,8 @@ class Tester:
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.map_id = map_id
-            self.experiment = "task_%d/map_%d"%(tasks_id, map_id)
-            self.map     = '../experiments/maps/map_%d.txt'%map_id
+            self.experiment = "task_%d/map_%d" % (tasks_id, map_id)
+            self.map     = '../experiments/maps/map_%d.txt' % map_id
             self.consider_night = False
             if tasks_id == 0:
                 self.tasks = tasks.get_sequence_of_subtasks()
@@ -52,7 +52,7 @@ class Tester:
                 # self.tasks = tasks.get_training_tasks()
                 self.tasks = tasks.get_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
-            optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt'%(map_id), tasks_id)
+            optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
             self.results = {}
@@ -144,9 +144,7 @@ class Saver:
     def __init__(self, alg_name, tester):
         self.tester = tester
 
-        folder = "../tmp/"
-        exp_name = tester.experiment
-        exp_dir = os.path.join(folder, exp_name)
+        exp_dir = os.path.join("../tmp/", tester.experiment)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
         self.file_out = os.path.join(exp_dir, alg_name + ".json")  # if tasks_id=3, results for training tasks
@@ -178,12 +176,20 @@ class Saver:
         self.tf_saver.save(policy_bank.sess, policy_bank_prefix)
         # policy_bank.save_policy_models(policy_bank_dname)
 
+    def save_rollout_results(self, policy2loc2edge2hits):
+        """
+        Save results of rolling out trained state-centric policies that are used to compute initiation set classifiers
+        """
+        with open(os.path.join(self.classifier_dpath, "rollout_results.pkl"), "wb") as file:
+            dill.dump(self.tester, file)
+        save_json(os.path.join(self.classifier_dpath, "rollout_results.json"), policy2loc2edge2hits)
+
     def save_classifier_data(self, policy_bank, curriculum, run_idx):
         """
         Save all data needed to learn classifiers in parallel
         """
         # save tester
-        with open(os.path.join(self.classifier_dname, "tester.pkl"), "wb") as file:
+        with open(os.path.join(self.classifier_dpath, "tester.pkl"), "wb") as file:
             dill.dump(self.tester, file)
 
         # save valid agent locations from which rollouts start
@@ -193,7 +199,7 @@ class Saver:
             for y in range(task_aux.map_height):
                 if task_aux.is_valid_agent_loc(x, y):
                     id2state[len(id2state)] = (x, y)
-        with open(os.path.join(self.classifier_dname, "states.pkl"), "wb") as file:
+        with open(os.path.join(self.classifier_dpath, "states.pkl"), "wb") as file:
             dill.dump(id2state, file)
 
         # save policies
@@ -214,9 +220,9 @@ class Loader:
 
 
 def get_precentiles_str(a):
-    p25 = "%0.2f"%float(np.percentile(a, 25))
-    p50 = "%0.2f"%float(np.percentile(a, 50))
-    p75 = "%0.2f"%float(np.percentile(a, 75))
+    p25 = "%0.2f" % float(np.percentile(a, 25))
+    p50 = "%0.2f" % float(np.percentile(a, 50))
+    p75 = "%0.2f" % float(np.percentile(a, 75))
     return p25, p50, p75
 
 
@@ -225,7 +231,7 @@ def export_results(algorithm, task, task_id):
         # Computing the summary of the results
         normalized_rewards = None
         for map_id in maps:
-            result = "../tmp/task_%d/map_%d/%s.json"%(task_id, map_id, algorithm)
+            result = "../tmp/task_%d/map_%d/%s.json" % (task_id, map_id, algorithm)
             tester = Tester(None, None, None, None, result)
             ret = tester.export_results()
             if normalized_rewards is None:
@@ -234,9 +240,9 @@ def export_results(algorithm, task, task_id):
                 for j in range(len(normalized_rewards)):
                     normalized_rewards[j][1] = np.append(normalized_rewards[j][1], ret[j][1])
         # Saving the results
-        folders_out = "../results/%s/%s"%(task, map_type)
+        folders_out = "../results/%s/%s" % (task, map_type)
         if not os.path.exists(folders_out): os.makedirs(folders_out)
-        file_out = "%s/%s.txt"%(folders_out, algorithm)
+        file_out = "%s/%s.txt" % (folders_out, algorithm)
         f_out = open(file_out, "w")
         for j in range(len(normalized_rewards)):
             p25, p50, p75 = get_precentiles_str(normalized_rewards[j][1])
