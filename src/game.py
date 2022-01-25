@@ -1,6 +1,7 @@
+import numpy as np
+from scipy.spatial import distance
 from game_objects import *
 from dfa import *
-import numpy as np
 
 
 class GameParams:
@@ -157,19 +158,34 @@ class Game:
             return 1 + self.sunset - self.hour
         return 0  # it is night
 
+    # def get_features(self):
+    #     """
+    #     return a feature representations of the map
+    #     """
+    #     ret = [distance.cityblock([self.map_array[idx[i]][idx[j]].i, self.map_array[idx[i]][idx[j]].j],
+    #                                [self.agent.i, self.agent.j])
+    #            for idx in np.indices([self.map_height, self.map_width]).transpose(1, 2, 0)
+    #            if str(self.map_array[idx[i]][idx[j]]) in self.class_ids]
+    #
+    #     # Adding the number of steps before night (if need it)
+    #     if self.consider_night:
+    #         ret.append(self._steps_before_dark())
+    #
+    #     print(ret)
+    #
+    #     return np.array(ret, dtype=np.float64)
+
     def get_features(self):
         """
         return a feature representations of the map
         """
-        # map from object classes to numbers
-        class_ids = self.class_ids  # {"a":0,"b":1}
-        N, M = self.map_height, self.map_width
         ret = []
-        for i in range(N):
-            for j in range(M):
+        for i in range(self.map_height):
+            for j in range(self.map_width):
                 obj = self.map_array[i][j]
-                if str(obj) in class_ids:
-                    ret.append(self._manhattan_distance(obj))
+                if str(obj) in self.class_ids:  # map from object classes to numbers
+                    ret.append(distance.cityblock([self.map_array[i][j].i, self.map_array[i][j].j],
+                                                  [self.agent.i, self.agent.j]))
 
         # Adding the number of steps before night (if need it)
         if self.consider_night:
@@ -177,11 +193,11 @@ class Game:
 
         return np.array(ret, dtype=np.float64)
 
-    def _manhattan_distance(self, obj):
-        """
-        Returns the Manhattan distance between 'obj' and the agent
-        """
-        return abs(obj.i - self.agent.i) + abs(obj.j - self.agent.j)
+    # def _manhattan_distance(self, obj):
+    #     """
+    #     Returns the Manhattan distance between 'obj' and the agent
+    #     """
+    #     return abs(obj.i - self.agent.i) + abs(obj.j - self.agent.j)
 
     def get_actions(self):
         """

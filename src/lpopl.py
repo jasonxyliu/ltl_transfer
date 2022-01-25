@@ -281,12 +281,11 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     print("init_loc: ", init_loc)
     edge2hits = defaultdict(int)
+    task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
+    prev_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
+    # print(prev_state)
     for rollout in range(n_rollouts):
         # print("rollout:", rollout)
-
-        task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-        prev_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
-        # print(prev_state)
 
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
         # print(task.dfa.state)

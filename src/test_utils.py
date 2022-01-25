@@ -180,9 +180,9 @@ class Saver:
         """
         Save results of rolling out trained state-centric policies that are used to compute initiation set classifiers
         """
-        with open(os.path.join(self.classifier_dpath, "rollout_results.pkl"), "wb") as file:
-            dill.dump(self.tester, file)
         save_json(os.path.join(self.classifier_dpath, "rollout_results.json"), policy2loc2edge2hits)
+        with open(os.path.join(self.classifier_dpath, "rollout_results.pkl"), "wb") as file:
+            dill.dump(policy2loc2edge2hits, file)
 
     def save_classifier_data(self, policy_bank, curriculum, run_idx):
         """
