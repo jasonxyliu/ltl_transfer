@@ -258,12 +258,13 @@ def learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts=100,
     loc2edge2hits = {}
     for y in range(task_aux.map_height):
         for x in range(task_aux.map_width):
-            edge2hits = rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)
-            loc2edge2hits[str((x, y))] = edge2hits
-            max_edge = None
-            if edge2hits:
-                max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
-            edge2locs[max_edge].append((x, y))
+            if task_aux.is_valid_agent_loc(x, y):
+                edge2hits = rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)
+                loc2edge2hits[str((x, y))] = edge2hits
+                max_edge = None
+                if edge2hits:
+                    max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
+                edge2locs[max_edge].append((x, y))
 
     print(edge2locs)
 
