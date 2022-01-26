@@ -237,14 +237,14 @@ def relabel(tester, saver, curriculum, policy_bank):
         print(ltl_idx, ": ltl (sub)task: ", ltl)
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
         print("edges: ", policy.get_edge_labels())
-        loc2edge2hits = learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts, curriculum.num_steps)
+        loc2edge2hits = learn_naive_classifier(tester, policy_bank, ltl, n_rollouts, curriculum.num_steps)
         policy2loc2edge2hits[str(ltl)] = loc2edge2hits
         print("\n")
     print(policy2loc2edge2hits)
     saver.save_rollout_results(policy2loc2edge2hits)
 
 
-def learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts=100, max_depth=100):
+def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=100):
     """
     After n_rollouts from a loc, this loc is in the initiation set of the option
     whose policy satisfies the edge subtask more times than other option's policies
@@ -253,9 +253,9 @@ def learn_naive_classifier(tester, curriculum, policy_bank, ltl, n_rollouts=100,
     # edge2hits = rollout(tester, policy_bank, ltl, (13, 10), n_rollouts, max_depth)
     # loc2edge2hits = {"(13, 10)": edge2hits}
 
-    task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
-    edge2locs = defaultdict(list)  # classifier for every edge
     loc2edge2hits = {}
+    edge2locs = defaultdict(list)  # classifier for every edge
+    task_aux = Game(tester.get_task_params(ltl))
     for y in range(task_aux.map_height):
         for x in range(task_aux.map_width):
             if task_aux.is_valid_agent_loc(x, y):
