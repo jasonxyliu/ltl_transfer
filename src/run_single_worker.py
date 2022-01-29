@@ -33,7 +33,7 @@ def rollout(task_aux, policy, init_state, n_rollouts, max_depth):
     return max_edge
 
 
-def load_policy(policy_id):
+def load_policy_bank(policy_id):
     pass
 
 

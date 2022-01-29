@@ -30,7 +30,7 @@ To run LPOPL and our three baselines, move to the *src* folder and execute *run_
 
 The results will be printed and saved in './tmp'. After running LPOPL over all the maps, you might run *test_util.py* (which also receives the algorithm and task parameters) to compute the average performance across the 10 maps:
 
-    python3 test_util.py --algorithm="lpopl" --tasks="sequence"
+    python3 test_utils.py --algorithm="lpopl" --tasks="sequence"
 
 The overall results will be saved in the './results' folder.
 
