@@ -66,7 +66,7 @@ def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, load_trained, 
 
     # Setting up the saver
     saver = Saver(alg_name, tester)
-    loader = Loader(tester, saver)
+    loader = Loader(saver)
 
     # Baseline 1 (standard DQN with Michael Littman's approach)
     if alg_name == "dqn-l":
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     # Getting params
     algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
-    tasks      = ["sequence", "interleaving", "safety", "transfer"]
+    tasks      = ["sequence", "interleaving", "safety", "transfer_sequence", "transfer_interleaving"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
     parser.add_argument('--algorithm', default='lpopl', type=str,
@@ -118,8 +118,8 @@ if __name__ == "__main__":
                         help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--load_trained', action="store_false",
-                        help='This parameter indicated whether to load trained policy models ')
+    parser.add_argument('--load_trained', action="store_true",
+                        help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
 
     args = parser.parse_args()
     if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")

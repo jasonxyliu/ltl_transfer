@@ -16,49 +16,52 @@ The set of propositional symbols are {a,b,c,d,e,f,g,h,n,s}:
 
 def get_sequence_of_subtasks():
     # Experiment 1: Sequences of Sub-Tasks (Section 5.2 in paper)
-    tasks = []
-    tasks.append(_get_sequence('ab'))
-    tasks.append(_get_sequence('ac'))
-    tasks.append(_get_sequence('de'))
-    tasks.append(_get_sequence('db'))
-    tasks.append(_get_sequence('fae'))
-    tasks.append(_get_sequence('abdc'))
-    tasks.append(_get_sequence('acfb'))
-    tasks.append(_get_sequence('acfc'))
-    tasks.append(_get_sequence('faeg'))
-    tasks.append(_get_sequence('acfbh'))
+    tasks = [
+        _get_sequence('ab'),
+        _get_sequence('ac'),
+        _get_sequence('de'),
+        _get_sequence('db'),
+        _get_sequence('fae'),
+        _get_sequence('abdc'),
+        _get_sequence('acfb'),
+        _get_sequence('acfc'),
+        _get_sequence('faeg'),
+        _get_sequence('acfbh')
+    ]
     return tasks
 
 
 def get_interleaving_subtasks():
     # Experiment 2: Interleaving Sub-Tasks (Section 5.3 in paper)
-    tasks = []
-    tasks.append(_get_sequence('ab'))
-    tasks.append(_get_sequence('ac'))
-    tasks.append(_get_sequence('de'))
-    tasks.append(_get_sequence('db'))
-    tasks.append(('and', _get_sequence('ae'), _get_sequence('fe')))
-    tasks.append(('and', _get_sequence('dc'), _get_sequence('abc')))
-    tasks.append(('and', _get_sequence('fb'), _get_sequence('acb')))
-    tasks.append(('and', _get_sequence('fc'), _get_sequence('ac')))
-    tasks.append(('and', _get_sequence('aeg'), _get_sequence('feg')))
-    tasks.append(('and', _get_sequence('fbh'), _get_sequence('acbh')))
+    tasks = [
+        _get_sequence('ab'),
+        _get_sequence('ac'),
+        _get_sequence('de'),
+        _get_sequence('db'),
+        ('and', _get_sequence('ae'), _get_sequence('fe')),
+        ('and', _get_sequence('dc'), _get_sequence('abc')),
+        ('and', _get_sequence('fb'), _get_sequence('acb')),
+        ('and', _get_sequence('fc'), _get_sequence('ac')),
+        ('and', _get_sequence('aeg'), _get_sequence('feg')),
+        ('and', _get_sequence('fbh'), _get_sequence('acbh'))
+    ]
     return tasks
 
 
 def get_safety_constraints():
     # Experiment 3: Safety Constraints (Section 5.4 in paper)
-    tasks = []
-    tasks.append(_get_sequence_night('ab'))
-    tasks.append(_get_sequence_night('ac'))
-    tasks.append(_get_sequence_night('de'))
-    tasks.append(_get_sequence_night('db'))
-    tasks.append(('and', _get_sequence_night('ae'), _get_sequence_night('fe')))
-    tasks.append(('and', _get_sequence_night('dc'), _get_sequence_night('abc')))
-    tasks.append(('and', _get_sequence_night('fb'), _get_sequence_night('acb')))
-    tasks.append(('and', _get_sequence_night('fc'), _get_sequence_night('ac')))
-    tasks.append(('and', _get_sequence_night('aeg'), _get_sequence_night('feg')))
-    tasks.append(('and', _get_sequence_night('fbh'), _get_sequence_night('acbh')))
+    tasks = [
+        _get_sequence_night('ab'),
+        _get_sequence_night('ac'),
+        _get_sequence_night('de'),
+        _get_sequence_night('db'),
+        ('and', _get_sequence_night('ae'), _get_sequence_night('fe')),
+        ('and', _get_sequence_night('dc'), _get_sequence_night('abc')),
+        ('and', _get_sequence_night('fb'), _get_sequence_night('acb')),
+        ('and', _get_sequence_night('fc'), _get_sequence_night('ac')),
+        ('and', _get_sequence_night('aeg'), _get_sequence_night('feg')),
+        ('and', _get_sequence_night('fbh'), _get_sequence_night('acbh'))
+    ]
     return tasks
 
 
@@ -93,8 +96,8 @@ def _get_sequence_night(seq):
 
 
 ######### The following methods are for transfer learning #########
-def get_training_tasks():
-    """ Training tasks for the transfer tasks. """
+def get_sequence_training_tasks():
+    """ Sequence training tasks for the transfer tasks. """
     tasks = [
         _get_sequence('ab'),
         _get_sequence('ac'),
@@ -106,6 +109,23 @@ def get_training_tasks():
         _get_sequence('acfc'),
         _get_sequence('faeg'),
         _get_sequence('acfbh')
+    ]
+    return tasks
+
+
+def get_interleaving_training_tasks():
+    """ Interleaving training tasks for the transfer tasks. """
+    tasks = [
+        _get_sequence('ab'),
+        _get_sequence('ac'),
+        _get_sequence('de'),
+        _get_sequence('db'),
+        ('and', _get_sequence('ae'), _get_sequence('fe')),
+        ('and', _get_sequence('dc'), _get_sequence('abc')),
+        ('and', _get_sequence('fb'), _get_sequence('acb')),
+        ('and', _get_sequence('fc'), _get_sequence('ac')),
+        ('and', _get_sequence('aeg'), _get_sequence('feg')),
+        ('and', _get_sequence('fbh'), _get_sequence('acbh'))
     ]
     return tasks
 

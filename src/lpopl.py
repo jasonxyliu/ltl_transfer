@@ -188,7 +188,7 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
     # Showing results
     tester.show_results()
     tester.show_transfer_results()
-    print("Time:", "%0.2f"%((time.time() - time_init)/60), "mins")
+    print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")
 
 
 def run_rollouts(tester, policy_bank):
@@ -224,17 +224,17 @@ def load_classifier_results(tester, policy_bank):
             policy.add_initiation_set_classifier(edge, classifier)
 
 
-def relabel(tester, saver, curriculum, policy_bank):
+def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
     """
-    Rollout every state-centric option's policy to try to satisfy each outgoing edge
-    to learn an initiation set classifier for each relabeled transition-centric option
+    To construct a relabeled transition-centric option,
+    rollout every state-centric option's policy to try to satisfy each outgoing edge
+    to learn an initiation set classifier for that edge
     """
-    n_rollouts = 100
     policy2loc2edge2hits = {"n_rollouts": n_rollouts}
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
-        if policy_bank.get_id(ltl) != 3:
-            continue
-        print(ltl_idx, ": ltl (sub)task: ", ltl)
+        # if policy_bank.get_id(ltl) != 9:
+        #     continue
+        print(ltl_idx, ": ltl (sub)task: ", ltl, policy_bank.get_id(ltl))
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
         print("edges: ", policy.get_edge_labels())
         loc2edge2hits = learn_naive_classifier(tester, policy_bank, ltl, n_rollouts, curriculum.num_steps)
@@ -258,6 +258,9 @@ def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=1
     task_aux = Game(tester.get_task_params(ltl))
     for y in range(task_aux.map_height):
         for x in range(task_aux.map_width):
+            print("init_loc: ", (x, y))
+            # if (x, y) != (10, 10):
+            #     continue
             if task_aux.is_valid_agent_loc(x, y):
                 edge2hits = rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)
                 loc2edge2hits[str((x, y))] = edge2hits
@@ -277,25 +280,26 @@ def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=1
 
 def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
-    Rollout trained policy from init_loc to see which outgoing edge it satisfies
+    Rollout trained policy from init_loc to see which outgoing edges it satisfies
     """
-    print("init_loc: ", init_loc)
     edge2hits = defaultdict(int)
     task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-    prev_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
-    # print(prev_state)
+    initial_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
     for rollout in range(n_rollouts):
+        # print("init_loc: ", init_loc)
+        # print("initial_state: ", initial_state)
         # print("rollout:", rollout)
 
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
-        # print(task.dfa.state)
-        # print(policy_bank.policies[policy_bank.get_id(ltl)].f_task)
+        # print("cur_state: ", task.dfa.state)
+        # print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
         traversed_edge = None
-        if prev_state != task.dfa.state:  # if agent starts at a given loc that triggers a desired transition
-            traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
+        if initial_state != task.dfa.state:  # if agent starts at a given loc that triggers a desired transition
+            traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
+            # print("before while: ", traversed_edge)
         depth = 0
-        while not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
+        while not traversed_edge and not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
             s1 = task.get_features()
             action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task.get_features())))))
             prev_state = task.dfa.state
@@ -303,10 +307,12 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
             # print(prev_state, action, task.dfa.state)
             if prev_state != task.dfa.state:
                 traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
-                # print(traversed_edge)
+                # print("in while: ", traversed_edge)
                 break
             depth += 1
         if traversed_edge:
+            if traversed_edge not in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
+                print("ERROR: traversed edge not an outgoing edge: ", traversed_edge)
             edge2hits[traversed_edge] += 1
     print(edge2hits)
     return edge2hits

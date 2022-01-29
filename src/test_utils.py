@@ -50,7 +50,11 @@ class Tester:
                 self.consider_night = True
             if tasks_id == 3:
                 # self.tasks = tasks.get_training_tasks()
-                self.tasks = tasks.get_training_tasks()
+                self.tasks = tasks.get_sequence_training_tasks()
+                self.transfer_tasks = tasks.get_transfer_tasks()
+            if tasks_id == 4:
+                # self.tasks = tasks.get_training_tasks()
+                self.tasks = tasks.get_interleaving_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
             optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
@@ -94,13 +98,13 @@ class Tester:
             task_params = self.get_task_params(t)
             reward = test_function(sess, task_params, self.learning_params, self.testing_params, *test_args)
             if step not in self.results[t]:
-                self.results[t][step] = []
+                self.results[t][step] = []  # store reward per run for a total of 'num_times' runs
             if len(self.steps) == 0 or self.steps[-1] < step:
                 self.steps.append(step)
             self.results[t][step].append(reward)
 
     def show_results(self):
-        # Computing average perfomance per task
+        # Computing average performance per task
         average_reward = {}
         for t in self.tasks:
             for s in self.steps:
@@ -109,7 +113,7 @@ class Tester:
                 if s not in average_reward: average_reward[s] = a
                 else: average_reward[s] = a + average_reward[s]
 
-        # Showing average perfomance across all the task
+        # Showing average performance across all the task
         print("\nAverage discounted reward on this map --------------------")
         print("\tsteps\tP25\tP50\tP75")
         num_tasks = float(len(self.tasks))
@@ -122,7 +126,7 @@ class Tester:
         print()
 
     def export_results(self):
-        # Showing perfomance per task
+        # Showing performance per task
         average_reward = {}
         for t in self.tasks:
             for s in self.steps:
@@ -131,7 +135,7 @@ class Tester:
                 if s not in average_reward: average_reward[s] = a
                 else: average_reward[s] = a + average_reward[s]
 
-        # Computing average perfomance across all the task\
+        # Computing average performance across all the task
         ret = []
         num_tasks = float(len(self.tasks))
         for s in self.steps:
@@ -147,7 +151,7 @@ class Saver:
         exp_dir = os.path.join("../tmp/", tester.experiment)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
-        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # if tasks_id=3, results for training tasks
+        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, for training tasks of transfer
         self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")
 
         self.policy_dpath = os.path.join(exp_dir, "policy_model")
@@ -207,8 +211,7 @@ class Saver:
 
 
 class Loader:
-    def __init__(self, tester, saver):
-        self.tester = tester
+    def __init__(self, saver):
         self.saver = saver
 
     def load_policy_bank(self, run_idx, sess):
@@ -244,9 +247,10 @@ def export_results(algorithm, task, task_id):
         if not os.path.exists(folders_out): os.makedirs(folders_out)
         file_out = "%s/%s.txt" % (folders_out, algorithm)
         f_out = open(file_out, "w")
-        for j in range(len(normalized_rewards)):
-            p25, p50, p75 = get_precentiles_str(normalized_rewards[j][1])
-            f_out.write(str(normalized_rewards[j][0]) + "\t" + p25 + "\t" + p50 + "\t" + p75 + "\n")
+        for step in range(len(normalized_rewards)):
+            print(normalized_rewards[step][0], normalized_rewards[step][1])
+            p25, p50, p75 = get_precentiles_str(normalized_rewards[step][1])
+            f_out.write(str(normalized_rewards[step][0]) + "\t" + p25 + "\t" + p50 + "\t" + p75 + "\n")
         f_out.close()
 
 
