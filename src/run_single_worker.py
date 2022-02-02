@@ -2,71 +2,136 @@ import os
 import dill
 import argparse
 from collections import defaultdict
+import tensorflow as tf
+from test_utils import Saver, Loader
 from game import *
+from policy_bank import *
 
 
-def rollout(task_aux, policy, init_state, n_rollouts, max_depth):
+def initialize_policy_bank(sess, task_aux, tester):
+    num_actions  = len(task_aux.get_actions())
+    num_features = len(task_aux.get_features())
+    policy_bank = PolicyBank(sess, num_actions, num_features, tester.learning_params)
+    for f_task in tester.get_LTL_tasks():
+        dfa = DFA(f_task)
+        for ltl in dfa.ltl2state:
+            # print("ltl in parallel init policy bank: ", ltl)
+            # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
+            policy_bank.add_LTL_policy(ltl, f_task, dfa)
+    policy_bank.reconnect()  # -> creating the connections between the neural nets
+
+    print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
+    return policy_bank
+
+
+def single_worker_rollouts(classifier_dpath, run_idx, policy_id, state_id, n_rollouts=100, max_depth=100, alg_name="lpopl"):
     """
-    Rollout trained policy from init_state to see which outgoing edge it satisfies
+    Rollout a trained state-centric policy from init_state to see which outgoing edge it satisfies
+    """
+    # load tester
+    with open(os.path.join(classifier_dpath, "tester.pkl"), "rb") as file:
+        tester = dill.load(file)
+    saver = Saver(alg_name, tester)
+    loader = Loader(saver)
+    # print("policy_dpath in worker: ", loader.saver.policy_dpath)
+
+    # load init_state
+    with open(os.path.join(classifier_dpath, "states.pkl"), "rb") as file:
+        id2state = dill.load(file)
+    init_state = id2state[state_id]
+    print("init_state: ", init_state, state_id)
+
+    # create task_aux
+    task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
+
+    with tf.Session() as sess:
+        # load policy_bank
+        print("loading policy bank")
+        policy_bank = initialize_policy_bank(sess, task_aux, tester)
+        loader.load_policy_bank(run_idx, sess)
+
+        id2policy = {pid: policy for policy, pid in policy_bank.policy2id.items()}
+        ltl = id2policy[policy_id]
+        print("policy for ltl: ", ltl)
+
+        # run rollouts
+        edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
+    # save rollout results
+    saver.save_rollout_results_parallel(run_idx, ltl, state_id, edge2hits)
+
+
+def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
+    """
+    Rollout trained policy from init_loc to see which outgoing edges it satisfies
     """
     edge2hits = defaultdict(int)
-    for _ in range(n_rollouts):
-        depth = 0
+    task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
+    initial_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
+    for rollout in range(n_rollouts):
+        print("init_loc: ", init_loc)
+        print("initial_state: ", initial_state)
+        print("rollout:", rollout)
+
+        task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
+        print("cur_state: ", task.dfa.state)
+        print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
+
         traversed_edge = None
-        task_aux.set_agent_loc(init_state)
-        while depth <= max_depth:
-            s1 = task_aux.get_features()
-            action = Actions(policy.sess.run(policy.get_best_action(), {policy.s1: s1}))
-            prev_state = task_aux.dfa.state
-            reward = task_aux.execute_action(action)
-            if reward == 1:
-                traversed_edge = task_aux.dfa.nodelist[prev_state][task_aux.dfa.state]
-                break
-            if task_aux.ltl_game_over or task_aux.env_game_over:
+        if initial_state != task.dfa.state:  # if agent starts at a given loc that triggers a desired transition
+            traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
+            print("before while: ", traversed_edge)
+        depth = 0
+        while not traversed_edge and not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
+            s1 = task.get_features()
+            action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task.get_features())))))
+            prev_state = task.dfa.state
+            _ = task.execute_action(action)
+            print(prev_state, action, task.dfa.state)
+            if prev_state != task.dfa.state:
+                traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
+                print("in while: ", traversed_edge)
                 break
             depth += 1
         if traversed_edge:
+            if traversed_edge not in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
+                print("ERROR: traversed edge not an outgoing edge: ", traversed_edge)
             edge2hits[traversed_edge] += 1
-    max_edge = None
-    if edge2hits:
-        max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
-    return max_edge
-
-
-def load_policy_bank(policy_id):
-    pass
+    print(edge2hits)
+    return edge2hits
 
 
 if __name__ == "__main__":
+    algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
+    tasks = ["sequence", "interleaving", "safety", "transfer_sequence", "transfer_interleaving"]
+
     parser = argparse.ArgumentParser(prog="run_single_rollout", description='Rollout a trained policy from a given state.')
-    parser.add_argument('--map_id', default=0, type=int,
+    parser.add_argument('--algorithm', default='lpopl', type=str,
+                        help='This parameter indicated which RL algorithm to use. The options are: ' + str(algorithms))
+    parser.add_argument('--tasks', default='transfer_interleaving', type=str,
+                        help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
+    parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated the ID of map to run rollouts')
-    parser.add_argument('--policy_id', default=0, type=int,
+    parser.add_argument('--run_idx', default=0, type=int,
+                        help='This parameter indicated the ID of the training run when models are saved')
+    parser.add_argument('--policy_id', default=9, type=int,
                         help='This parameter indicated the ID of trained policy to rollout')
-    parser.add_argument('--init_state_id', default=0, type=int,
+    parser.add_argument('--state_id', default=180, type=int,
                         help='This parameter indicated the ID of state in which rollouts start')
     parser.add_argument('--n_rollouts', default=100, type=int,
                         help='This parameter indicated the number of rollouts')
     parser.add_argument('--max_depth', default=100, type=int,
                         help='This parameter indicated maximum depth of a rollout')
     args = parser.parse_args()
+    if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
+    if args.tasks not in tasks: raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
+    if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    classifier_dname = os.path.join("results", "classifier", args.map_id)
+    # Running the experiment
+    alg      = args.algorithm
+    tasks_id = tasks.index(args.tasks)
+    map_id   = args.map
 
-    with open(os.path.join(classifier_dname, "tester.pkl"), "rb") as file:
-        tester = dill.load(file)
-    task_aux = Game(tester.get_task_params(tester.get_transfer_tasks()[0]))
+    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (tasks_id, map_id), "classifier")
 
-    policy = load_policy(os.path.join(classifier_dname, args.policy_id))
-
-    with open(os.path.join(classifier_dname, "states.pkl"), "rb") as file:
-        id2state = dill.load(file)
-    init_state = id2state[args.init_state_id]
-
-    max_edge = rollout(task_aux, policy, init_state, args.n_rollouts, args.max_depth)
-
-    with open(os.path.join(classifier_dname, "results.txt"), "a") as file:
-        line = " "
-        if max_edge:
-            line = "%d %d %s\n" % (args.policy_id, args.init_state_id, max_edge)
-        file.write(line)
+    single_worker_rollouts(classifier_dpath, args.run_idx, args.policy_id, args.state_id,
+                           args.n_rollouts, args.max_depth, args.algorithm)

@@ -10,6 +10,7 @@ from schedules import LinearSchedule
 from replay_buffer import ReplayBuffer
 from dfa import *
 from game import *
+from run_single_worker import single_worker_rollouts
 
 
 def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print):
@@ -121,12 +122,13 @@ def _test_LPOPL(sess, task_params, learning_params, testing_params, policy_bank,
 
 def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
-    num_features = len(task_aux.get_features())
     num_actions  = len(task_aux.get_actions())
+    num_features = len(task_aux.get_features())
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
     for f_task in tester.get_LTL_tasks():
         dfa = DFA(f_task)
         for ltl in dfa.ltl2state:
+            # print("ltl in init policy bank: ", ltl)
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
@@ -154,7 +156,9 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
 
         if load_trained:
+            print("loading policy bank in lpopl")
             loader.load_policy_bank(t, sess)
+            # print("policy_dpath in lpopl: ", loader.saver.policy_dpath)
             task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
             num_features = len(task_aux.get_features())
             tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
@@ -169,17 +173,13 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
                 task_params = tester.get_task_params(task)
                 _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
             saver.save_policy_bank(policy_bank, t)
-
             # Backing up the results
             saver.save_results()
             saver.save_transfer_results()
 
         # Relabel state-centric options to transition-centric options
-        relabel(tester, saver, curriculum, policy_bank)
-
-        # saver.save_classifier_data(policy_bank, curriculum, t)
-        # run_rollouts(tester, policy_bank)
-        # load_classifier_results(tester, policy_bank, curriculum)
+        # relabel(tester, saver, curriculum, policy_bank)
+        relabel_parallel(tester, saver, curriculum, t, policy_bank)
         # run_transfer_experiments(tester, policy_bank)
 
         tf.reset_default_graph()
@@ -191,22 +191,33 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
     print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")
 
 
-def run_rollouts(tester, policy_bank):
-    # run single rollout in parallel
-    for ltl in policy_bank.get_LTL_policies():
-        print(ltl)
-        policy = policy_bank.policies[policy_bank.get_id(ltl)]
-        print(policy.get_edge_labels())
+def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
+    task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
+    state2id = saver.save_training_data(task_aux)
+    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+        ltl_id = policy_bank.get_id(ltl)
+        print(ltl_idx, ": ltl (sub)task: ", ltl, ltl_id)
+        for y in range(task_aux.map_width):
+            for x in range(task_aux.map_height):
+                if (x, y) != (10, 10):
+                    continue
+                single_worker_rollouts(saver.classifier_dpath, t, ltl, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+    # process_rollout_results(tester, saver, policy_bank)
 
 
-def load_classifier_results(tester, policy_bank):
+def process_rollout_results(tester, saver, policy_bank):
     """
-    Aggregate results from learning classifiers in parallel
+    Aggregate results saved locally by parallel workers for learning classifiers
     """
     results_fpath = os.path.join("results", "classifier", tester.map_id, "results.txt")
 
-    with open(os.path.join("results", "classifier", "states.pkl"), "rb") as file:
+    # load state representation
+    with open(os.path.join(saver.classifier_dpath, "states.pkl"), "rb") as file:
         id2state = dill.load(file)
+
+    # load rollout result of parallel each worker
+    with open(os.path.join(saver.classifier_dpath, "rollout_results.pkl"), "rb") as file:
+        rollout_results = dill.load(file)
 
     with open(results_fpath, "r") as file:
         lines = file.readlines()
@@ -232,12 +243,13 @@ def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
     """
     policy2loc2edge2hits = {"n_rollouts": n_rollouts}
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
-        # if policy_bank.get_id(ltl) != 9:
-        #     continue
-        print(ltl_idx, ": ltl (sub)task: ", ltl, policy_bank.get_id(ltl))
+        policy_id = policy_bank.get_id(ltl)
+        if policy_id != 9:
+            continue
+        print(ltl_idx, ". ltl (sub)task: ", ltl, policy_id)
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
-        print("edges: ", policy.get_edge_labels())
-        loc2edge2hits = learn_naive_classifier(tester, policy_bank, ltl, n_rollouts, curriculum.num_steps)
+        print("outgoing edges: ", policy.get_edge_labels())
+        loc2edge2hits = learn_naive_classifier(tester, policy_bank, policy_id, n_rollouts, curriculum.num_steps)
         policy2loc2edge2hits[str(ltl)] = loc2edge2hits
         print("\n")
     print(policy2loc2edge2hits)
@@ -256,12 +268,12 @@ def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=1
     loc2edge2hits = {}
     edge2locs = defaultdict(list)  # classifier for every edge
     task_aux = Game(tester.get_task_params(ltl))
-    for y in range(task_aux.map_height):
-        for x in range(task_aux.map_width):
-            print("init_loc: ", (x, y))
+    for y in range(task_aux.map_width):
+        for x in range(task_aux.map_height):
             # if (x, y) != (10, 10):
             #     continue
             if task_aux.is_valid_agent_loc(x, y):
+                print("init_loc: ", (x, y))
                 edge2hits = rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)
                 loc2edge2hits[str((x, y))] = edge2hits
                 max_edge = None

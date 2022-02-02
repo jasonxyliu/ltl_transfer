@@ -188,7 +188,7 @@ class Saver:
         with open(os.path.join(self.classifier_dpath, "rollout_results.pkl"), "wb") as file:
             dill.dump(policy2loc2edge2hits, file)
 
-    def save_classifier_data(self, policy_bank, curriculum, run_idx):
+    def save_training_data(self, task_aux):
         """
         Save all data needed to learn classifiers in parallel
         """
@@ -197,17 +197,30 @@ class Saver:
             dill.dump(self.tester, file)
 
         # save valid agent locations from which rollouts start
-        task_aux = Game(self.tester.get_task_params(curriculum.get_current_task()))
         id2state = {}
+        state2id = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
                 if task_aux.is_valid_agent_loc(x, y):
                     id2state[len(id2state)] = (x, y)
+                    state2id[(x, y)] = len(state2id)
         with open(os.path.join(self.classifier_dpath, "states.pkl"), "wb") as file:
             dill.dump(id2state, file)
+        return state2id
 
-        # save policies
-        self.save_policy_bank(policy_bank, run_idx)
+    def save_rollout_results_parallel(self, run_idx, ltl, state_id, edge2hits):
+        """
+        Save results of rolling out trained state-centric policies that are used to compute initiation set classifiers
+        """
+        rollout_results = {
+            "run_idx": run_idx,
+            "ltl": ltl,
+            "state_id": state_id,
+            "edge2hits": edge2hits
+        }
+        save_json(os.path.join(self.classifier_dpath, "rollout_results_parallel.json"), rollout_results)
+        with open(os.path.join(self.classifier_dpath, "rollout_results_parallel.pkl"), "wb") as file:
+            dill.dump(rollout_results, file)
 
 
 class Loader:
@@ -215,9 +228,8 @@ class Loader:
         self.saver = saver
 
     def load_policy_bank(self, run_idx, sess):
-        run_dpath = os.path.join(self.saver.policy_dpath, "run_%d" % run_idx)
-        # policy_bank_prefix = os.path.join(run_dpath, "policy_bank")
-        # saver = tf.train.import_meta_graph(policy_bank_prefix+".meta")
+        run_dpath = os.path.join(self.saver.policy_dpath, "run_%d" % run_idx)  # where all tf model are saved
+        # saver = tf.train.import_meta_graph(run_dpath+"policy_bank.meta")
         saver = tf.train.Saver()
         saver.restore(sess, tf.train.latest_checkpoint(run_dpath))
 
@@ -243,7 +255,7 @@ def export_results(algorithm, task, task_id):
                 for j in range(len(normalized_rewards)):
                     normalized_rewards[j][1] = np.append(normalized_rewards[j][1], ret[j][1])
         # Saving the results
-        folders_out = "../results/%s/%s" % (task, map_type)
+        folders_out = "../results_tmp/%s/%s" % (task, map_type)
         if not os.path.exists(folders_out): os.makedirs(folders_out)
         file_out = "%s/%s.txt" % (folders_out, algorithm)
         f_out = open(file_out, "w")
