@@ -37,6 +37,7 @@ class Tester:
             # setting the test attributes
             self.learning_params = learning_params
             self.testing_params = testing_params
+            self.tasks_id = tasks_id
             self.map_id = map_id
             self.experiment = "task_%d/map_%d" % (tasks_id, map_id)
             self.map     = '../experiments/maps/map_%d.txt' % map_id
@@ -180,12 +181,12 @@ class Saver:
         self.tf_saver.save(policy_bank.sess, policy_bank_prefix)
         # policy_bank.save_policy_models(policy_bank_dname)
 
-    def save_rollout_results(self, policy2loc2edge2hits):
+    def save_rollout_results(self, fname, policy2loc2edge2hits):
         """
         Save results of rolling out trained state-centric policies that are used to compute initiation set classifiers
         """
-        save_json(os.path.join(self.classifier_dpath, "rollout_results.json"), policy2loc2edge2hits)
-        with open(os.path.join(self.classifier_dpath, "rollout_results.pkl"), "wb") as file:
+        save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits)
+        with open(os.path.join(self.classifier_dpath, fname+".pkl"), "wb") as file:
             dill.dump(policy2loc2edge2hits, file)
 
     def save_training_data(self, task_aux):
@@ -208,18 +209,26 @@ class Saver:
             dill.dump(id2state, file)
         return state2id
 
-    def save_rollout_results_parallel(self, run_idx, ltl, state_id, edge2hits):
+    def create_worker_directory(self, ltl_id, state_id):
+        """
+        Folder to store results from a single worker, specified by ltl_id and state_id
+        """
+        worker_dpath = os.path.join(self.classifier_dpath, "%d_%d" % (ltl_id, state_id))
+        os.makedirs(worker_dpath, exist_ok=True)
+
+    def save_rollout_results_parallel(self, run_idx, ltl_id, state_id, edge2hits):
         """
         Save results of rolling out trained state-centric policies that are used to compute initiation set classifiers
         """
         rollout_results = {
             "run_idx": run_idx,
-            "ltl": ltl,
+            "ltl": ltl_id,
             "state_id": state_id,
             "edge2hits": edge2hits
         }
-        save_json(os.path.join(self.classifier_dpath, "rollout_results_parallel.json"), rollout_results)
-        with open(os.path.join(self.classifier_dpath, "rollout_results_parallel.pkl"), "wb") as file:
+        worker_dpath = os.path.join(self.classifier_dpath, "%d_%d" % (ltl_id, state_id))
+        save_json(os.path.join(worker_dpath, "rollout_results_parallel.json"), rollout_results)
+        with open(os.path.join(worker_dpath, "rollout_results_parallel.pkl"), "wb") as file:
             dill.dump(rollout_results, file)
 
 

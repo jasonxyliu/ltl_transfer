@@ -24,7 +24,7 @@ def initialize_policy_bank(sess, task_aux, tester):
     return policy_bank
 
 
-def single_worker_rollouts(classifier_dpath, run_idx, policy_id, state_id, n_rollouts=100, max_depth=100, alg_name="lpopl"):
+def single_worker_rollouts(classifier_dpath, run_idx, ltl_id, state_id, n_rollouts, max_depth, alg_name):
     """
     Rollout a trained state-centric policy from init_state to see which outgoing edge it satisfies
     """
@@ -51,13 +51,13 @@ def single_worker_rollouts(classifier_dpath, run_idx, policy_id, state_id, n_rol
         loader.load_policy_bank(run_idx, sess)
 
         id2policy = {pid: policy for policy, pid in policy_bank.policy2id.items()}
-        ltl = id2policy[policy_id]
+        ltl = id2policy[ltl_id]
         print("policy for ltl: ", ltl)
 
         # run rollouts
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
     # save rollout results
-    saver.save_rollout_results_parallel(run_idx, ltl, state_id, edge2hits)
+    saver.save_rollout_results_parallel(run_idx, ltl_id, state_id, edge2hits)
 
 
 def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
@@ -101,19 +101,25 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
 
 
 if __name__ == "__main__":
-    algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
-    tasks = ["sequence", "interleaving", "safety", "transfer_sequence", "transfer_interleaving"]
+    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
+    id2tasks = {
+        0: "sequence",
+        1: "interleaving",
+        2: "safety",
+        3: "transfer_sequence",
+        4: "transfer_interleaving"
+    }  # for reference
 
     parser = argparse.ArgumentParser(prog="run_single_rollout", description='Rollout a trained policy from a given state.')
-    parser.add_argument('--algorithm', default='lpopl', type=str,
-                        help='This parameter indicated which RL algorithm to use. The options are: ' + str(algorithms))
-    parser.add_argument('--tasks', default='transfer_interleaving', type=str,
-                        help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
-    parser.add_argument('--map', default=0, type=int,
+    parser.add_argument('--algo', default='lpopl', type=str,
+                        help='This parameter indicated which RL algorithm to use. The options are: ' + str(algos))
+    parser.add_argument('--tasks_id', default=4, type=int,
+                        help='This parameter indicated which tasks to solve. The options are: ' + str(id2tasks.keys()))
+    parser.add_argument('--map_id', default=0, type=int,
                         help='This parameter indicated the ID of map to run rollouts')
     parser.add_argument('--run_idx', default=0, type=int,
                         help='This parameter indicated the ID of the training run when models are saved')
-    parser.add_argument('--policy_id', default=9, type=int,
+    parser.add_argument('--ltl_id', default=9, type=int,
                         help='This parameter indicated the ID of trained policy to rollout')
     parser.add_argument('--state_id', default=180, type=int,
                         help='This parameter indicated the ID of state in which rollouts start')
@@ -122,16 +128,11 @@ if __name__ == "__main__":
     parser.add_argument('--max_depth', default=100, type=int,
                         help='This parameter indicated maximum depth of a rollout')
     args = parser.parse_args()
-    if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
-    if args.tasks not in tasks: raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
-    if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
+    if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
+    if args.tasks_id not in id2tasks: raise NotImplementedError("Tasks " + str(id2tasks[args.tasks_id]) + " hasn't been defined yet")
+    if not(-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    # Running the experiment
-    alg      = args.algorithm
-    tasks_id = tasks.index(args.tasks)
-    map_id   = args.map
+    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
 
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (tasks_id, map_id), "classifier")
-
-    single_worker_rollouts(classifier_dpath, args.run_idx, args.policy_id, args.state_id,
-                           args.n_rollouts, args.max_depth, args.algorithm)
+    single_worker_rollouts(classifier_dpath, args.run_idx, args.ltl_id, args.state_id,
+                           args.n_rollouts, args.max_depth, args.algo)

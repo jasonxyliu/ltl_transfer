@@ -1,7 +1,7 @@
 import os
 import random, time, shutil
 import dill
-from multiprocessing import pool
+from multiprocessing import Pool
 from collections import defaultdict
 import numpy as np
 import tensorflow as tf
@@ -192,47 +192,58 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
 
 def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
+    """
+    A worker runs n_rollouts from a specific location for a specific LTL
+    """
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
+    worker_commands = []
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
+        if ltl_id != 19:
+            continue
         print(ltl_idx, ": ltl (sub)task: ", ltl, ltl_id)
         for y in range(task_aux.map_width):
             for x in range(task_aux.map_height):
                 if (x, y) != (10, 10):
                     continue
-                single_worker_rollouts(saver.classifier_dpath, t, ltl, state2id[(x, y)], n_rollouts, curriculum.num_steps)
-    # process_rollout_results(tester, saver, policy_bank)
+                # create directory to store results from a single worker
+                saver.create_worker_directory(ltl_id, state2id[(x, y)])
+                # create command to run a single worker
+                args = "--algo=%s --tasks_id=%d --map_id=%d --run_idx=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
+                    "lpopl", tester.tasks_id, tester.map_id, t, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+                worker_command = "python3 run_single_worker.py %s" % args
+                worker_commands.append(worker_command)
+
+    with Pool(processes=len(worker_commands)) as pool:
+        retvals = pool.map(os.system, worker_commands)
+    print("exit codes: ", retvals)
+    for retval, worker_command in zip(retvals, worker_commands):
+        while retval:  # os.system exit code: 0 means correct execution
+            retval = os.system(worker_command)
+
+    process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts)
 
 
-def process_rollout_results(tester, saver, policy_bank):
+def process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts):
     """
     Aggregate results saved locally by parallel workers for learning classifiers
     """
-    results_fpath = os.path.join("results", "classifier", tester.map_id, "results.txt")
-
-    # load state representation
-    with open(os.path.join(saver.classifier_dpath, "states.pkl"), "rb") as file:
-        id2state = dill.load(file)
-
-    # load rollout result of parallel each worker
-    with open(os.path.join(saver.classifier_dpath, "rollout_results.pkl"), "rb") as file:
-        rollout_results = dill.load(file)
-
-    with open(results_fpath, "r") as file:
-        lines = file.readlines()
-
-    policy2edge2locs = defaultdict(lambda: defaultdict(list))
-    for line in lines:
-        if line:
-            policy_id, state_id, edge = line.strip().split(" ")
-            policy = policy_bank.policies[int(policy_id)]
-            loc = id2state[int(state_id)]
-            policy2edge2locs[policy][edge].append(loc)
-
-    for policy, edge2locs in policy2edge2locs.items():
-        for edge, classifier in edge2locs.items():
-            policy.add_initiation_set_classifier(edge, classifier)
+    policy2loc2edge2hits = {"n_rollouts": n_rollouts}
+    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+        ltl_id = policy_bank.get_id(ltl)
+        if ltl_id != 19:
+            continue
+        policy2loc2edge2hits[str(ltl)] = {}
+        for y in range(task_aux.map_width):
+            for x in range(task_aux.map_height):
+                if (x, y) != (10, 10):
+                    continue
+                worker_dpath = os.path.join(saver.classifier_dpath, "%d_%d" % (ltl_id, state2id[(x, y)]))
+                with open(os.path.join(worker_dpath, "rollout_results_parallel.pkl"), "rb") as file:
+                    rollout_results = dill.load(file)
+                policy2loc2edge2hits[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
+    saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits)
 
 
 def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
@@ -243,17 +254,17 @@ def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
     """
     policy2loc2edge2hits = {"n_rollouts": n_rollouts}
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
-        policy_id = policy_bank.get_id(ltl)
-        if policy_id != 9:
+        ltl_id = policy_bank.get_id(ltl)
+        if ltl_id != 9:
             continue
-        print(ltl_idx, ". ltl (sub)task: ", ltl, policy_id)
+        print(ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
         policy = policy_bank.policies[policy_bank.get_id(ltl)]
         print("outgoing edges: ", policy.get_edge_labels())
-        loc2edge2hits = learn_naive_classifier(tester, policy_bank, policy_id, n_rollouts, curriculum.num_steps)
+        loc2edge2hits = learn_naive_classifier(tester, policy_bank, ltl_id, n_rollouts, curriculum.num_steps)
         policy2loc2edge2hits[str(ltl)] = loc2edge2hits
         print("\n")
     print(policy2loc2edge2hits)
-    saver.save_rollout_results(policy2loc2edge2hits)
+    saver.save_rollout_results("rollout_results", policy2loc2edge2hits)
 
 
 def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=100):
