@@ -202,27 +202,28 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
         ltl_id = policy_bank.get_id(ltl)
         if ltl_id != 19:
             continue
-        print(ltl_idx, ": ltl (sub)task: ", ltl, ltl_id)
-        for y in range(task_aux.map_width):
-            for x in range(task_aux.map_height):
-                if (x, y) != (10, 10):
-                    continue
-                # create directory to store results from a single worker
-                saver.create_worker_directory(ltl_id, state2id[(x, y)])
-                # create command to run a single worker
-                args = "--algo=%s --tasks_id=%d --map_id=%d --run_idx=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
-                    "lpopl", tester.tasks_id, tester.map_id, t, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
-                worker_command = "python3 run_single_worker.py %s" % args
-                worker_commands.append(worker_command)
+        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        for x in range(task_aux.map_width):
+            for y in range(task_aux.map_height):
+                # if (x, y) != (10, 10):
+                #     continue
+                if task_aux.is_valid_agent_loc(x, y):
+                    # create directory to store results from a single worker
+                    saver.create_worker_directory(ltl_id, state2id[(x, y)])
+                    # create command to run a single worker
+                    args = "--algo=%s --tasks_id=%d --map_id=%d --run_idx=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
+                        saver.alg_name, tester.tasks_id, tester.map_id, t, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+                    worker_commands.append("python3 run_single_worker.py %s" % args)
 
-    with Pool(processes=len(worker_commands)) as pool:
-        retvals = pool.map(os.system, worker_commands)
-    print("exit codes: ", retvals)
-    for retval, worker_command in zip(retvals, worker_commands):
-        while retval:  # os.system exit code: 0 means correct execution
-            retval = os.system(worker_command)
-
-    process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts)
+    # with Pool(processes=len(worker_commands)) as pool:
+    #     retvals = pool.map(os.system, worker_commands)
+    # print("exit codes: ", retvals)
+    # for retval, worker_command in zip(retvals, worker_commands):
+    #     while retval:  # os.system exit code: 0 means correct execution
+    #         print("Command failed: ", retval, worker_command)
+    #         retval = os.system(worker_command)
+    #
+    # process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts)
 
 
 def process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts):
@@ -235,14 +236,15 @@ def process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts):
         if ltl_id != 19:
             continue
         policy2loc2edge2hits[str(ltl)] = {}
-        for y in range(task_aux.map_width):
-            for x in range(task_aux.map_height):
-                if (x, y) != (10, 10):
-                    continue
-                worker_dpath = os.path.join(saver.classifier_dpath, "%d_%d" % (ltl_id, state2id[(x, y)]))
-                with open(os.path.join(worker_dpath, "rollout_results_parallel.pkl"), "rb") as file:
-                    rollout_results = dill.load(file)
-                policy2loc2edge2hits[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
+        for x in range(task_aux.map_width):
+            for y in range(task_aux.map_height):
+                # if (x, y) != (10, 10):
+                #     continue
+                if task_aux.is_valid_agent_loc(x, y):
+                    worker_dpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d" % (ltl_id, state2id[(x, y)]))
+                    with open(os.path.join(worker_dpath, "rollout_results_parallel.pkl"), "rb") as file:
+                        rollout_results = dill.load(file)
+                    policy2loc2edge2hits[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
     saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits)
 
 
@@ -270,7 +272,7 @@ def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
 def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=100):
     """
     After n_rollouts from a loc, this loc is in the initiation set of the option
-    whose policy satisfies the edge subtask more times than other option's policies
+    whose policy satisfies the edge subtask the most times
     The initiation sets of all options are non-overlapping.
     """
     # edge2hits = rollout(tester, policy_bank, ltl, (13, 10), n_rollouts, max_depth)
@@ -279,8 +281,8 @@ def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=1
     loc2edge2hits = {}
     edge2locs = defaultdict(list)  # classifier for every edge
     task_aux = Game(tester.get_task_params(ltl))
-    for y in range(task_aux.map_width):
-        for x in range(task_aux.map_height):
+    for x in range(task_aux.map_width):
+        for y in range(task_aux.map_height):
             # if (x, y) != (10, 10):
             #     continue
             if task_aux.is_valid_agent_loc(x, y):

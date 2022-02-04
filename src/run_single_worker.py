@@ -57,7 +57,7 @@ def single_worker_rollouts(classifier_dpath, run_idx, ltl_id, state_id, n_rollou
         # run rollouts
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
     # save rollout results
-    saver.save_rollout_results_parallel(run_idx, ltl_id, state_id, edge2hits)
+    saver.save_worker_results(run_idx, ltl_id, state_id, edge2hits)
 
 
 def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):

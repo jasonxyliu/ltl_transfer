@@ -147,13 +147,14 @@ class Tester:
 
 class Saver:
     def __init__(self, alg_name, tester):
+        self.alg_name = alg_name
         self.tester = tester
 
         exp_dir = os.path.join("../tmp/", tester.experiment)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
-        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, for training tasks of transfer
-        self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")
+        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
+        self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")  # store transfer results
 
         self.policy_dpath = os.path.join(exp_dir, "policy_model")
         os.makedirs(self.policy_dpath, exist_ok=True)
@@ -176,14 +177,14 @@ class Saver:
         save_json(self.transfer_file_out, results)
 
     def save_policy_bank(self, policy_bank, run_idx):
-        self.tf_saver = tf.train.Saver()
+        tf_saver = tf.train.Saver()
         policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_idx, "policy_bank")
-        self.tf_saver.save(policy_bank.sess, policy_bank_prefix)
+        tf_saver.save(policy_bank.sess, policy_bank_prefix)
         # policy_bank.save_policy_models(policy_bank_dname)
 
     def save_rollout_results(self, fname, policy2loc2edge2hits):
         """
-        Save results of rolling out trained state-centric policies that are used to compute initiation set classifiers
+        Save results of rolling out state-centric policies from various states to compute initiation set classifiers
         """
         save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits)
         with open(os.path.join(self.classifier_dpath, fname+".pkl"), "wb") as file:
@@ -213,12 +214,12 @@ class Saver:
         """
         Folder to store results from a single worker, specified by ltl_id and state_id
         """
-        worker_dpath = os.path.join(self.classifier_dpath, "%d_%d" % (ltl_id, state_id))
+        worker_dpath = os.path.join(self.classifier_dpath, "ltl%d_state%d" % (ltl_id, state_id))
         os.makedirs(worker_dpath, exist_ok=True)
 
-    def save_rollout_results_parallel(self, run_idx, ltl_id, state_id, edge2hits):
+    def save_worker_results(self, run_idx, ltl_id, state_id, edge2hits):
         """
-        Save results of rolling out trained state-centric policies that are used to compute initiation set classifiers
+        Save results from a worker
         """
         rollout_results = {
             "run_idx": run_idx,
