@@ -128,7 +128,6 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     for f_task in tester.get_LTL_tasks():
         dfa = DFA(f_task)
         for ltl in dfa.ltl2state:
-            # print("ltl in init policy bank: ", ltl)
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
@@ -209,21 +208,21 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create directory to store results from a single worker
-                    saver.create_worker_directory(ltl_id, state2id[(x, y)])
+                    # saver.create_worker_directory(ltl_id, state2id[(x, y)])
                     # create command to run a single worker
                     args = "--algo=%s --tasks_id=%d --map_id=%d --run_idx=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
                         saver.alg_name, tester.tasks_id, tester.map_id, t, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     worker_commands.append("python3 run_single_worker.py %s" % args)
 
-    # with Pool(processes=len(worker_commands)) as pool:
-    #     retvals = pool.map(os.system, worker_commands)
-    # print("exit codes: ", retvals)
-    # for retval, worker_command in zip(retvals, worker_commands):
-    #     while retval:  # os.system exit code: 0 means correct execution
-    #         print("Command failed: ", retval, worker_command)
-    #         retval = os.system(worker_command)
-    #
-    # process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts)
+    with Pool(processes=len(worker_commands)) as pool:
+        retvals = pool.map(os.system, worker_commands)
+    print("exit codes: ", retvals)
+    for retval, worker_command in zip(retvals, worker_commands):
+        while retval:  # os.system exit code: 0 means correct execution
+            print("Command failed: ", retval, worker_command)
+            retval = os.system(worker_command)
+
+    process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts)
 
 
 def process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts):
@@ -241,8 +240,8 @@ def process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts):
                 # if (x, y) != (10, 10):
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
-                    worker_dpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d" % (ltl_id, state2id[(x, y)]))
-                    with open(os.path.join(worker_dpath, "rollout_results_parallel.pkl"), "rb") as file:
+                    worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d_" % (ltl_id, state2id[(x, y)]))
+                    with open(worker_fpath+"rollout_results_parallel.pkl", "rb") as file:
                         rollout_results = dill.load(file)
                     policy2loc2edge2hits[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
     saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits)

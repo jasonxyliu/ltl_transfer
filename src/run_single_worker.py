@@ -15,7 +15,6 @@ def initialize_policy_bank(sess, task_aux, tester):
     for f_task in tester.get_LTL_tasks():
         dfa = DFA(f_task)
         for ltl in dfa.ltl2state:
-            # print("ltl in parallel init policy bank: ", ltl)
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
