@@ -203,15 +203,15 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
             continue
         print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
 
-        x_tests = np.random.randint(1, 20, size=1)
-        y_tests = np.random.randint(1, 20, size=1)
+        # x_tests = np.random.randint(1, 20, size=1)
+        # y_tests = np.random.randint(1, 20, size=1)
         # test_locs = list(zip(x_tests, y_tests))
-        test_locs = [(5, 15)]
-        print("test_locs: ", test_locs)
+        # test_locs = [(5, 15)]
+        # print("test_locs: ", test_locs)
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                if (x, y) not in test_locs:
-                    continue
+                # if (x, y) not in test_locs:
+                #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create directory to store results from a single worker
                     # saver.create_worker_directory(ltl_id, state2id[(x, y)])
@@ -240,8 +240,8 @@ def process_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
         id2ltl[ltl_id] = ltl
-        # if ltl_id != 19:
-        #     continue
+        if ltl_id != 12:
+            continue
         policy2loc2edge2hits[str(ltl)] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
