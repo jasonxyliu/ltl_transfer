@@ -217,17 +217,17 @@ class Saver:
         worker_dpath = os.path.join(self.classifier_dpath, "ltl%d_state%d" % (ltl_id, state_id))
         os.makedirs(worker_dpath, exist_ok=True)
 
-    def save_worker_results(self, run_idx, ltl_id, state_id, edge2hits):
+    def save_worker_results(self, run_idx, ltl_id, state, edge2hits):
         """
         Save results from a worker
         """
         rollout_results = {
             "run_idx": run_idx,
             "ltl": ltl_id,
-            "state_id": state_id,
+            "state": state,
             "edge2hits": edge2hits
         }
-        worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d_" % (ltl_id, state_id))
+        worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d-%d" % (ltl_id, state[0], state[1]))
         save_json(worker_fpath+"rollout_results_parallel.json", rollout_results)
         with open(worker_fpath+"rollout_results_parallel.pkl", "wb") as file:
             dill.dump(rollout_results, file)

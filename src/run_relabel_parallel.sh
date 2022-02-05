@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH -n 1
-#SBATCH --mem=3G
-#SBATCH -t 24:00:00
-#SBATCH --array=0-119
+#SBATCH -n 10
+#SBATCH --mem=10G
+#SBATCH -t 3:00:00
+#SBATCH --array=0-2
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
 #SBATCH -e sbatch_out/arrayjob-%A-%a.err

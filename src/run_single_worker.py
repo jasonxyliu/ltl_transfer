@@ -23,7 +23,7 @@ def initialize_policy_bank(sess, task_aux, tester):
     return policy_bank
 
 
-def single_worker_rollouts(classifier_dpath, run_idx, ltl_id, state_id, n_rollouts, max_depth, alg_name):
+def single_worker_rollouts(alg_name, classifier_dpath, run_idx, ltl_id, state_id, n_rollouts, max_depth):
     """
     Rollout a trained state-centric policy from init_state to see which outgoing edge it satisfies
     """
@@ -49,14 +49,14 @@ def single_worker_rollouts(classifier_dpath, run_idx, ltl_id, state_id, n_rollou
         policy_bank = initialize_policy_bank(sess, task_aux, tester)
         loader.load_policy_bank(run_idx, sess)
 
-        id2policy = {pid: policy for policy, pid in policy_bank.policy2id.items()}
-        ltl = id2policy[ltl_id]
+        id2ltl = {pid: policy for policy, pid in policy_bank.policy2id.items()}
+        ltl = id2ltl[ltl_id]
         print("policy for ltl: ", ltl)
 
         # run rollouts
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
     # save rollout results
-    saver.save_worker_results(run_idx, ltl_id, state_id, edge2hits)
+    saver.save_worker_results(run_idx, ltl_id, init_state, edge2hits)
 
 
 def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
@@ -65,18 +65,19 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     edge2hits = defaultdict(int)
     task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-    initial_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
+    initial_state = task_aux.dfa.state  # get DFA initial state before progressing on agent's init_loc
     for rollout in range(n_rollouts):
+        print("rollout:", rollout)
         print("init_loc: ", init_loc)
         print("initial_state: ", initial_state)
-        print("rollout:", rollout)
 
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
         print("cur_state: ", task.dfa.state)
+        print("ltl: ", ltl)
         print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
         traversed_edge = None
-        if initial_state != task.dfa.state:  # if agent starts at a given loc that triggers a desired transition
+        if initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
             traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
             print("before while: ", traversed_edge)
         depth = 0
@@ -89,11 +90,10 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
             if prev_state != task.dfa.state:
                 traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
                 print("in while: ", traversed_edge)
-                break
             depth += 1
         if traversed_edge:
             if traversed_edge not in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
-                print("ERROR: traversed edge not an outgoing edge: ", traversed_edge)
+                print("ERROR: traversed edge not a valid outgoing edge: ", traversed_edge)
             edge2hits[traversed_edge] += 1
     print(edge2hits)
     return edge2hits
@@ -133,5 +133,5 @@ if __name__ == "__main__":
 
     classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
 
-    single_worker_rollouts(classifier_dpath, args.run_idx, args.ltl_id, args.state_id,
-                           args.n_rollouts, args.max_depth, args.algo)
+    single_worker_rollouts(args.algo, classifier_dpath,
+                           args.run_idx, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)

@@ -199,13 +199,19 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
     worker_commands = []
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
-        if ltl_id != 19:
+        if ltl_id != 12:
             continue
         print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+
+        x_tests = np.random.randint(1, 20, size=1)
+        y_tests = np.random.randint(1, 20, size=1)
+        # test_locs = list(zip(x_tests, y_tests))
+        test_locs = [(5, 15)]
+        print("test_locs: ", test_locs)
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                # if (x, y) != (10, 10):
-                #     continue
+                if (x, y) not in test_locs:
+                    continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create directory to store results from a single worker
                     # saver.create_worker_directory(ltl_id, state2id[(x, y)])
@@ -222,28 +228,36 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
             print("Command failed: ", retval, worker_command)
             retval = os.system(worker_command)
 
-    process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts)
+    process_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 
-def process_rollout_results(task_aux, saver, policy_bank, state2id, n_rollouts):
+def process_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     """
     Aggregate results saved locally by parallel workers for learning classifiers
     """
     policy2loc2edge2hits = {"n_rollouts": n_rollouts}
+    id2ltl = {}
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
-        if ltl_id != 19:
-            continue
+        id2ltl[ltl_id] = ltl
+        # if ltl_id != 19:
+        #     continue
         policy2loc2edge2hits[str(ltl)] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
                 # if (x, y) != (10, 10):
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
-                    worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d_" % (ltl_id, state2id[(x, y)]))
+                    worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d-%d" % (ltl_id, x, y))
                     with open(worker_fpath+"rollout_results_parallel.pkl", "rb") as file:
                         rollout_results = dill.load(file)
+                    # try:  # for local testing parallel rollout with a few random locs
+                    #     with open(worker_fpath + "rollout_results_parallel.pkl", "rb") as file:
+                    #         rollout_results = dill.load(file)
+                    # except IOError:
+                    #     continue
                     policy2loc2edge2hits[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
+    policy2loc2edge2hits["ltls"] = id2ltl
     saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits)
 
 
@@ -254,8 +268,10 @@ def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
     to learn an initiation set classifier for that edge
     """
     policy2loc2edge2hits = {"n_rollouts": n_rollouts}
+    id2ltl = {}
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
+        id2ltl[ltl_id] = ltl
         if ltl_id != 9:
             continue
         print(ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
@@ -265,6 +281,7 @@ def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
         policy2loc2edge2hits[str(ltl)] = loc2edge2hits
         print("\n")
     print(policy2loc2edge2hits)
+    policy2loc2edge2hits["ltls"] = id2ltl
     saver.save_rollout_results("rollout_results", policy2loc2edge2hits)
 
 

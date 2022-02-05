@@ -158,23 +158,6 @@ class Game:
             return 1 + self.sunset - self.hour
         return 0  # it is night
 
-    # def get_features(self):
-    #     """
-    #     return a feature representations of the map
-    #     """
-    #     ret = [distance.cityblock([self.map_array[idx[i]][idx[j]].i, self.map_array[idx[i]][idx[j]].j],
-    #                                [self.agent.i, self.agent.j])
-    #            for idx in np.indices([self.map_height, self.map_width]).transpose(1, 2, 0)
-    #            if str(self.map_array[idx[i]][idx[j]]) in self.class_ids]
-    #
-    #     # Adding the number of steps before night (if need it)
-    #     if self.consider_night:
-    #         ret.append(self._steps_before_dark())
-    #
-    #     print(ret)
-    #
-    #     return np.array(ret, dtype=np.float64)
-
     def get_features(self):
         """
         return a feature representations of the map
@@ -184,8 +167,7 @@ class Game:
             for j in range(self.map_width):
                 obj = self.map_array[i][j]
                 if str(obj) in self.class_ids:  # map from object classes to numbers
-                    ret.append(distance.cityblock([self.map_array[i][j].i, self.map_array[i][j].j],
-                                                  [self.agent.i, self.agent.j]))
+                    ret.append(distance.cityblock([obj.i, obj.j], [self.agent.i, self.agent.j]))
 
         # Adding the number of steps before night (if need it)
         if self.consider_night:
