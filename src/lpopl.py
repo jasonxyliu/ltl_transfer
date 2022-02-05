@@ -245,10 +245,10 @@ def process_rollout_results(task_aux, saver, policy_bank, n_rollouts):
         policy2loc2edge2hits[str(ltl)] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                # if (x, y) != (10, 10):
+                # if (x, y) != (5, 15):
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
-                    worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d-%d" % (ltl_id, x, y))
+                    worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, x, y))
                     with open(worker_fpath+"rollout_results_parallel.pkl", "rb") as file:
                         rollout_results = dill.load(file)
                     # try:  # for local testing parallel rollout with a few random locs

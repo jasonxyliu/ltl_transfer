@@ -227,7 +227,7 @@ class Saver:
             "state": state,
             "edge2hits": edge2hits
         }
-        worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d-%d" % (ltl_id, state[0], state[1]))
+        worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, state[0], state[1]))
         save_json(worker_fpath+"rollout_results_parallel.json", rollout_results)
         with open(worker_fpath+"rollout_results_parallel.pkl", "wb") as file:
             dill.dump(rollout_results, file)
