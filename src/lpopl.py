@@ -23,7 +23,7 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
     actions = task.get_actions()
 
     # Initializing parameters
-    num_features = len(task.get_features())
+    num_features = task.get_num_features()
     num_steps = learning_params.max_timesteps_per_task
     exploration = LinearSchedule(schedule_timesteps=int(learning_params.exploration_fraction * num_steps), initial_p=1.0, final_p=learning_params.exploration_final_eps)
     training_reward = 0
@@ -123,7 +123,7 @@ def _test_LPOPL(sess, task_params, learning_params, testing_params, policy_bank,
 def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     num_actions  = len(task_aux.get_actions())
-    num_features = len(task_aux.get_features())
+    num_features = task_aux.get_num_features()
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
     for f_task in tester.get_LTL_tasks():
         dfa = DFA(f_task)
@@ -159,7 +159,7 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
             loader.load_policy_bank(t, sess)
             # print("policy_dpath in lpopl: ", loader.saver.policy_dpath)
             task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
-            num_features = len(task_aux.get_features())
+            num_features = task_aux.get_num_features()
             tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
             # print(tester.results)
         else:

@@ -10,7 +10,7 @@ from policy_bank import *
 
 def initialize_policy_bank(sess, task_aux, tester):
     num_actions  = len(task_aux.get_actions())
-    num_features = len(task_aux.get_features())
+    num_features = task_aux.get_num_features()
     policy_bank = PolicyBank(sess, num_actions, num_features, tester.learning_params)
     for f_task in tester.get_LTL_tasks():
         dfa = DFA(f_task)

@@ -115,6 +115,7 @@ class Game:
         # loading the map
         self.map_array = []
         self.class_ids = {}  # I use the lower case letters to define the features
+        self.num_features = 0
         f = open(file_map)
         i, j = 0, 0
         for l in f:
@@ -126,6 +127,7 @@ class Game:
             j = 0
             for e in l.rstrip():
                 if e in "abcdefghijklmnopqrstuvwxyzH":
+                    self.num_features += 1
                     entity = Empty(i, j, label=e)
                     if e not in self.class_ids:
                         self.class_ids[e] = len(self.class_ids)
@@ -157,6 +159,14 @@ class Game:
         if self.sunrise - 1 <= self.hour <= self.sunset:
             return 1 + self.sunset - self.hour
         return 0  # it is night
+
+    def get_num_features(self):
+        """
+        return the size of the feature representation of the map
+        """
+        if self.consider_night:
+            return self.num_features + 1
+        return self.num_features
 
     def get_features(self):
         """
