@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -n 10
 #SBATCH --mem=10G
-#SBATCH -t 3:00:00
+#SBATCH -t 24:00:00
 #SBATCH --array=0-1
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
@@ -11,13 +11,13 @@
 # Convert 1D indexing to 2D
 i=`expr $SLURM_ARRAY_TASK_ID % 1`
 j=`expr $SLURM_ARRAY_TASK_ID / 1`
-k=`expr $j % 2`
-l=`expr $j / 2`
+k=`expr $j % 1`
+l=`expr $j / 1`
 m=`expr $l % 1`
 
 algos=( "lpopl" )
 algo=${algos[$i]}
-tasks=( "transfer_sequence" "transfer_interleaving" )
+tasks=( "transfer_interleaving" )
 task=${tasks[$k]}
 maps=( 0 )
 map=${maps[$m]}
