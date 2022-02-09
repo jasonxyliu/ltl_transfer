@@ -19,7 +19,7 @@ def initialize_policy_bank(sess, task_aux, tester):
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
-    print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
+    # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
     return policy_bank
 
 
@@ -38,20 +38,20 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_idx, ltl_id, state_id
     with open(os.path.join(classifier_dpath, "states.pkl"), "rb") as file:
         id2state = dill.load(file)
     init_state = id2state[state_id]
-    print("init_state: ", init_state, state_id)
+    # print("init_state: ", init_state, state_id)
 
     # create task_aux
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
 
     with tf.Session() as sess:
         # load policy_bank
-        print("loading policy bank")
+        # print("loading policy bank")
         policy_bank = initialize_policy_bank(sess, task_aux, tester)
         loader.load_policy_bank(run_idx, sess)
 
         id2ltl = {pid: policy for policy, pid in policy_bank.policy2id.items()}
         ltl = id2ltl[ltl_id]
-        print("policy for ltl: ", ltl)
+        # print("policy for ltl: ", ltl)
 
         # run rollouts
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
@@ -67,35 +67,35 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
     initial_state = task_aux.dfa.state  # get DFA initial state before progressing on agent's init_loc
     for rollout in range(n_rollouts):
-        print("rollout:", rollout)
-        print("init_loc: ", init_loc)
-        print("initial_state: ", initial_state)
+        # print("rollout:", rollout)
+        # print("init_loc: ", init_loc)
+        # print("initial_state: ", initial_state)
 
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
-        print("cur_state: ", task.dfa.state)
-        print("ltl: ", ltl)
-        print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
+        # print("cur_state: ", task.dfa.state)
+        # print("ltl: ", ltl)
+        # print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
         traversed_edge = None
         if initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
             traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
-            print("before while: ", traversed_edge)
+            # print("before while: ", traversed_edge)
         depth = 0
         while not traversed_edge and not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
             s1 = task.get_features()
             action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task.get_features())))))
             prev_state = task.dfa.state
             _ = task.execute_action(action)
-            print(prev_state, action, task.dfa.state)
+            # print(prev_state, action, task.dfa.state)
             if prev_state != task.dfa.state:
                 traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
-                print("in while: ", traversed_edge)
+                # print("in while: ", traversed_edge)
             depth += 1
         if traversed_edge:
             if traversed_edge not in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
                 print("ERROR: traversed edge not a valid outgoing edge: ", traversed_edge)
             edge2hits[traversed_edge] += 1
-    print(edge2hits)
+    # print(edge2hits)
     return edge2hits
 
 

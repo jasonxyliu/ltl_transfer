@@ -132,7 +132,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
-    print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
+    # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
     return policy_bank
 
 
@@ -155,7 +155,7 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
 
         if load_trained:
-            print("loading policy bank in lpopl")
+            # print("loading policy bank in lpopl")
             loader.load_policy_bank(t, sess)
             # print("policy_dpath in lpopl: ", loader.saver.policy_dpath)
             task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
@@ -199,9 +199,9 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
     worker_commands = []
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
-        if ltl_id != 12:
-            continue
-        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        # if ltl_id != 12:
+        #     continue
+        # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
@@ -222,7 +222,6 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
 
     with Pool(processes=len(worker_commands)) as pool:
         retvals = pool.map(os.system, worker_commands)
-    print("exit codes: ", retvals)
     for retval, worker_command in zip(retvals, worker_commands):
         while retval:  # os.system exit code: 0 means correct execution
             print("Command failed: ", retval, worker_command)
@@ -240,8 +239,8 @@ def process_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
         id2ltl[ltl_id] = ltl
-        if ltl_id != 12:
-            continue
+        # if ltl_id != 12:
+        #     continue
         policy2loc2edge2hits[str(ltl)] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
