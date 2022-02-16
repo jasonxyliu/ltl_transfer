@@ -181,9 +181,9 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
         # Relabel state-centric options to transition-centric options
         # relabel(tester, saver, curriculum, policy_bank)
-        # relabel_parallel(tester, saver, curriculum, t, policy_bank)
-        policy2edge2loc2prob = None  # construct_initiation_set_classifiers(saver, policy_bank)
-        zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
+        relabel_parallel(tester, saver, curriculum, t, policy_bank)
+        # policy2edge2loc2prob = None  # construct_initiation_set_classifiers(saver, policy_bank)
+        # zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
 
 
         tf.reset_default_graph()
@@ -204,14 +204,14 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
     worker_commands = []
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
-        # if ltl_id != 12:
+        # if ltl_id not in [12, 16, 30]:
         #     continue
         # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
         # test_locs = list(zip(x_tests, y_tests))
-        # test_locs = [(5, 15)]
+        # test_locs = [(5, 15), (10, 10)]
         # print("test_locs: ", test_locs)
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
@@ -232,24 +232,26 @@ def relabel_parallel(tester, saver, curriculum, t, policy_bank, n_rollouts=100):
             print("Command failed: ", retval, worker_command)
             retval = os.system(worker_command)
 
-    process_rollout_results(task_aux, saver, policy_bank, n_rollouts)
+    aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 
-def process_rollout_results(task_aux, saver, policy_bank, n_rollouts):
+def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     """
     Aggregate results saved locally by parallel workers for learning classifiers
     """
-    policy2loc2edge2hits = {"n_rollouts": n_rollouts}
+    policy2loc2edge2hits_json = {"n_rollouts": n_rollouts}
+    policy2loc2edge2hits_pkl = {"n_rollouts": n_rollouts}
     id2ltl = {}
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
         id2ltl[ltl_id] = ltl
-        # if ltl_id != 12:
+        # if ltl_id not in [12, 16, 30]:
         #     continue
-        policy2loc2edge2hits[str(ltl)] = {}
+        policy2loc2edge2hits_json[str(ltl)] = {}
+        policy2loc2edge2hits_pkl[ltl] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                # if (x, y) != (5, 15):
+                # if (x, y) not in [(5, 15), (10, 10)]:
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, x, y))
@@ -260,9 +262,11 @@ def process_rollout_results(task_aux, saver, policy_bank, n_rollouts):
                     #         rollout_results = dill.load(file)
                     # except IOError:
                     #     continue
-                    policy2loc2edge2hits[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
-    policy2loc2edge2hits["ltls"] = id2ltl
-    saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits)
+                    policy2loc2edge2hits_json[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
+                    policy2loc2edge2hits_pkl[ltl][(x, y)] = rollout_results["edge2hits"]
+    policy2loc2edge2hits_json["ltls"] = id2ltl
+    policy2loc2edge2hits_pkl["ltls"] = id2ltl
+    saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits_json, policy2loc2edge2hits_pkl)
 
 
 def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
@@ -291,15 +295,15 @@ def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
 
 def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=100):
     """
-    After n_rollouts from a loc, this loc is in the initiation set of the option
-    whose policy satisfies the edge subtask the most times
-    The initiation sets of all options are non-overlapping.
+    After n_rollouts from every loc, the initiation sets of an edge-centric option is
+    the probability of success from every loc
+    LPOPL learns deterministic policies, so at most 1 edge transition would occur from a loc
     """
     # edge2hits = rollout(tester, policy_bank, ltl, (13, 10), n_rollouts, max_depth)
     # loc2edge2hits = {"(13, 10)": edge2hits}
 
     loc2edge2hits = {}
-    edge2locs = defaultdict(list)  # classifier for every edge
+    # edge2locs = defaultdict(list)  # classifier for every edge
     task_aux = Game(tester.get_task_params(ltl))
     for x in range(task_aux.map_width):
         for y in range(task_aux.map_height):
@@ -309,15 +313,20 @@ def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=1
                 print("init_loc: ", (x, y))
                 edge2hits = rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)
                 loc2edge2hits[str((x, y))] = edge2hits
-                max_edge = None
-                if edge2hits:
-                    max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
-                edge2locs[max_edge].append((x, y))
+                # max_edge = None
+                # if edge2hits:
+                #     max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
+                # edge2locs[max_edge].append((x, y))
+    # print(edge2locs)
 
-    print(edge2locs)
+    # process rollout results to construct a classifier
+    edge2loc2prob = defaultdict(dict)
+    for loc, edge2hits in loc2edge2hits.items():
+        for edge, hits in edge2hits.items():
+            edge2loc2prob[edge][loc] = hits / n_rollouts
 
     policy = policy_bank.policies[policy_bank.get_id(ltl)]
-    for edge, classifier in edge2locs.items():
+    for edge, classifier in edge2loc2prob.items():
         policy.add_initiation_set_classifier(edge, classifier)
 
     return loc2edge2hits
@@ -373,8 +382,7 @@ def construct_initiation_set_classifiers(saver, policy_bank):
 
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
     policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: float)))
-    for ltl_str, loc2edge2hits in policy2loc2edge2hits.items():
-        ltl = eval(ltl_str)
+    for ltl, loc2edge2hits in policy2loc2edge2hits.items():
         for loc, edge2hits in loc2edge2hits.items():
             for edge in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
                 if edge in edge2hits:
