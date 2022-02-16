@@ -5,6 +5,9 @@ from multiprocessing import Pool
 from collections import defaultdict
 import numpy as np
 import tensorflow as tf
+import networkx as nx
+import matplotlib.pyplot as plt
+from pprint import pprint
 from policy_bank import *
 from schedules import LinearSchedule
 from replay_buffer import ReplayBuffer
@@ -178,8 +181,10 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
         # Relabel state-centric options to transition-centric options
         # relabel(tester, saver, curriculum, policy_bank)
-        relabel_parallel(tester, saver, curriculum, t, policy_bank)
-        # run_transfer_experiments(tester, policy_bank)
+        # relabel_parallel(tester, saver, curriculum, t, policy_bank)
+        policy2edge2loc2prob = None  # construct_initiation_set_classifiers(saver, policy_bank)
+        zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
+
 
         tf.reset_default_graph()
         sess.close()
@@ -358,14 +363,122 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     return edge2hits
 
 
-def run_transfer_experiments(tester, policy_bank):
+def construct_initiation_set_classifiers(saver, policy_bank):
+    """
+    Temporary: should be done in process_rollout_results
+    Map policy of edge-centric option to its initiation set classifier
+    """
+    with open(os.path.join(saver.classifier_dpath, "rollout_results_parallel.pkl"), "rb") as rf:
+        policy2loc2edge2hits = dill.load(rf)
+
+    n_rollouts = policy2loc2edge2hits["n_rollouts"]
+    policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: float)))
+    for ltl_str, loc2edge2hits in policy2loc2edge2hits.items():
+        ltl = eval(ltl_str)
+        for loc, edge2hits in loc2edge2hits.items():
+            for edge in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
+                if edge in edge2hits:
+                    prob = edge2hits[edge] / n_rollouts
+                else:
+                    prob = 0.0
+                policy2edge2loc2prob[ltl][edge][loc] = prob
+    return policy2edge2loc2prob
+
+
+def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
     transfer_tasks = tester.get_transfer_tasks()
-    training_edges = set([policy.get_edge_labels() for policy in policy_bank.policies])
+    edge2ltls, training_edges = get_training_edges(policy_bank)
+    task2sol = defaultdict(list)
 
     for transfer_task in transfer_tasks:
-        new_dfa = DFA(transfer_task)
-        # wrapper for NetworkX
+        print("transfer task:", transfer_task)
+        task = Game(tester.get_task_params(transfer_task))  # same map as the training tasks
 
-        # graph search through DFA
-        # check if an edge seen in training
-        # find a path with all seen edges
+        # wrapper: DFA -> NetworkX graph
+        dfa_graph = dfa2graph(task.dfa)
+
+        # for edge, edge_data in dfa_graph.edges.items():
+        #     print(edge, edge_data)
+
+        # pos = nx.circular_layout(dfa_graph)
+        # nx.draw_networkx(dfa_graph, pos, with_labels=True)
+        # nx.draw_networkx_edges(dfa_graph, pos)
+        # ax = plt.gca()
+        # ax.margins(0.20)
+        # plt.axis("off")
+        # plt.show()
+
+        # Graph search to find all paths from initial state to goal state
+        all_simple_paths = nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal)
+        all_simple_paths = [list(path) for path in map(nx.utils.pairwise, all_simple_paths)]
+        print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
+        print("all simple paths: ", len(all_simple_paths), all_simple_paths)
+
+        # Find all paths consists of only seen edges
+        feasible_paths = []
+        for simple_path in all_simple_paths:
+            is_feasible_path = True
+            for edge in simple_path:
+                if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
+                    is_feasible_path = False
+                    break
+            if is_feasible_path:
+                feasible_paths.append(simple_path)
+
+        # while not task.ltl_game_over and not task.env_game_over:
+        #     cur_node = task.dfa.state
+            # Find all paths from current node
+
+            # Find 1st edge to achieve based on success probability from current MDP state
+
+            # Execute option
+
+            # task2sol[transfer_task].append(option)
+
+    return task2sol
+
+
+def get_training_edges(policy_bank):
+    # ltl2edges = {ltl: policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels() for ltl in policy_bank.get_LTL_policies()}
+    edge2ltls = defaultdict(list)
+    training_edges = []
+    for ltl in policy_bank.get_LTL_policies():
+        edges = policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels()
+        for edge in edges:
+            edge2ltls[edge].append(ltl)
+            if edge not in training_edges:
+                training_edges.append(edge)
+            # else:
+            #     print("duplicate edge: ", ltl, edge)
+    # pprint(edge2ltls)
+    # print("training edges: ", len(training_edges), training_edges)
+    return edge2ltls, training_edges
+
+
+def dfa2graph(dfa):
+    """
+    convert DFA to a NetworkX graph
+    """
+    nodelist = defaultdict(dict)
+    for u in dfa.nodelist:
+        for v, label in dfa.nodelist[u].items():
+            nodelist[u][v] = {"edge_label": label}
+    dfa_graph = nx.DiGraph(nodelist)
+    return dfa_graph
+
+
+def match_edges(test_edge, training_edges):
+    return True
+
+
+def execute_option(task, policy_bank, ltl_goal):
+    num_features = task.get_num_features()
+
+    total_reward = 0
+    # while not termination condition and policy is defined in current MDP state
+    s1 = task.get_features()
+    a = Actions(policy_bank.get_best_action(ltl_goal, s1.reshape((1, num_features))))
+    reward = task.execute_action(a)
+    total_reward += reward
+
+    return total_reward
