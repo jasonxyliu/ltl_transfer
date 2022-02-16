@@ -182,14 +182,6 @@ class Saver:
         tf_saver.save(policy_bank.sess, policy_bank_prefix)
         # policy_bank.save_policy_models(policy_bank_dname)
 
-    def save_rollout_results(self, fname, policy2loc2edge2hits):
-        """
-        Save results of rolling out state-centric policies from various states to compute initiation set classifiers
-        """
-        save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits)
-        with open(os.path.join(self.classifier_dpath, fname+".pkl"), "wb") as file:
-            dill.dump(policy2loc2edge2hits, file)
-
     def save_training_data(self, task_aux):
         """
         Save all data needed to learn classifiers in parallel
@@ -231,6 +223,14 @@ class Saver:
         save_json(worker_fpath+"rollout_results_parallel.json", rollout_results)
         with open(worker_fpath+"rollout_results_parallel.pkl", "wb") as file:
             dill.dump(rollout_results, file)
+
+    def save_rollout_results(self, fname, policy2loc2edge2hits_json, policy2loc2edge2hits_pkl):
+        """
+        Save results of rolling out state-centric policies from various states to compute initiation set classifiers
+        """
+        save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits_json)
+        with open(os.path.join(self.classifier_dpath, fname+".pkl"), "wb") as file:
+            dill.dump(policy2loc2edge2hits_pkl, file)
 
 
 class Loader:

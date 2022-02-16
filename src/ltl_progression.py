@@ -81,7 +81,11 @@ def _get_propositions(ltl_formula):
 
 
 def _get_truth_assignments(propositions):
-    # computing all possible value assignments for propositions
+    """
+    computing all possible Truth value assignments for propositions,
+    represented by a list of true propositions
+    e.g. ['a', 'b', 'c'] -> ['', 'a', 'b', 'ab', 'c', 'ac', 'bc', 'abc']
+    """
     truth_assignments = []
     for p in range(2**len(propositions)):
         truth_assignment = ""
@@ -188,7 +192,7 @@ def _progress(ltl_formula, truth_assignment):
 
 def _get_formula(truth_assignments, propositions):
     """
-    e.g. ["ab", "abc"], "abc" -> (a & b & ~c) | (a & b & c) -> a & b
+    e.g. ['ab', 'abc'], 'abc' -> (a & b & ~c) | (a & b & c) -> a & b
     """
     dnfs = []
     props = dict([(p, symbols(p)) for p in propositions])
