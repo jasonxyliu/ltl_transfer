@@ -1,5 +1,6 @@
 import os
 import random, time, shutil
+import json
 import dill
 from multiprocessing import Pool
 from collections import defaultdict
@@ -181,9 +182,9 @@ def run_experiments(tester, curriculum, saver, loader, num_times, load_trained, 
 
         # Relabel state-centric options to transition-centric options
         # relabel(tester, saver, curriculum, policy_bank)
-        relabel_parallel(tester, saver, curriculum, t, policy_bank)
-        # policy2edge2loc2prob = None  # construct_initiation_set_classifiers(saver, policy_bank)
-        # zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
+        # relabel_parallel(tester, saver, curriculum, t, policy_bank)
+        policy2edge2loc2prob = construct_initiation_set_classifiers(saver, policy_bank)
+        zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
 
 
         tf.reset_default_graph()
@@ -382,14 +383,25 @@ def construct_initiation_set_classifiers(saver, policy_bank):
 
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
     policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: float)))
-    for ltl, loc2edge2hits in policy2loc2edge2hits.items():
+    for key, val in policy2loc2edge2hits.items():
+        if key in ["n_rollouts", "ltls"]:
+            continue
+        ltl, loc2edge2hits = key, val
+        print("ltl: ", ltl)
+        out_edges = policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels()
+        print("out_edges:", out_edges)
         for loc, edge2hits in loc2edge2hits.items():
-            for edge in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
+            print("loc: ", loc)
+            for edge in out_edges:
                 if edge in edge2hits:
                     prob = edge2hits[edge] / n_rollouts
                 else:
                     prob = 0.0
                 policy2edge2loc2prob[ltl][edge][loc] = prob
+    #             policy2edge2loc2prob[str(ltl)][str(edge)][str(loc)] = prob
+    # with open("test.json", "w") as wf:
+    #     json.dump(policy2edge2loc2prob, wf)
+
     return policy2edge2loc2prob
 
 
