@@ -62,19 +62,19 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     worker_commands = []
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
-        if ltl_id not in [12, 16, 30]:
-            continue
+        # if ltl_id not in [12, 16, 30]:
+        #     continue
         # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
         # test_locs = list(zip(x_tests, y_tests))
-        test_locs = [(5, 15), (10, 10)]
+        # test_locs = [(5, 15), (10, 10)]
         # print("test_locs: ", test_locs)
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                if (x, y) not in test_locs:
-                    continue
+                # if (x, y) not in test_locs:
+                #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create directory to store results from a single worker
                     # saver.create_worker_directory(ltl_id, state2id[(x, y)])
@@ -103,14 +103,14 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
         id2ltl[ltl_id] = ltl
-        if ltl_id not in [12, 16, 30]:
-            continue
+        # if ltl_id not in [12, 16, 30]:
+        #     continue
         policy2loc2edge2hits_json[str(ltl)] = {}
         policy2loc2edge2hits_pkl[ltl] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                if (x, y) not in [(5, 15), (10, 10)]:
-                    continue
+                # if (x, y) not in [(5, 15), (10, 10)]:
+                #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, x, y))
                     with open(worker_fpath+"rollout_results_parallel.pkl", "rb") as file:
@@ -240,7 +240,7 @@ def construct_initiation_set_classifiers(saver, policy_bank):
 
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
     policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: float)))
-    # policy2edge2loc2prob_json = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: float)))
+    policy2edge2loc2prob_json = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: float)))
     for key, val in policy2loc2edge2hits.items():
         if key in ["n_rollouts", "ltls"]:
             continue
@@ -256,9 +256,9 @@ def construct_initiation_set_classifiers(saver, policy_bank):
                 else:
                     prob = 0.0
                 policy2edge2loc2prob[ltl][edge][loc] = prob
-    #             policy2edge2loc2prob_json[str(ltl)][str(edge)][str(loc)] = prob
-    # with open(os.path.join(saver.classifier_dpath, "test.json"), "w") as wf:
-    #     json.dump(policy2edge2loc2prob_json, wf)  # save to json for easier inspection of dictionary
+                policy2edge2loc2prob_json[str(ltl)][str(edge)][str(loc)] = prob
+    with open(os.path.join(saver.classifier_dpath, "classifier.json"), "w") as wf:
+        json.dump(policy2edge2loc2prob_json, wf)  # save to json for easier inspection of dictionary
 
     return policy2edge2loc2prob
 
