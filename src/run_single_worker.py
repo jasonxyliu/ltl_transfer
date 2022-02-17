@@ -23,7 +23,7 @@ def initialize_policy_bank(sess, task_aux, tester):
     return policy_bank
 
 
-def single_worker_rollouts(alg_name, classifier_dpath, run_idx, ltl_id, state_id, n_rollouts, max_depth):
+def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id, n_rollouts, max_depth):
     """
     Rollout a trained state-centric policy from init_state to see which outgoing edge it satisfies
     """
@@ -47,7 +47,7 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_idx, ltl_id, state_id
         # load policy_bank
         # print("loading policy bank")
         policy_bank = initialize_policy_bank(sess, task_aux, tester)
-        loader.load_policy_bank(run_idx, sess)
+        loader.load_policy_bank(run_id, sess)
 
         id2ltl = {pid: policy for policy, pid in policy_bank.policy2id.items()}
         ltl = id2ltl[ltl_id]
@@ -56,7 +56,7 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_idx, ltl_id, state_id
         # run rollouts
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
     # save rollout results
-    saver.save_worker_results(run_idx, ltl_id, init_state, edge2hits)
+    saver.save_worker_results(run_id, ltl_id, init_state, edge2hits)
 
 
 def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
@@ -100,7 +100,7 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
 
 
 if __name__ == "__main__":
-    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
+    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
     id2tasks = {
         0: "sequence",
         1: "interleaving",
@@ -116,7 +116,7 @@ if __name__ == "__main__":
                         help='This parameter indicated which tasks to solve. The options are: ' + str(id2tasks.keys()))
     parser.add_argument('--map_id', default=0, type=int,
                         help='This parameter indicated the ID of map to run rollouts')
-    parser.add_argument('--run_idx', default=0, type=int,
+    parser.add_argument('--run_id', default=0, type=int,
                         help='This parameter indicated the ID of the training run when models are saved')
     parser.add_argument('--ltl_id', default=9, type=int,
                         help='This parameter indicated the ID of trained policy to rollout')
@@ -134,4 +134,4 @@ if __name__ == "__main__":
     classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
 
     single_worker_rollouts(args.algo, classifier_dpath,
-                           args.run_idx, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)
+                           args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)

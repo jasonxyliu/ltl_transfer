@@ -15,7 +15,7 @@ k=`expr $j % 1`
 l=`expr $j / 1`
 m=`expr $l % 1`
 
-algos=( "lpopl" )
+algos=( "zero_shot_transfer" )
 algo=${algos[$i]}
 tasks=( "transfer_interleaving" )
 task=${tasks[$k]}
@@ -26,4 +26,4 @@ map=${maps[$m]}
 module load anaconda/3-5.2.0
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
-python3 run_experiments.py --algorithm=$algo --tasks=$task --map=$map --load_trained
+python3 run_experiments.py --algorithm=$algo --tasks=$task --map=$map
