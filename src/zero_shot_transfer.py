@@ -40,9 +40,9 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
 
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
-    relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-    policy2edge2loc2prob = construct_initiation_set_classifiers(saver, policy_bank)
-    # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
+    # relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+    policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
+    task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
 
     tf.reset_default_graph()
@@ -230,10 +230,11 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     return edge2hits
 
 
-def construct_initiation_set_classifiers(saver, policy_bank):
+def construct_initiation_set_classifiers(saver):
     """
-    Temporary: should be done in process_rollout_results
-    Map policy of edge-centric option to its initiation set classifier
+    Map edge-centric option policy to its initiation set classifier.
+    Classifier (policy2edge2loc2prob) contain only outgoing edges that state-centric policies achieved during training,
+    possibly not all outgoing edges.
     """
     with open(os.path.join(saver.classifier_dpath, "rollout_results_parallel.pkl"), "rb") as rf:
         policy2loc2edge2hits = dill.load(rf)
@@ -246,15 +247,10 @@ def construct_initiation_set_classifiers(saver, policy_bank):
             continue
         ltl, loc2edge2hits = key, val
         print("ltl: ", ltl)
-        out_edges = policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels()
-        print("out_edges:", out_edges)
         for loc, edge2hits in loc2edge2hits.items():
             print("loc: ", loc)
-            for edge in out_edges:
-                if edge in edge2hits:
-                    prob = edge2hits[edge] / n_rollouts
-                else:
-                    prob = 0.0
+            for edge, hits in edge2hits.items():
+                prob = hits / n_rollouts
                 policy2edge2loc2prob[ltl][edge][loc] = prob
                 policy2edge2loc2prob_json[str(ltl)][str(edge)][str(loc)] = prob
     with open(os.path.join(saver.classifier_dpath, "classifier.json"), "w") as wf:
@@ -265,43 +261,44 @@ def construct_initiation_set_classifiers(saver, policy_bank):
 
 def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
     transfer_tasks = tester.get_transfer_tasks()
-    edge2ltls, training_edges = get_training_edges(policy_bank)
+    edge2ltls, training_edges = get_training_edges(policy2edge2loc2prob)
+
     task2sol = defaultdict(list)
 
-    for transfer_task in transfer_tasks:
-        print("transfer task:", transfer_task)
-        task = Game(tester.get_task_params(transfer_task))  # same map as the training tasks
-
-        # wrapper: DFA -> NetworkX graph
-        dfa_graph = dfa2graph(task.dfa)
-
-        # for edge, edge_data in dfa_graph.edges.items():
-        #     print(edge, edge_data)
-
-        # pos = nx.circular_layout(dfa_graph)
-        # nx.draw_networkx(dfa_graph, pos, with_labels=True)
-        # nx.draw_networkx_edges(dfa_graph, pos)
-        # ax = plt.gca()
-        # ax.margins(0.20)
-        # plt.axis("off")
-        # plt.show()
-
-        # Graph search to find all paths from initial state to goal state
-        all_simple_paths = nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal)
-        all_simple_paths = [list(path) for path in map(nx.utils.pairwise, all_simple_paths)]
-        print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
-        print("all simple paths: ", len(all_simple_paths), all_simple_paths)
-
-        # Find all paths consists of only seen edges
-        feasible_paths = []
-        for simple_path in all_simple_paths:
-            is_feasible_path = True
-            for edge in simple_path:
-                if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
-                    is_feasible_path = False
-                    break
-            if is_feasible_path:
-                feasible_paths.append(simple_path)
+    # for transfer_task in transfer_tasks:
+    #     print("transfer task:", transfer_task)
+    #     task = Game(tester.get_task_params(transfer_task))  # same map as the training tasks
+    #
+    #     # wrapper: DFA -> NetworkX graph
+    #     dfa_graph = dfa2graph(task.dfa)
+    #
+    #     # for edge, edge_data in dfa_graph.edges.items():
+    #     #     print(edge, edge_data)
+    #
+    #     # pos = nx.circular_layout(dfa_graph)
+    #     # nx.draw_networkx(dfa_graph, pos, with_labels=True)
+    #     # nx.draw_networkx_edges(dfa_graph, pos)
+    #     # ax = plt.gca()
+    #     # ax.margins(0.20)
+    #     # plt.axis("off")
+    #     # plt.show()
+    #
+    #     # Graph search to find all paths from initial state to goal state
+    #     all_simple_paths = nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal)
+    #     all_simple_paths = [list(path) for path in map(nx.utils.pairwise, all_simple_paths)]
+    #     print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
+    #     print("all simple paths: ", len(all_simple_paths), all_simple_paths)
+    #
+    #     # Find all paths consists of only seen edges
+    #     feasible_paths = []
+    #     for simple_path in all_simple_paths:
+    #         is_feasible_path = True
+    #         for edge in simple_path:
+    #             if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
+    #                 is_feasible_path = False
+    #                 break
+    #         if is_feasible_path:
+    #             feasible_paths.append(simple_path)
 
         # while not task.ltl_game_over and not task.env_game_over:
         #     cur_node = task.dfa.state
@@ -316,16 +313,35 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
     return task2sol
 
 
-def get_training_edges(policy_bank):
-    # ltl2edges = {ltl: policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels() for ltl in policy_bank.get_LTL_policies()}
+def get_training_edges(policy2edge2loc2prob):
+    """
+    Get all outgoing edges that state-centric policies have achieved during training.
+    Map edge to corresponding LTLs, possibly one to many.
+    """
     edge2ltls = defaultdict(list)
     training_edges = []
-    for ltl in policy_bank.get_LTL_policies():
-        edges = policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels()
-        for edge in edges:
+    for ltl, edge2ltl2loc2prob in policy2edge2loc2prob.items():
+        for edge, _ in edge2ltl2loc2prob.items():
             edge2ltls[edge].append(ltl)
             if edge not in training_edges:
                 training_edges.append(edge)
+
+    # print("n_edges: ", len(edge2ltls))
+    # for edge, ltls in edge2ltls.items():
+    #     print("edge: ", edge)
+    #     for ltl in ltls:
+    #         print("ltl: ", ltl)
+    #     print()
+
+    # ltl2edges = {ltl: policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels() for ltl in policy_bank.get_LTL_policies()}
+    # edge2ltls = defaultdict(list)
+    # training_edges = []
+    # for ltl in policy_bank.get_LTL_policies():
+    #     out_edges = policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels()
+    #     for edge in out_edges:
+    #         edge2ltls[edge].append(ltl)  # all policies that can satisfy this edge
+    #         if edge not in training_edges:
+    #             training_edges.append(edge)
             # else:
             #     print("duplicate edge: ", ltl, edge)
     # pprint(edge2ltls)
