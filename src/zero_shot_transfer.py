@@ -86,7 +86,7 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     with Pool(processes=len(worker_commands)) as pool:
         retvals = pool.map(os.system, worker_commands)
     for retval, worker_command in zip(retvals, worker_commands):
-        while retval:  # os.system exit code: 0 means correct execution
+        if retval:  # os.system exit code: 0 means correct execution
             print("Command failed: ", retval, worker_command)
             retval = os.system(worker_command)
 
