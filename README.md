@@ -21,6 +21,11 @@ You might clone this repository by running:
 
 LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy](http://www.numpy.org/), [tensorflow](https://www.tensorflow.org/), and [sympy](http://www.sympy.org). 
 
+Transfer Learning requires [dill](https://dill.readthedocs.io/en/latest/), [NetworkX](https://networkx.org/), and [Matplotlib](https://matplotlib.org/).
+
+Install all requirements in a conda environment by running the following command
+
+    conda create -n ltl_transfer numpy sympy dill networkx matplotlib tensorflow=1  # tensorflow 1.15
 
 ## Running examples
 
