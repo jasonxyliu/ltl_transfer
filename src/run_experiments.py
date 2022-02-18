@@ -2,6 +2,7 @@ import argparse
 import baseline_dqn
 import baseline_hrl
 import lpopl
+import zero_shot_transfer
 from test_utils import TestingParameters, Tester, Saver, Loader
 from curriculum import CurriculumLearner
 
@@ -51,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, load_trained, show_print):
+def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, run_id, show_print):
     # configuration of testing params
     testing_params = TestingParameters()
 
@@ -82,33 +83,37 @@ def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, load_trained, 
 
     # LPOPL
     if alg_name == "lpopl":
-        lpopl.run_experiments(tester, curriculum, saver, loader, num_times, load_trained, show_print)
+        lpopl.run_experiments(tester, curriculum, saver, num_times, show_print)
+
+    # Zero shot transfer after relabeling state-centric options learn by LPOPL
+    if alg_name == "zero_shot_transfer":
+        zero_shot_transfer.run_experiments(tester, curriculum, saver, loader, run_id)
 
 
-def run_multiple_experiments(alg, tasks_id, load_trained):
+def run_multiple_experiments(alg, tasks_id, run_id):
     num_times = 3
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
         print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-        run_experiment(alg, map_id, tasks_id, num_times, r_good, load_trained, show_print)
+        run_experiment(alg, map_id, tasks_id, num_times, r_good, run_id, show_print)
 
 
-def run_single_experiment(alg, tasks_id, map_id, load_trained):
+def run_single_experiment(alg, tasks_id, map_id, run_id):
     num_times  = 1  # each algo was run 3 times per map in the paper
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-    run_experiment(alg, map_id, tasks_id, num_times, r_good, load_trained, show_print)
+    run_experiment(alg, map_id, tasks_id, num_times, r_good, run_id, show_print)
 
 
 if __name__ == "__main__":
     # EXAMPLE: python3 run_experiments.py --algorithm="lpopl" --tasks="sequence" --map=0
 
     # Getting params
-    algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
+    algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
     tasks      = ["sequence", "interleaving", "safety", "transfer_sequence", "transfer_interleaving"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
@@ -118,8 +123,10 @@ if __name__ == "__main__":
                         help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--load_trained', action="store_true",
-                        help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
+    parser.add_argument('--run_id', default=0, type=int,
+                        help='This parameter indicated the policy bank saved after which run will be used for transfer')
+    # parser.add_argument('--load_trained', action="store_true",
+    #                     help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
 
     args = parser.parse_args()
     if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
@@ -132,6 +139,6 @@ if __name__ == "__main__":
     map_id   = args.map
 
     if map_id > -1:
-        run_single_experiment(alg, tasks_id, map_id, args.load_trained)
+        run_single_experiment(alg, tasks_id, map_id, args.run_id)
     else:
-        run_multiple_experiments(alg, tasks_id, args.load_trained)
+        run_multiple_experiments(alg, tasks_id, args.run_id)
