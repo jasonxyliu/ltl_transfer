@@ -289,26 +289,38 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
         # plt.show()
 
         # Graph search to find all simple paths from initial state to goal state
-        all_simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
-        all_simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, all_simple_paths_node)]
+        simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
+        simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
         print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
-        print("all simple paths: ", len(all_simple_paths_node), all_simple_paths_node)
+        print("simple paths: ", len(simple_paths_node), simple_paths_node)
 
         # Find all paths consists of only edges matching training edges
-        feasible_paths_node = []
-        feasible_paths_edge = []
-        for simple_path_node, simple_path_edge in zip(all_simple_paths_node, all_simple_paths_edge):
-            print("path: ", simple_path_edge)
-            is_feasible_path = True
-            for edge in simple_path_edge:
-                if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
-                    is_feasible_path = False
-                    break
-            if is_feasible_path:
-                feasible_paths_node.append(simple_path_node)
-                feasible_paths_edge.append(simple_path_edge)
-            print()
-        print("feasible paths: ", feasible_paths_node)
+        feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges)
+
+        total_reward = 0
+        while not task.ltl_game_over and not task.env_game_over:
+            cur_node = task.dfa.state
+            # Find all feasible paths that the current node is on
+            path2pos = {}
+            for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
+                if cur_node in feasible_path_node:
+                    pos = feasible_path_node.index(cur_node)  # current position on the path
+                    path2pos[feasible_path_edge] = pos
+
+            # Find best edge to target based on success probability from current MDP state
+            cur_loc = (task.agent.i, task.agent.j)
+            option2prob = {}
+            for path, pos in path2pos:
+                edge = path[pos]
+                ltls = edge2ltls[edge]
+                for ltl in ltls:
+                    option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][cur_loc]
+            best_policy, edge = sorted(option2prob, key=lambda kv: kv[1])[-1][0]
+
+            # Execute option
+            total_reward += execute_option(task, policy_bank, best_policy, edge)
+
+            # task2sol[transfer_task].append(option)
 
     return task2sol
 
@@ -400,18 +412,36 @@ def match_edges(test_edge, training_edges, overlap_rate=0.8):
 
     print(test_edge, training_edges)
     print(is_exact_match, is_subset, is_significant_overlap)
-
     return is_exact_match or is_subset  # or is_significant_overlap
 
 
-def execute_option(task, policy_bank, ltl_goal):
+def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, training_edges):
+    feasible_paths_node = []
+    feasible_paths_edge = []
+    for simple_path_node, simple_path_edge in zip(all_simple_paths_node, all_simple_paths_edge):
+        print("path: ", simple_path_edge)
+        is_feasible_path = True
+        for edge in simple_path_edge:
+            if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
+                is_feasible_path = False
+                break
+        if is_feasible_path:
+            feasible_paths_node.append(simple_path_node)
+            feasible_paths_edge.append(simple_path_edge)
+        print()
+    print("feasible paths: ", feasible_paths_node)
+    return feasible_paths_node, feasible_paths_edge
+
+
+def execute_option(task, policy_bank, ltl_policy, edge):
     num_features = task.get_num_features()
 
-    total_reward = 0
+    option_reward = 0
     # while not termination condition and policy is defined in current MDP state
-    s1 = task.get_features()
-    a = Actions(policy_bank.get_best_action(ltl_goal, s1.reshape((1, num_features))))
-    reward = task.execute_action(a)
-    total_reward += reward
+    while not task.dfa.state != edge[1]:
+        s1 = task.get_features()
+        a = Actions(policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features))))
+        reward = task.execute_action(a)
+        option_reward += reward
 
-    return total_reward
+    return option_reward
