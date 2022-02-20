@@ -270,14 +270,6 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
     #     for ltl in ltls:
     #         print("ltl: ", ltl)
     #     print()
-    training_edges = [
-        sympy.simplify("c&~f"),
-        sympy.simplify("b&c&f&~h"),
-        # sympy.simplify("b&c&f&~h&~e"),  # test match_edges subset
-        # sympy.simplify("b&c&f&~h&~e"),  # test match_edges significant overlap
-        sympy.simplify("h"),
-    ]
-    print("training edges: ", len(training_edges), training_edges)
 
     task2sol = defaultdict(list)
     for transfer_task in transfer_tasks:
@@ -297,36 +289,26 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
         # plt.show()
 
         # Graph search to find all simple paths from initial state to goal state
-        all_simple_paths_nodes = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
-        all_simple_paths_edges = [list(path) for path in map(nx.utils.pairwise, all_simple_paths_nodes)]
+        all_simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
+        all_simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, all_simple_paths_node)]
         print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
-        print("all simple paths: ", len(all_simple_paths_nodes), all_simple_paths_nodes)
+        print("all simple paths: ", len(all_simple_paths_node), all_simple_paths_node)
 
         # Find all paths consists of only edges matching training edges
-        feasible_paths_nodes = []
-        feasible_paths_edges = []
-        for simple_path_nodes, simple_path_edges in zip(all_simple_paths_nodes, all_simple_paths_edges):
-            print("path: ", simple_path_edges)
+        feasible_paths_node = []
+        feasible_paths_edge = []
+        for simple_path_node, simple_path_edge in zip(all_simple_paths_node, all_simple_paths_edge):
+            print("path: ", simple_path_edge)
             is_feasible_path = True
-            for edge in simple_path_edges:
+            for edge in simple_path_edge:
                 if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
                     is_feasible_path = False
                     break
             if is_feasible_path:
-                feasible_paths_nodes.append(simple_path_nodes)
-                feasible_paths_edges.append(simple_path_edges)
+                feasible_paths_node.append(simple_path_node)
+                feasible_paths_edge.append(simple_path_edge)
             print()
-        print("feasible paths: ", feasible_paths_nodes)
-
-        # while not task.ltl_game_over and not task.env_game_over:
-        #     cur_node = task.dfa.state
-            # Find all feasible paths current node is on
-
-            # Find 1st edge to target based on success probability from current MDP state
-
-            # Execute option
-
-            # task2sol[transfer_task].append(option)
+        print("feasible paths: ", feasible_paths_node)
 
     return task2sol
 
@@ -371,19 +353,38 @@ def match_edges(test_edge, training_edges, overlap_rate=0.8):
 
     test_edge_terms = test_edge.split("&")
     test_edge_true = [term for term in test_edge_terms if term[0] != '!']  # all true propositions
-    test_edge_true_symbol = sympy.simplify("&".join(test_edge_true))
+    test_edge_true_symbol = None
+    if test_edge_true:
+        test_edge_true_symbol = sympy.simplify("&".join(test_edge_true))
     test_edge_false = [term.replace('!', '~') for term in test_edge_terms if term[0] == '!']  # all false propositions
+    test_edge_false_symbol = None
     if test_edge_false:
         test_edge_false_symbol = sympy.simplify("&".join(test_edge_false))
     is_subset = False
     for training_edge in training_edges:
         training_edge_terms = str(training_edge).split(' & ')
         training_edge_true = [term for term in training_edge_terms if term[0] != '~']
-        training_edge_true_symbol = sympy.simplify("&".join(training_edge_true))
-        if test_edge_false and training_edge.has(test_edge_false_symbol) \
-                and training_edge_true_symbol == test_edge_true_symbol:
-            is_subset = True
-            break
+        training_edge_true_symbol = None
+        if training_edge_true:
+            training_edge_true_symbol = sympy.simplify("&".join(training_edge_true))
+        training_edge_false = [term for term in training_edge_terms if term[0] == '~']
+        training_edge_false_symbol = None
+        if training_edge_false:
+            training_edge_false_symbol = sympy.simplify("&".join(training_edge_false))
+        if training_edge_false_symbol:
+            if test_edge_false_symbol:
+                if training_edge_false_symbol.has(test_edge_false_symbol) \
+                        and training_edge_true_symbol == test_edge_true_symbol:
+                    is_subset = True
+                    break
+            else:
+                if training_edge_true_symbol == test_edge_true_symbol:
+                    is_subset = True
+                    break
+        else:
+            if not test_edge_false_symbol and training_edge_true_symbol == test_edge_true_symbol:
+                is_subset = True
+                break
 
     subset_size = int(overlap_rate * len(test_edge_terms))
     subsets = permutations(test_edge_terms, subset_size)
@@ -397,7 +398,8 @@ def match_edges(test_edge, training_edges, overlap_rate=0.8):
             if training_edge.has(subset_symbol):
                 is_significant_overlap = True
 
-    print(test_edge, is_exact_match, is_subset, is_significant_overlap)
+    print(test_edge, training_edges)
+    print(is_exact_match, is_subset, is_significant_overlap)
 
     return is_exact_match or is_subset  # or is_significant_overlap
 
