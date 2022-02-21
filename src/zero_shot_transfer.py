@@ -43,8 +43,8 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-    policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
-    # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
+    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
+    task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
 
     tf.reset_default_graph()
@@ -300,25 +300,25 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
         total_reward = 0
         while not task.ltl_game_over and not task.env_game_over:
             cur_node = task.dfa.state
-            # Find all feasible paths that the current node is on
+            # Find all feasible paths the current node is on
             path2pos = {}
             for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
                 if cur_node in feasible_path_node:
                     pos = feasible_path_node.index(cur_node)  # current position on the path
                     path2pos[feasible_path_edge] = pos
 
-            # Find best edge to target based on success probability from current MDP state
+            # Find best edge to target based on success probability from current location
             cur_loc = (task.agent.i, task.agent.j)
             option2prob = {}
-            for path, pos in path2pos:
+            for path, pos in path2pos.items():
                 edge = path[pos]
                 ltls = edge2ltls[edge]
                 for ltl in ltls:
                     option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][cur_loc]
-            best_policy, edge = sorted(option2prob, key=lambda kv: kv[1])[-1][0]
+            best_policy, best_edge = sorted(option2prob, key=lambda kv: kv[1])[-1][0]
 
             # Execute option
-            total_reward += execute_option(task, policy_bank, best_policy, edge)
+            total_reward += execute_option(task, policy_bank, best_policy, best_edge)
 
             # task2sol[transfer_task].append(option)
 
@@ -434,10 +434,12 @@ def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, trai
 
 
 def execute_option(task, policy_bank, ltl_policy, edge):
+    # task = Game(tester.get_task_params(ltl_policy))
     num_features = task.get_num_features()
 
     option_reward = 0
     # while not termination condition and policy is defined in current MDP state
+    # termination condition: hit target edge or other edge transition
     while not task.dfa.state != edge[1]:
         s1 = task.get_features()
         a = Actions(policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features))))
