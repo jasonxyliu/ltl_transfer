@@ -264,6 +264,7 @@ def construct_initiation_set_classifiers(saver):
 def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
     transfer_tasks = tester.get_transfer_tasks()
     training_edges, edge2ltls = get_training_edges(policy2edge2loc2prob)
+    training_edges = [sympy.simplify("c&~f"), sympy.simplify("f&~b"), sympy.simplify("b&h")]
     # print("n_edges: ", len(edge2ltls))
     # for edge, ltls in edge2ltls.items():
     #     print("edge: ", edge)
@@ -296,29 +297,36 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
 
         # Find all paths consists of only edges matching training edges
         feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges)
+        print("feasible paths: ", feasible_paths_node)
 
         total_reward = 0
         while not task.ltl_game_over and not task.env_game_over:
             cur_node = task.dfa.state
-            # Find all feasible paths the current node is on
-            path2pos = {}
+            print("current node: ", cur_node)
+            # Find all feasible paths the current node is on then candidate target edges
+            candidate_target_edges = []
             for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
+                print("feasible path: ", feasible_path_node)
                 if cur_node in feasible_path_node:
                     pos = feasible_path_node.index(cur_node)  # current position on the path
-                    path2pos[feasible_path_edge] = pos
+                    print("current position on a feasible path: ", pos)
+                    print("candidate target edge: ", feasible_path_edge[pos])
+                    candidate_target_edges.append(feasible_path_edge[pos])
 
             # Find best edge to target based on success probability from current location
             cur_loc = (task.agent.i, task.agent.j)
             option2prob = {}
-            for path, pos in path2pos.items():
-                edge = path[pos]
+            for edge in candidate_target_edges:
                 ltls = edge2ltls[edge]
                 for ltl in ltls:
                     option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][cur_loc]
             best_policy, best_edge = sorted(option2prob, key=lambda kv: kv[1])[-1][0]
+            print(option2prob)
+            print(best_policy)
+            print(best_edge)
 
             # Execute option
-            total_reward += execute_option(task, policy_bank, best_policy, best_edge)
+            # total_reward += execute_option(task, policy_bank, best_policy, best_edge)
 
             # task2sol[transfer_task].append(option)
 
@@ -350,8 +358,31 @@ def dfa2graph(dfa):
     return dfa_graph
 
 
+def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, training_edges):
+    """
+    A feasible path consists of only DFA edges seen in training
+    """
+    feasible_paths_node = []
+    feasible_paths_edge = []
+    for simple_path_node, simple_path_edge in zip(all_simple_paths_node, all_simple_paths_edge):
+        print("path: ", simple_path_edge)
+        is_feasible_path = True
+        for node_from, node_to in simple_path_edge:
+            if not match_edges(dfa_graph.edges[node_from, node_to]["edge_label"], training_edges):
+                is_feasible_path = False
+                break
+        if is_feasible_path:
+            feasible_paths_node.append(simple_path_node)
+            feasible_paths_edge.append(simple_path_edge)
+        print()
+    return feasible_paths_node, feasible_paths_edge
+
+
 def match_edges(test_edge, training_edges, overlap_rate=0.8):
     """
+    assume edge propositions connected only by and
+    F((a | b) & Fc): (a&!c)|(b&!c), c, (a&c)|(b&c)
+
     subset match :=
     truth propositions are exactly the same
     false propositions of test_edge is a subset of any training_edge
@@ -413,24 +444,6 @@ def match_edges(test_edge, training_edges, overlap_rate=0.8):
     print(test_edge, training_edges)
     print(is_exact_match, is_subset, is_significant_overlap)
     return is_exact_match or is_subset  # or is_significant_overlap
-
-
-def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, training_edges):
-    feasible_paths_node = []
-    feasible_paths_edge = []
-    for simple_path_node, simple_path_edge in zip(all_simple_paths_node, all_simple_paths_edge):
-        print("path: ", simple_path_edge)
-        is_feasible_path = True
-        for edge in simple_path_edge:
-            if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
-                is_feasible_path = False
-                break
-        if is_feasible_path:
-            feasible_paths_node.append(simple_path_node)
-            feasible_paths_edge.append(simple_path_edge)
-        print()
-    print("feasible paths: ", feasible_paths_node)
-    return feasible_paths_node, feasible_paths_edge
 
 
 def execute_option(task, policy_bank, ltl_policy, edge):
