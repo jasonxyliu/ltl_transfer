@@ -1,9 +1,10 @@
 #!/bin/bash
 
+
 #SBATCH -n 32
 #SBATCH --mem=98G
-#SBATCH -t 10:00:00
-#SBATCH --array=0-1
+#SBATCH -t 20:00:00
+#SBATCH --array=0
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
 #SBATCH -e sbatch_out/arrayjob-%A-%a.err
