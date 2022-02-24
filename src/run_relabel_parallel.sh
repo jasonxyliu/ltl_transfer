@@ -29,4 +29,4 @@ module load anaconda/3-5.2.0
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
 python3 run_experiments.py --algorithm=$algo --tasks=$task --map=$map 
-
+cp -r ../tmp/* ~/data/shared/ltl-transfer/tmp/
