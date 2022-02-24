@@ -13,7 +13,7 @@ i=`expr $SLURM_ARRAY_TASK_ID % 360`
 j=`expr $SLURM_ARRAY_TASK_ID / 360`
 
 algo="zero_shot_transfer"
-task="transfer_interleaving"
+task_id=4
 map_id=0
 run_id=0
 #ltl_ids=(seq 34)
@@ -28,5 +28,5 @@ max_depth=100
 module load anaconda/3-5.2.0
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
-python3 run_single_worker.py --algo=$algo --task_id=$task --map_id=$map_id --run_id=$run_id --ltl_id=%ltl_id --state_id=%state_id --n_rollouts=%n_rollouts --max_depth=%max_depth
+python3 run_single_worker.py --algo=$algo --task_id=$task_id --map_id=$map_id --run_id=$run_id --ltl_id=%ltl_id --state_id=%state_id --n_rollouts=%n_rollouts --max_depth=%max_depth
 cp -r ../tmp/* ~/data/shared/ltl-transfer/tmp/
