@@ -5,7 +5,7 @@ import dill
 from multiprocessing import Pool
 from collections import defaultdict
 import tensorflow as tf
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # not print INFO, WARNING, ERROR messages
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import networkx as nx
 import sympy
 from itertools import permutations
@@ -17,6 +17,8 @@ from policy_bank import *
 from dfa import *
 from game import *
 from run_single_worker import single_worker_rollouts
+
+CHUNK_SIZE = 32
 
 
 def run_experiments(tester, curriculum, saver, loader, run_id):
@@ -62,22 +64,25 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     """
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
+    all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
+    loc_chunks = [all_locs[chunk_id: chunk_id+CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
+
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         worker_commands = []
         ltl_id = policy_bank.get_id(ltl)
         # if ltl_id not in [12, 16, 30]:
         #     continue
-        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
         # test_locs = list(zip(x_tests, y_tests))
-        test_locs = [(5, 15), (10, 10)]
+        # test_locs = [(5, 15), (10, 10)]
         # print("test_locs: ", test_locs)
-        for x in range(task_aux.map_width):
-            for y in range(task_aux.map_height):
-                if (x, y) not in test_locs:
-                    continue
+        for locs in loc_chunks:
+            for x, y in locs:
+                # if (x, y) not in test_locs:
+                #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create directory to store results from a single worker
                     # saver.create_worker_directory(ltl_id, state2id[(x, y)])
@@ -85,15 +90,14 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
                         saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     worker_commands.append("python3 run_single_worker.py %s" % args)
-
-        print(worker_commands)
+        # print(worker_commands)
 
         with Pool(processes=len(worker_commands)) as pool:
             retvals = pool.map(os.system, worker_commands)
         for retval, worker_command in zip(retvals, worker_commands):
             if retval:  # os.system exit code: 0 means correct execution
                 print("Command failed: ", retval, worker_command)
-                retval = os.system(worker_command)
+                # retval = os.system(worker_command)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
