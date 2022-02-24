@@ -43,8 +43,8 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
-    task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
+    policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
+    # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
 
     tf.reset_default_graph()
@@ -61,8 +61,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     """
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
-    worker_commands = []
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+        worker_commands = []
         ltl_id = policy_bank.get_id(ltl)
         # if ltl_id not in [12, 16, 30]:
         #     continue
@@ -85,12 +85,12 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                         saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     worker_commands.append("python3 run_single_worker.py %s" % args)
 
-    with Pool(processes=len(worker_commands)) as pool:
-        retvals = pool.map(os.system, worker_commands)
-    for retval, worker_command in zip(retvals, worker_commands):
-        if retval:  # os.system exit code: 0 means correct execution
-            print("Command failed: ", retval, worker_command)
-            retval = os.system(worker_command)
+        with Pool(processes=len(worker_commands)) as pool:
+            retvals = pool.map(os.system, worker_commands)
+        for retval, worker_command in zip(retvals, worker_commands):
+            if retval:  # os.system exit code: 0 means correct execution
+                print("Command failed: ", retval, worker_command)
+                retval = os.system(worker_command)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
