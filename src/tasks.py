@@ -133,7 +133,7 @@ def get_interleaving_training_tasks():
 def get_transfer_tasks():
     """ Testing tasks for the transfer tasks. """
     tasks = [
-        ('and', _get_sequence('aeg'), _get_sequence('feg')),
+        ('and', _get_sequence('fbh'), _get_sequence('cbh')),
         # _get_sequence('deg'),  # _get_sequence('de'), ('and', _get_sequence('aeg'), _get_sequence('feg'))
         # _get_sequence('dcb'),  # ('and', _get_sequence('dc'), _get_sequence('abc')), ('and', _get_sequence('fb'), _get_sequence('acb'))
         # _get_sequence('af'),  # a & !f is a subset of a & !e & f: ('and', _get_sequence('ae'), _get_sequence('fe'))

@@ -4,9 +4,11 @@ import json
 import dill
 from multiprocessing import Pool
 from collections import defaultdict
-import numpy as np
 import tensorflow as tf
 import networkx as nx
+import sympy
+from itertools import permutations
+import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pprint
 from lpopl import _initialize_policy_bank, _test_LPOPL
@@ -42,7 +44,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # relabel(tester, saver, curriculum, policy_bank)
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
-    task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
+    # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
 
     tf.reset_default_graph()
@@ -59,8 +61,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     """
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
-    worker_commands = []
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+        worker_commands = []
         ltl_id = policy_bank.get_id(ltl)
         # if ltl_id not in [12, 16, 30]:
         #     continue
@@ -83,12 +85,12 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                         saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     worker_commands.append("python3 run_single_worker.py %s" % args)
 
-    with Pool(processes=len(worker_commands)) as pool:
-        retvals = pool.map(os.system, worker_commands)
-    for retval, worker_command in zip(retvals, worker_commands):
-        if retval:  # os.system exit code: 0 means correct execution
-            print("Command failed: ", retval, worker_command)
-            retval = os.system(worker_command)
+        with Pool(processes=len(worker_commands)) as pool:
+            retvals = pool.map(os.system, worker_commands)
+        for retval, worker_command in zip(retvals, worker_commands):
+            if retval:  # os.system exit code: 0 means correct execution
+                print("Command failed: ", retval, worker_command)
+                retval = os.system(worker_command)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
@@ -261,52 +263,70 @@ def construct_initiation_set_classifiers(saver):
 
 def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
     transfer_tasks = tester.get_transfer_tasks()
-    edge2ltls, training_edges = get_training_edges(policy2edge2loc2prob)
+    training_edges, edge2ltls = get_training_edges(policy2edge2loc2prob)
+    training_edges = [sympy.simplify("c&~f"), sympy.simplify("f&~b"), sympy.simplify("b&h")]
+    # print("n_edges: ", len(edge2ltls))
+    # for edge, ltls in edge2ltls.items():
+    #     print("edge: ", edge)
+    #     for ltl in ltls:
+    #         print("ltl: ", ltl)
+    #     print()
 
     task2sol = defaultdict(list)
+    for transfer_task in transfer_tasks:
+        print("transfer task:", transfer_task)
+        task = Game(tester.get_task_params(transfer_task))  # same map as the training tasks
 
-    # for transfer_task in transfer_tasks:
-    #     print("transfer task:", transfer_task)
-    #     task = Game(tester.get_task_params(transfer_task))  # same map as the training tasks
-    #
-    #     # wrapper: DFA -> NetworkX graph
-    #     dfa_graph = dfa2graph(task.dfa)
-    #
-    #     # for edge, edge_data in dfa_graph.edges.items():
-    #     #     print(edge, edge_data)
-    #
-    #     # pos = nx.circular_layout(dfa_graph)
-    #     # nx.draw_networkx(dfa_graph, pos, with_labels=True)
-    #     # nx.draw_networkx_edges(dfa_graph, pos)
-    #     # ax = plt.gca()
-    #     # ax.margins(0.20)
-    #     # plt.axis("off")
-    #     # plt.show()
-    #
-    #     # Graph search to find all paths from initial state to goal state
-    #     all_simple_paths = nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal)
-    #     all_simple_paths = [list(path) for path in map(nx.utils.pairwise, all_simple_paths)]
-    #     print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
-    #     print("all simple paths: ", len(all_simple_paths), all_simple_paths)
-    #
-    #     # Find all paths consists of only seen edges
-    #     feasible_paths = []
-    #     for simple_path in all_simple_paths:
-    #         is_feasible_path = True
-    #         for edge in simple_path:
-    #             if not match_edges(dfa_graph.edges[edge[0], edge[1]]["edge_label"], training_edges):
-    #                 is_feasible_path = False
-    #                 break
-    #         if is_feasible_path:
-    #             feasible_paths.append(simple_path)
+        # wrapper: DFA -> NetworkX graph
+        dfa_graph = dfa2graph(task.dfa)
+        # for edge, edge_data in dfa_graph.edges.items():
+        #     print(edge, edge_data)
+        # pos = nx.circular_layout(dfa_graph)
+        # nx.draw_networkx(dfa_graph, pos, with_labels=True)
+        # nx.draw_networkx_edges(dfa_graph, pos)
+        # ax = plt.gca()
+        # ax.margins(0.20)
+        # plt.axis("off")
+        # plt.show()
 
-        # while not task.ltl_game_over and not task.env_game_over:
-        #     cur_node = task.dfa.state
-            # Find all paths from current node
+        # Graph search to find all simple paths from initial state to goal state
+        simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
+        simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
+        print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
+        print("simple paths: ", len(simple_paths_node), simple_paths_node)
 
-            # Find 1st edge to target based on success probability from current MDP state
+        # Find all paths consists of only edges matching training edges
+        feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges)
+        print("feasible paths: ", feasible_paths_node)
+
+        total_reward = 0
+        while not task.ltl_game_over and not task.env_game_over:
+            cur_node = task.dfa.state
+            print("current node: ", cur_node)
+            # Find all feasible paths the current node is on then candidate target edges
+            candidate_target_edges = []
+            for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
+                print("feasible path: ", feasible_path_node)
+                if cur_node in feasible_path_node:
+                    pos = feasible_path_node.index(cur_node)  # current position on the path
+                    print("current position on a feasible path: ", pos)
+                    print("candidate target edge: ", feasible_path_edge[pos])
+                    candidate_target_edges.append(feasible_path_edge[pos])
+
+            # Find best edge to target based on success probability from current location
+            cur_loc = (task.agent.i, task.agent.j)
+            option2prob = {}
+            for edge in candidate_target_edges:
+                ltls = edge2ltls[edge]
+                for ltl in ltls:
+                    option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][cur_loc]
+            best_policy, best_edge = sorted(option2prob, key=lambda kv: kv[1])[-1][0]
+            print(option2prob)
+            print(best_policy)
+            print(best_edge)
 
             # Execute option
+            # total_reward += execute_option(task, policy_bank, best_policy, best_edge)
 
             # task2sol[transfer_task].append(option)
 
@@ -319,34 +339,11 @@ def get_training_edges(policy2edge2loc2prob):
     Map edge to corresponding LTLs, possibly one to many.
     """
     edge2ltls = defaultdict(list)
-    training_edges = []
-    for ltl, edge2ltl2loc2prob in policy2edge2loc2prob.items():
-        for edge, _ in edge2ltl2loc2prob.items():
+    for ltl, edge2loc2prob in policy2edge2loc2prob.items():
+        for edge, _ in edge2loc2prob.items():
             edge2ltls[edge].append(ltl)
-            if edge not in training_edges:
-                training_edges.append(edge)
-
-    # print("n_edges: ", len(edge2ltls))
-    # for edge, ltls in edge2ltls.items():
-    #     print("edge: ", edge)
-    #     for ltl in ltls:
-    #         print("ltl: ", ltl)
-    #     print()
-
-    # ltl2edges = {ltl: policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels() for ltl in policy_bank.get_LTL_policies()}
-    # edge2ltls = defaultdict(list)
-    # training_edges = []
-    # for ltl in policy_bank.get_LTL_policies():
-    #     out_edges = policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels()
-    #     for edge in out_edges:
-    #         edge2ltls[edge].append(ltl)  # all policies that can satisfy this edge
-    #         if edge not in training_edges:
-    #             training_edges.append(edge)
-            # else:
-            #     print("duplicate edge: ", ltl, edge)
-    # pprint(edge2ltls)
-    # print("training edges: ", len(training_edges), training_edges)
-    return edge2ltls, training_edges
+    training_edges = [sympy.simplify(edge.replace('!', '~')) for edge in edge2ltls.keys()]
+    return training_edges, edge2ltls
 
 
 def dfa2graph(dfa):
@@ -361,18 +358,105 @@ def dfa2graph(dfa):
     return dfa_graph
 
 
-def match_edges(test_edge, training_edges):
-    return True
+def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, training_edges):
+    """
+    A feasible path consists of only DFA edges seen in training
+    """
+    feasible_paths_node = []
+    feasible_paths_edge = []
+    for simple_path_node, simple_path_edge in zip(all_simple_paths_node, all_simple_paths_edge):
+        print("path: ", simple_path_edge)
+        is_feasible_path = True
+        for node_from, node_to in simple_path_edge:
+            if not match_edges(dfa_graph.edges[node_from, node_to]["edge_label"], training_edges):
+                is_feasible_path = False
+                break
+        if is_feasible_path:
+            feasible_paths_node.append(simple_path_node)
+            feasible_paths_edge.append(simple_path_edge)
+        print()
+    return feasible_paths_node, feasible_paths_edge
 
 
-def execute_option(task, policy_bank, ltl_goal):
+def match_edges(test_edge, training_edges, overlap_rate=0.8):
+    """
+    assume edge propositions connected only by and
+    F((a | b) & Fc): (a&!c)|(b&!c), c, (a&c)|(b&c)
+
+    subset match :=
+    truth propositions are exactly the same
+    false propositions of test_edge is a subset of any training_edge
+
+    significant overlapping :=
+    any subset of test_edge with size N, where N = overlap_rate * |terms in test_edge|
+    is subset of any training_edge
+    """
+    test_edge_symbol = sympy.simplify(test_edge.replace('!', '~'))
+    is_exact_match = test_edge_symbol in training_edges
+
+    test_edge_terms = test_edge.split("&")
+    test_edge_true = [term for term in test_edge_terms if term[0] != '!']  # all true propositions
+    test_edge_true_symbol = None
+    if test_edge_true:
+        test_edge_true_symbol = sympy.simplify("&".join(test_edge_true))
+    test_edge_false = [term.replace('!', '~') for term in test_edge_terms if term[0] == '!']  # all false propositions
+    test_edge_false_symbol = None
+    if test_edge_false:
+        test_edge_false_symbol = sympy.simplify("&".join(test_edge_false))
+    is_subset = False
+    for training_edge in training_edges:
+        training_edge_terms = str(training_edge).split(' & ')
+        training_edge_true = [term for term in training_edge_terms if term[0] != '~']
+        training_edge_true_symbol = None
+        if training_edge_true:
+            training_edge_true_symbol = sympy.simplify("&".join(training_edge_true))
+        training_edge_false = [term for term in training_edge_terms if term[0] == '~']
+        training_edge_false_symbol = None
+        if training_edge_false:
+            training_edge_false_symbol = sympy.simplify("&".join(training_edge_false))
+        if training_edge_false_symbol:
+            if test_edge_false_symbol:
+                if training_edge_false_symbol.has(test_edge_false_symbol) \
+                        and training_edge_true_symbol == test_edge_true_symbol:
+                    is_subset = True
+                    break
+            else:
+                if training_edge_true_symbol == test_edge_true_symbol:
+                    is_subset = True
+                    break
+        else:
+            if not test_edge_false_symbol and training_edge_true_symbol == test_edge_true_symbol:
+                is_subset = True
+                break
+
+    subset_size = int(overlap_rate * len(test_edge_terms))
+    subsets = permutations(test_edge_terms, subset_size)
+    is_significant_overlap = False
+    for subset in subsets:
+        if not subset:
+            print("empty subsets for test_edge: ", test_edge)
+            continue
+        subset_symbol = sympy.simplify("&".join(subset).replace('!', '~'))
+        for training_edge in training_edges:
+            if training_edge.has(subset_symbol):
+                is_significant_overlap = True
+
+    print(test_edge, training_edges)
+    print(is_exact_match, is_subset, is_significant_overlap)
+    return is_exact_match or is_subset  # or is_significant_overlap
+
+
+def execute_option(task, policy_bank, ltl_policy, edge):
+    # task = Game(tester.get_task_params(ltl_policy))
     num_features = task.get_num_features()
 
-    total_reward = 0
+    option_reward = 0
     # while not termination condition and policy is defined in current MDP state
-    s1 = task.get_features()
-    a = Actions(policy_bank.get_best_action(ltl_goal, s1.reshape((1, num_features))))
-    reward = task.execute_action(a)
-    total_reward += reward
+    # termination condition: hit target edge or other edge transition
+    while not task.dfa.state != edge[1]:
+        s1 = task.get_features()
+        a = Actions(policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features))))
+        reward = task.execute_action(a)
+        option_reward += reward
 
-    return total_reward
+    return option_reward
