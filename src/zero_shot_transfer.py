@@ -5,6 +5,7 @@ import dill
 from multiprocessing import Pool
 from collections import defaultdict
 import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import networkx as nx
 import sympy
 from itertools import permutations
@@ -43,7 +44,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-    policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
+    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
     # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
 
@@ -66,17 +67,17 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
         ltl_id = policy_bank.get_id(ltl)
         # if ltl_id not in [12, 16, 30]:
         #     continue
-        # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
         # test_locs = list(zip(x_tests, y_tests))
-        # test_locs = [(5, 15), (10, 10)]
+        test_locs = [(5, 15), (10, 10)]
         # print("test_locs: ", test_locs)
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                # if (x, y) not in test_locs:
-                #     continue
+                if (x, y) not in test_locs:
+                    continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create directory to store results from a single worker
                     # saver.create_worker_directory(ltl_id, state2id[(x, y)])
@@ -84,6 +85,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
                         saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     worker_commands.append("python3 run_single_worker.py %s" % args)
+
+        print(worker_commands)
 
         with Pool(processes=len(worker_commands)) as pool:
             retvals = pool.map(os.system, worker_commands)
