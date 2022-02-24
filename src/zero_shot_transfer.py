@@ -90,14 +90,14 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
                         saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     worker_commands.append("python3 run_single_worker.py %s" % args)
-        # print(worker_commands)
+            # print(worker_commands)
 
-        with Pool(processes=len(worker_commands)) as pool:
-            retvals = pool.map(os.system, worker_commands)
-        for retval, worker_command in zip(retvals, worker_commands):
-            if retval:  # os.system exit code: 0 means correct execution
-                print("Command failed: ", retval, worker_command)
-                # retval = os.system(worker_command)
+            with Pool(processes=len(worker_commands)) as pool:
+                retvals = pool.map(os.system, worker_commands)
+            for retval, worker_command in zip(retvals, worker_commands):
+                if retval:  # os.system exit code: 0 means correct execution
+                    print("Command failed: ", retval, worker_command)
+                    retval = os.system(worker_command)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
