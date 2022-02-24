@@ -3,7 +3,7 @@ import dill
 import argparse
 from collections import defaultdict
 import tensorflow as tf
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # not print INFO, WARNING, ERROR messages
 from test_utils import Saver, Loader
 from game import *
 from policy_bank import *

@@ -5,7 +5,7 @@ import dill
 from multiprocessing import Pool
 from collections import defaultdict
 import tensorflow as tf
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # not print INFO, WARNING, ERROR messages
 import networkx as nx
 import sympy
 from itertools import permutations
