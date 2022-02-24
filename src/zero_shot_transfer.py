@@ -68,7 +68,6 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     loc_chunks = [all_locs[chunk_id: chunk_id+CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
 
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
-        worker_commands = []
         ltl_id = policy_bank.get_id(ltl)
         # if ltl_id not in [12, 16, 30]:
         #     continue
@@ -80,6 +79,7 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
         # test_locs = [(5, 15), (10, 10)]
         # print("test_locs: ", test_locs)
         for locs in loc_chunks:
+            worker_commands = []
             for x, y in locs:
                 # if (x, y) not in test_locs:
                 #     continue
