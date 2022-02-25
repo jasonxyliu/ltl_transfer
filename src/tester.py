@@ -6,7 +6,7 @@ def test_match_edges():
     test_samples = (
         ("a", [sympy.simplify("a")], True),
         ("a&b", [sympy.simplify("a&b")], True),
-        ("a", [sympy.simplify("a&b")], False),
+        ("a", [sympy.simplify("a&b")], False),  # place cup vs. place cup on the plate
         ("a&b", [sympy.simplify("a")], False),
         ("!a", [sympy.simplify("~a")], True),
         ("!a", [sympy.simplify("~a&~b")], True),
@@ -17,6 +17,21 @@ def test_match_edges():
         ("a&!c", [sympy.simplify("a&b&~c")], False),
         ("a&!b&!c", [sympy.simplify("a&~b")], False),
         ("a&b&!c&!d", [sympy.simplify("a&~c")], False),
+        ("a", [sympy.simplify("a|b")], False),
+        ("a|b", [sympy.simplify("a")], True),
+        ("!a", [sympy.simplify("~a|b")], False),
+        ("!a|b", [sympy.simplify("~a")], True),
+        ("a|b", [sympy.simplify("a|b")], True),
+        ("!a|b", [sympy.simplify("~a|b")], True),
+        ("a&b", [sympy.simplify("a|b")], False),
+        ("a|b", [sympy.simplify("a&b")], True),
+        ("a|!b", [sympy.simplify("a&~b")], True),
+        ("a&!b", [sympy.simplify("a|~b")], False),
+        ("a", [sympy.simplify("a&b|c")], False),
+        ("a&b|c", [sympy.simplify("a&b")], True),
+        ("a&b", [sympy.simplify("a&b|c")], False),
+        ("a&b|c", [sympy.simplify("a|c")], False),
+        ("a|c", [sympy.simplify("a&b|c")], True),
     )
 
     for test_edge, training_edges, truth in test_samples:
