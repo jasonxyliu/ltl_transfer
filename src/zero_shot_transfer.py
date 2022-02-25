@@ -23,7 +23,7 @@ CHUNK_SIZE = 32
 COMPLETED_LTL = []
 
 
-def run_experiments(tester, curriculum, saver, loader, run_id):
+def run_experiments(tester, curriculum, saver, loader, run_id, testing=False):
     # Running the tasks 'num_times'
     time_init = time.time()
     learning_params = tester.learning_params
@@ -47,7 +47,8 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
 
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
-    relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+    
+    relabel_parallel_test(tester, saver, curriculum, run_id, policy_bank)
     # policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
     # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
@@ -59,10 +60,67 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     tester.show_transfer_results()
     print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")
 
+def relabel_parallel_test(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
+    """
+    A worker runs n_rollouts from a specific location for a single hard-coded LTL. Use this to profile CPU efficiency for parallel rollouts
+    """
+    task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
+    state2id = saver.save_training_data(task_aux)
+    all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
+    loc_chunks = [all_locs[chunk_id: chunk_id+CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
+    if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
+        with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), 'rb') as file:
+            old_list = dill.load(file)['completed_ltl']
+        COMPLETED_LTL.extend(old_list)
+
+    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+        ltl_id = policy_bank.get_id(ltl)
+
+        
+        if ltl_id not in [12]:
+            continue
+        # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        start_time_ltl = time.time()
+        print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, ltl_idx))
+
+        # x_tests = np.random.randint(1, 20, size=1)
+        # y_tests = np.random.randint(1, 20, size=1)
+        # test_locs = list(zip(x_tests, y_tests))
+        # test_locs = [(5, 15), (10, 10)]
+        # print("test_locs: ", test_locs)
+        for chunk_id, locs in enumerate(loc_chunks):
+            start_time_chunk = time.time()
+            worker_commands = []
+            for x, y in locs:
+                # if (x, y) not in test_locs:
+                #     continue
+                if task_aux.is_valid_agent_loc(x, y):
+                    # create directory to store results from a single worker
+                    # saver.create_worker_directory(ltl_id, state2id[(x, y)])
+                    # create command to run a single worker
+                    args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
+                        saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+                    worker_commands.append("python3 run_single_worker.py %s" % args)
+            # print(worker_commands)
+
+            with Pool(processes=len(worker_commands)) as pool:
+                retvals = pool.map(os.system, worker_commands)
+            for retval, worker_command in zip(retvals, worker_commands):
+                if retval:  # os.system exit code: 0 means correct execution
+                    print("Command failed: ", retval, worker_command)
+                    retval = os.system(worker_command)
+            print("chunk %s took: %0.2f" % (chunk_id, (time.time()-start_time_chunk)/60))
+        print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
+        COMPLETED_LTL.append(ltl_id)
+        with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), 'wb') as file:
+            dill.dump({'completed_ltl': COMPLETED_LTL}, file)
+
+    aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
+
 
 def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
     """
-    A worker runs n_rollouts from a specific location for a specific LTL
+    A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
     """
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
