@@ -19,6 +19,9 @@ from game import *
 from run_single_worker import single_worker_rollouts
 
 CHUNK_SIZE = 32
+#if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))
+#COMPLETED_LTL = []
+
 
 
 def run_experiments(tester, curriculum, saver, loader, run_id):
@@ -66,9 +69,17 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     state2id = saver.save_training_data(task_aux)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
     loc_chunks = [all_locs[chunk_id: chunk_id+CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
+    if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
+        with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), 'rb') as file:
+            old_list = dill.load(file)['completed_ltl']
+        COMPLETED_LTL.extend(old_list)
 
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
+        
+        if ltl_id in COMPLETED_LTL:
+            continue #Check if this formula was already compiled. If so continue to next formula
+        
         # if ltl_id not in [12, 16, 30]:
         #     continue
         # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
@@ -103,6 +114,9 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     retval = os.system(worker_command)
             print("chunk %s took: %0.2f" % (chunk_id, (time.time()-start_time_chunk)/60))
         print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
+        COMPLETED_LTL.append(ltl_id)
+        with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"),'wb') as file:
+            dill.dump({'completed_ltl':COMPLETED_LTL})
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
