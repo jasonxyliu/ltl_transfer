@@ -20,8 +20,7 @@ from run_single_worker import single_worker_rollouts
 
 CHUNK_SIZE = 32
 #if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))
-#COMPLETED_LTL = []
-
+COMPLETED_LTL = []
 
 
 def run_experiments(tester, curriculum, saver, loader, run_id):
@@ -76,10 +75,10 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
 
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
-        
+
         if ltl_id in COMPLETED_LTL:
-            continue #Check if this formula was already compiled. If so continue to next formula
-        
+            continue  # Check if this formula was already compiled. If so continue to next formula
+
         # if ltl_id not in [12, 16, 30]:
         #     continue
         # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
@@ -115,8 +114,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
             print("chunk %s took: %0.2f" % (chunk_id, (time.time()-start_time_chunk)/60))
         print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
         COMPLETED_LTL.append(ltl_id)
-        with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"),'wb') as file:
-            dill.dump({'completed_ltl':COMPLETED_LTL})
+        with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), 'wb') as file:
+            dill.dump({'completed_ltl': COMPLETED_LTL}, file)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
