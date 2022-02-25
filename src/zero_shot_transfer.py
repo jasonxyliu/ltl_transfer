@@ -48,7 +48,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id, testing=False):
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
     
-    relabel_parallel_test(tester, saver, curriculum, run_id, policy_bank)
+    relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
     # policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
     # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
