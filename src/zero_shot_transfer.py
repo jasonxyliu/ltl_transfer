@@ -72,13 +72,16 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
         # if ltl_id not in [12, 16, 30]:
         #     continue
         # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        start_time_ltl = time.time()
+        print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, ltl_idx))
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
         # test_locs = list(zip(x_tests, y_tests))
         # test_locs = [(5, 15), (10, 10)]
         # print("test_locs: ", test_locs)
-        for locs in loc_chunks:
+        for chunk_id, locs in enumerate(loc_chunks):
+            start_time_chunk = time.time()
             worker_commands = []
             for x, y in locs:
                 # if (x, y) not in test_locs:
@@ -98,6 +101,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 if retval:  # os.system exit code: 0 means correct execution
                     print("Command failed: ", retval, worker_command)
                     retval = os.system(worker_command)
+            print("chunk %s took: %0.2f" % (chunk_id, (time.time()-start_time_chunk)/60))
+        print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
