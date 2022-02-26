@@ -47,7 +47,6 @@ def run_experiments(tester, curriculum, saver, loader, run_id, testing=False):
 
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
-    
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
     # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpat)
     # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
@@ -59,6 +58,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id, testing=False):
     # Showing transfer results
     tester.show_transfer_results()
     print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")
+
 
 def relabel_parallel_test(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
     """
@@ -331,9 +331,9 @@ def construct_initiation_set_classifiers(classifier_dpath):
         if key in ["n_rollouts", "ltls"]:
             continue
         ltl, loc2edge2hits = key, val
-        print("ltl: ", ltl)
+        # print("ltl: ", ltl)
         for loc, edge2hits in loc2edge2hits.items():
-            print("loc: ", loc)
+            # print("loc: ", loc)
             for edge, hits in edge2hits.items():
                 prob = hits / n_rollouts
                 policy2edge2loc2prob[ltl][edge][loc] = prob
@@ -431,7 +431,7 @@ def get_training_edges(policy2edge2loc2prob):
 
 def dfa2graph(dfa):
     """
-    convert DFA to a NetworkX graph
+    Convert DFA to a NetworkX graph
     """
     nodelist = defaultdict(dict)
     for u in dfa.nodelist:
@@ -463,7 +463,7 @@ def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, trai
 
 def match_edges(test_edge, training_edges, overlap_rate=0.8):
     """
-    assume edge propositions connected only by and
+    Assume edge propositions connected only by and
     F((a | b) & Fc): (a&!c)|(b&!c), c, (a&c)|(b&c)
 
     subset match :=
