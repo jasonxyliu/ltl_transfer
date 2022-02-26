@@ -49,7 +49,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id, testing=False):
     # relabel(tester, saver, curriculum, policy_bank)
     
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver)
+    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpat)
     # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
 
@@ -315,13 +315,13 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     return edge2hits
 
 
-def construct_initiation_set_classifiers(saver):
+def construct_initiation_set_classifiers(classifier_dpath):
     """
     Map edge-centric option policy to its initiation set classifier.
     Classifier (policy2edge2loc2prob) contain only outgoing edges that state-centric policies achieved during training,
     possibly not all outgoing edges.
     """
-    with open(os.path.join(saver.classifier_dpath, "rollout_results_parallel.pkl"), "rb") as rf:
+    with open(os.path.join(classifier_dpath, "rollout_results_parallel.pkl"), "rb") as rf:
         policy2loc2edge2hits = dill.load(rf)
 
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
@@ -338,7 +338,7 @@ def construct_initiation_set_classifiers(saver):
                 prob = hits / n_rollouts
                 policy2edge2loc2prob[ltl][edge][loc] = prob
                 policy2edge2loc2prob_json[str(ltl)][str(edge)][str(loc)] = prob
-    with open(os.path.join(saver.classifier_dpath, "classifier.json"), "w") as wf:
+    with open(os.path.join(classifier_dpath, "classifier.json"), "w") as wf:
         json.dump(policy2edge2loc2prob_json, wf)  # save to json for easier inspection of dictionary
 
     return policy2edge2loc2prob
