@@ -23,9 +23,11 @@ LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy
 
 Transfer Learning requires [dill](https://dill.readthedocs.io/en/latest/), [NetworkX](https://networkx.org/), and [Matplotlib](https://matplotlib.org/).
 
-Install all requirements in a conda environment by running the following command
+Visualization requires [pillow](https://pillow.readthedocs.io/en/stable/index.html)
 
-    conda create -n ltl_transfer numpy sympy dill networkx matplotlib tensorflow=1  # tensorflow 1.15
+Install all dependencies in a conda environment by running the following command
+
+    conda create -n ltl_transfer numpy sympy dill networkx matplotlib pillow tensorflow=1  # tensorflow 1.15
 
 ## Running examples
 
@@ -38,6 +40,17 @@ The results will be printed and saved in './tmp'. After running LPOPL over all t
     python3 test_utils.py --algorithm="lpopl" --tasks="sequence"
 
 The overall results will be saved in the './results' folder.
+
+To run zero-shot transfer
+
+    python3 run_experiments.py --algorithm="zero_shot_transfer" --tasks="transfer_interleaving" --map=0
+
+## Visualization
+
+To visualize initiation set classifiers
+
+    python visualize_classifiers.py --algo=lpopl --tasks_id=4 --map_id=0 --ltl_id=12
+    
 
 ## Generating new random maps
 
