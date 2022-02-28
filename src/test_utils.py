@@ -209,7 +209,7 @@ class Saver:
         worker_dpath = os.path.join(self.classifier_dpath, "ltl%d_state%d" % (ltl_id, state_id))
         os.makedirs(worker_dpath, exist_ok=True)
 
-    def save_worker_results(self, run_idx, ltl_id, state, edge2hits):
+    def save_worker_results(self, run_idx, ltl_id, state, edge2hits, n_rollouts):
         """
         Save results from a worker
         """
@@ -217,7 +217,8 @@ class Saver:
             "run_idx": run_idx,
             "ltl": ltl_id,
             "state": state,
-            "edge2hits": edge2hits
+            "edge2hits": edge2hits,
+            "n_rollouts": n_rollouts
         }
         worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, state[0], state[1]))
         save_json(worker_fpath+"rollout_results_parallel.json", rollout_results)
