@@ -93,7 +93,7 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
             depth += 1
         if traversed_edge:
             if traversed_edge not in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
-                print("ERROR: traversed edge not a valid outgoing edge: ", traversed_edge)
+                raise Exception("ERROR: traversed edge not a valid outgoing edge: ", traversed_edge)
             edge2hits[traversed_edge] += 1
     # print(edge2hits)
     return edge2hits
