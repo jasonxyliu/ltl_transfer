@@ -25,7 +25,19 @@ ID2NAME = {
 }
 
 
+def run_visualizer(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath):
+    with open(os.path.join(classifier_dpath, "completed_ltls.pkl"), "rb") as file:
+        completed_ltls = dill.load(file)["completed_ltl"]
+    completed_ltls.sort()
+    if ltl_id == -1:
+        for ltl_id in completed_ltls:
+            visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath)
+    else:
+        visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath)
+
+
 def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath):
+    print("\nGenerating visualization for LTL: ", ltl_id)
     rollout_results_fpath = os.path.join(classifier_dpath, "rollout_results_parallel.pkl")
     if os.path.exists(rollout_results_fpath):
         with open(rollout_results_fpath, "rb") as rfile:
@@ -34,19 +46,36 @@ def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis
         ltl = policy2loc2edge2hits["ltls"][ltl_id]
         edge2loc2prob = policy2edge2loc2prob[ltl]  # classifiers to visualize
     else:
-        print("FileNotFound: aggregated rollout results\n%s\nConstructing from single worker results" % rollout_results_fpath)
-        edge2loc2prob = {}
-        fnames = os.listdir(classifier_dpath)
-        ltl2nstates = defaultdict(int)
-        for fname in fnames:
-            if "ltl" in fname:
-                fpath = os.path.join(classifier_dpath, fname)
+        print("FileNotFound: aggregated rollout results\n%s\nConstructing from single worker results\n" % rollout_results_fpath)
+        with open(os.path.join(classifier_dpath, "completed_ltls.pkl"), "rb") as file:
+            completed_ltls = dill.load(file)["completed_ltl"]
+        completed_ltls.sort()
+        # print("Completed LTLs: ", completed_ltls)
+        if ltl_id not in completed_ltls:
+            raise Exception("Requested LTL %d is not completed\nCompeted LTLs are %s" % (ltl_id, completed_ltls))
+        edge2loc2prob = defaultdict(dict)
+        nstates = 0
+        for fname in os.listdir(classifier_dpath):
+            if "ltl%d" % ltl_id in fname and fname.endswith('.pkl'):
+                worker_results_fpath = os.path.join(classifier_dpath, fname)
+                with open(worker_results_fpath, "rb") as file:
+                    worker_results = dill.load(file)
+                edge2hits = worker_results["edge2hits"]
+                loc = worker_results["state"]
+                n_rollouts = worker_results["n_rollouts"] if "n_rollouts" in worker_results else 100
+                if not edge2hits:
+                    print("ATTENTION: LTL %d 0 hits from location: %s" % (ltl_id, str(loc)))
+                for edge, hits in edge2hits.items():
+                    # print(loc, edge, hits)
+                    edge2loc2prob[edge][loc] = hits / n_rollouts
+                nstates += 1
+        # print(edge2loc2prob)
+        print("Rolled out LTL %d from %d locations" % (ltl_id, nstates))
 
     landmark_dpath = os.path.join("../vis", "minecraft")
     decorated_map_fpath = os.path.join(vis_dpath, "map.png")
     if not os.path.exists(decorated_map_fpath):
         plot_map(map_fpath, landmark_dpath, decorated_map_fpath)
-
     add_heat_map(decorated_map_fpath, vis_dpath, edge2loc2prob, ltl_id)
 
 
@@ -118,6 +147,8 @@ def add_heat_map(decorated_map_fpath, vis_dpath, edge2loc2prob, ltl_id):
 
     Add grid lines to image:
     https://stackoverflow.com/questions/20368413/draw-grid-lines-over-an-image-in-matplotlib
+
+    TODO: add colormap and sidebar
     """
     img = load_image(decorated_map_fpath)
 
@@ -161,7 +192,7 @@ def add_heat_map(decorated_map_fpath, vis_dpath, edge2loc2prob, ltl_id):
                     x = np.arange(x_low, x_up+0.01, 0.01)  # 0.01: precision of x/y-interval
                     y0 = y_low * np.ones(len(x))
                     y1 = y_up * np.ones(len(x))
-                    ax.fill_between(x, y0, y1, color="orange", alpha=0.1*loc2prob[loc])
+                    ax.fill_between(x, y0, y1, color="r", alpha=0.1*loc2prob[loc])
         vis_classifier_fpath = os.path.join(vis_dpath, "ltl_%d_edge_%s.png" % (ltl_id, edge))
         plt.savefig(vis_classifier_fpath)
 
@@ -207,15 +238,15 @@ if __name__ == '__main__':
     parser.add_argument('--map_id', default=0, type=int,
                         help='This parameter identify the map on which relabeling happens')
     parser.add_argument('--ltl_id', default=-1, type=int,
-                        help='This parameter identify the relabeled option to visualize')
+                        help='This parameter identify the relabeled option to visualize. -1 visualize all completed LTLs')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.tasks_id not in id2tasks: raise NotImplementedError(
         "Tasks " + str(id2tasks[args.tasks_id]) + " hasn't been defined yet")
     if not (-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp_oscar", "task_%d" % args.tasks_id, "map_%d" % args.map_id, "classifier")
     map_fpath = os.path.join("../experiments/maps", "map_%d.txt" % args.map_id)
     vis_dpath = os.path.join("..", "vis", "task_%d" % args.tasks_id, "map_%d" % args.map_id)
     os.makedirs(vis_dpath, exist_ok=True)
-    visualize_discrete_classifier(args.algo, args.ltl_id, classifier_dpath, map_fpath, vis_dpath)
+    run_visualizer(args.algo, args.ltl_id, classifier_dpath, map_fpath, vis_dpath)
