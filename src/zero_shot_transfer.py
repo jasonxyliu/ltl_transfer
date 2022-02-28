@@ -21,7 +21,7 @@ from run_single_worker import single_worker_rollouts
 CHUNK_SIZE = 32
 
 
-def run_experiments(tester, curriculum, saver, loader, run_id, testing=False):
+def run_experiments(tester, curriculum, saver, loader, run_id):
     # Running the tasks 'num_times'
     time_init = time.time()
     learning_params = tester.learning_params
@@ -62,6 +62,20 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     """
     A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
     """
+    # Save LTL formula to ID to mapping for inspection later
+    ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id.pkl")
+    if not os.path.exists(ltl2id_pkl_fpath):
+        ltl2id_pkl = {}
+        ltl2id_json = {}
+        for ltl in policy_bank.get_LTL_policies():
+            ltl_id = policy_bank.get_id(ltl)
+            ltl2id_pkl[ltl] = ltl_id
+            ltl2id_json[str(ltl)] = ltl_id
+        with open(ltl2id_pkl_fpath, 'wb') as file:
+            dill.dump(ltl2id_pkl, file)
+        with open(os.path.join(saver.classifier_dpath, "ltl2id.json"), 'w') as file:
+            json.dump(ltl2id_json, file)
+
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
