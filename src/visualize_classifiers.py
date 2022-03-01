@@ -37,7 +37,9 @@ def run_visualizer(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath):
 
 
 def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath):
-    print("\nGenerating visualization for LTL: ", ltl_id)
+    out_fpath = os.path.join(vis_dpath, "output.txt")
+    with open(out_fpath, "a") as file:
+        file.write("\nGenerating visualization for LTL: %d" % ltl_id)
     rollout_results_fpath = os.path.join(classifier_dpath, "rollout_results_parallel.pkl")
     if os.path.exists(rollout_results_fpath):
         with open(rollout_results_fpath, "rb") as rfile:
@@ -46,7 +48,8 @@ def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis
         ltl = policy2loc2edge2hits["ltls"][ltl_id]
         edge2loc2prob = policy2edge2loc2prob[ltl]  # classifiers to visualize
     else:
-        print("FileNotFound: aggregated rollout results\n%s\nConstructing from single worker results\n" % rollout_results_fpath)
+        with open(out_fpath, "a") as file:
+            file.write("FileNotFound: aggregated rollout results\n%s\nConstructing from single worker results\n" % rollout_results_fpath)
         with open(os.path.join(classifier_dpath, "completed_ltls.pkl"), "rb") as file:
             completed_ltls = dill.load(file)["completed_ltl"]
         completed_ltls.sort()
@@ -64,13 +67,15 @@ def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis
                 loc = worker_results["state"]
                 n_rollouts = worker_results["n_rollouts"] if "n_rollouts" in worker_results else 100
                 if not edge2hits:
-                    print("ATTENTION: LTL %d 0 hits from location: %s" % (ltl_id, str(loc)))
+                    with open(out_fpath, "a") as file:
+                        file.write("ATTENTION: LTL %d 0 hits from location: %s" % (ltl_id, str(loc)))
                 for edge, hits in edge2hits.items():
                     # print(loc, edge, hits)
                     edge2loc2prob[edge][loc] = hits / n_rollouts
                 nstates += 1
         # print(edge2loc2prob)
-        print("Rolled out LTL %d from %d locations" % (ltl_id, nstates))
+        with open(out_fpath, "a") as file:
+            file.write("Rolled out LTL %d from %d locations\n" % (ltl_id, nstates))
 
     landmark_dpath = os.path.join("../vis", "minecraft")
     decorated_map_fpath = os.path.join(vis_dpath, "map.png")
