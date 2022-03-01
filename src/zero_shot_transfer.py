@@ -124,11 +124,13 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 if retval:  # os.system exit code: 0 means correct execution
                     print("Command failed: ", retval, worker_command)
                     retval = os.system(worker_command)
-            print("chunk %s took: %0.2f" % (chunk_id, (time.time()-start_time_chunk)/60))
+            print("chunk %s took: %0.2f, with %s states" % (chunk_id, (time.time()-start_time_chunk)/60), len(retval))
         print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
         completed_ltls.append(ltl_id)
         with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), 'wb') as file:
             dill.dump({'completed_ltl': completed_ltls}, file)
+        with open(os.path.join(saver.classifier_dpath, "completed_ltls.json", 'w') as file:
+            json.dump(completed_ltls, file)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
