@@ -25,7 +25,7 @@ ID2NAME = {
 }
 
 
-def run_visualizer(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath):
+def run_visualizer(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath, simple_vis=True):
     with open(os.path.join(classifier_dpath, "completed_ltls.pkl"), "rb") as file:
         completed_ltls = dill.load(file)["completed_ltl"]
     completed_ltls.sort()
@@ -36,10 +36,10 @@ def run_visualizer(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath):
         visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath)
 
 
-def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath):
+def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath, simple_vis=True):
     out_fpath = os.path.join(vis_dpath, "output.txt")
     with open(out_fpath, "a") as file:
-        file.write("\nGenerating visualization for LTL: %d" % ltl_id)
+        file.write("\nGenerating visualization for LTL: %d\n" % ltl_id)
     rollout_results_fpath = os.path.join(classifier_dpath, "rollout_results_parallel.pkl")
     if os.path.exists(rollout_results_fpath):
         with open(rollout_results_fpath, "rb") as rfile:
@@ -65,10 +65,12 @@ def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis
                     worker_results = dill.load(file)
                 edge2hits = worker_results["edge2hits"]
                 loc = worker_results["state"]
+                # if loc != (3, 11):
+                #     continue
                 n_rollouts = worker_results["n_rollouts"] if "n_rollouts" in worker_results else 100
                 if not edge2hits:
                     with open(out_fpath, "a") as file:
-                        file.write("ATTENTION: LTL %d 0 hits from location: %s" % (ltl_id, str(loc)))
+                        file.write("ATTENTION: LTL %d 0 hits from location: %s\n" % (ltl_id, str(loc)))
                 for edge, hits in edge2hits.items():
                     # print(loc, edge, hits)
                     edge2loc2prob[edge][loc] = hits / n_rollouts
@@ -77,14 +79,72 @@ def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis
         with open(out_fpath, "a") as file:
             file.write("Rolled out LTL %d from %d locations\n" % (ltl_id, nstates))
 
-    landmark_dpath = os.path.join("../vis", "minecraft")
-    decorated_map_fpath = os.path.join(vis_dpath, "map.png")
-    if not os.path.exists(decorated_map_fpath):
-        plot_map(map_fpath, landmark_dpath, decorated_map_fpath)
-    add_heat_map(decorated_map_fpath, vis_dpath, edge2loc2prob, ltl_id)
+    if simple_vis:
+        simple_visualizer(vis_dpath, edge2loc2prob, ltl_id)
+    else:
+        landmark_dpath = os.path.join("../vis", "minecraft")
+        decorated_map_fpath = os.path.join(vis_dpath, "map.png")
+        if not os.path.exists(decorated_map_fpath):
+            decorate_map(map_fpath, landmark_dpath, decorated_map_fpath)
+        add_heat_map(decorated_map_fpath, vis_dpath, edge2loc2prob, ltl_id)
 
 
-def plot_map(map_fpath, landmark_dpath, save_fpath):
+def simple_visualizer(vis_dpath, edge2loc2prob, ltl_id):
+    """
+    Construct a heatmap with a simple map where propositions are represented by letters not landmark images
+
+    https://matplotlib.org/stable/gallery/images_contours_and_fields/image_annotated_heatmap.html
+    """
+    map_array = load_map(map_fpath)
+    grid_dim = map_array.shape[0]  # assume nrows == ncols
+    cmap = "Wistia"
+
+    for edge, loc2prob in edge2loc2prob.items():
+        classifier = np.zeros((grid_dim, grid_dim))
+        for loc, prob in loc2prob.items():
+            classifier[loc] = prob
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(classifier, cmap=cmap)
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(im, ax=ax, cmap=cmap)
+        cbar.ax.set_ylabel(ylabel="probability of success", rotation=-90, va="bottom")
+
+        # Show all ticks and label them with the respective list entries
+        ax.set_xticks(np.arange(grid_dim), labels=list(range(grid_dim)))
+        ax.set_yticks(np.arange(grid_dim), labels=list(range(grid_dim)))
+
+        # Let the horizontal axes labeling appear on top.
+        ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=0, ha="right", rotation_mode="anchor")
+
+        # Turn spines off and create white grid.
+        ax.spines[:].set_visible(False)
+
+        ax.set_xticks(np.arange(classifier.shape[1] + 1) - .5, minor=True)
+        ax.set_yticks(np.arange(classifier.shape[0] + 1) - .5, minor=True)
+        ax.grid(which="minor", color="k", alpha=0.5, linestyle='-', linewidth=1)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        # Change the text's color depending on the data
+        threshold = im.norm(np.max(classifier)) / 2.
+        textcolors = ("black", "white")
+
+        # Loop over data dimensions and create text annotations.
+        for i in range(grid_dim):
+            for j in range(grid_dim):
+                text = ax.text(j, i, map_array[i, j], ha="center", va="center", fontweight='bold',
+                               color=textcolors[int(im.norm(classifier[i, j]) > threshold)])
+
+        # ax.set_title("ltl_%d_edge_%s_simple" % (ltl_id, edge))
+        fig.tight_layout()
+        vis_classifier_fpath = os.path.join(vis_dpath, "ltl_%d_edge_%s_simple.png" % (ltl_id, edge))
+        plt.savefig(vis_classifier_fpath)
+
+
+def decorate_map(map_fpath, landmark_dpath, save_fpath):
     """
     Read in map_x.txt, plot map figure with minecraft landmarks
 
@@ -188,17 +248,17 @@ def add_heat_map(decorated_map_fpath, vis_dpath, edge2loc2prob, ltl_id):
         fig = plt.figure(figsize=(float(img.shape[0])/my_dpi, float(img.shape[1])/my_dpi), dpi=my_dpi)
         ax = fig.add_subplot(111)
         ax.imshow(img)
-        for x_loc in range(grid_dim):
-            for y_loc in range(grid_dim):
-                loc = (x_loc, y_loc)
-                if loc in loc2prob:
-                    x_low, x_up = x_loc * x_interval, (x_loc + 1) * x_interval
-                    y_low, y_up = y_loc * y_interval, (y_loc + 1) * y_interval
-                    x = np.arange(x_low, x_up+0.01, 0.01)  # 0.01: precision of x/y-interval
-                    y0 = y_low * np.ones(len(x))
-                    y1 = y_up * np.ones(len(x))
-                    ax.fill_between(x, y0, y1, color="r", alpha=0.1*loc2prob[loc])
-        vis_classifier_fpath = os.path.join(vis_dpath, "ltl_%d_edge_%s.png" % (ltl_id, edge))
+        # ax.set_xticks(np.arange(grid_dim), labels=list(range(grid_dim)))  # y indices
+        # ax.set_yticks(np.arange(grid_dim), labels=list(range(grid_dim)))  # x indices
+        for loc, prob in loc2prob.items():
+            y_loc, x_loc = loc  # Mincraft x, y coordinates map to matplotlib y, x coordinates
+            x_low, x_up = x_loc * x_interval, (x_loc + 1) * x_interval
+            y_low, y_up = y_loc * y_interval, (y_loc + 1) * y_interval
+            x = np.arange(x_low, x_up + 0.01, 0.01)  # 0.01: precision of x/y-interval
+            y0 = y_low * np.ones(len(x))
+            y1 = y_up * np.ones(len(x))
+            ax.fill_between(x, y0, y1, color="r", alpha=0.2 * loc2prob[loc])
+        vis_classifier_fpath = os.path.join(vis_dpath, "ltl_%d_edge_%s_after.png" % (ltl_id, edge))
         plt.savefig(vis_classifier_fpath)
 
 
@@ -244,6 +304,8 @@ if __name__ == '__main__':
                         help='This parameter identify the map on which relabeling happens')
     parser.add_argument('--ltl_id', default=-1, type=int,
                         help='This parameter identify the relabeled option to visualize. -1 visualize all completed LTLs')
+    parser.add_argument('--simple_vis', action="store_true",
+                        help='This parameter indicated whether to visualize simple map, not decorated landmark images. Include it in command line to use simple visualization')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.tasks_id not in id2tasks: raise NotImplementedError(
@@ -254,4 +316,4 @@ if __name__ == '__main__':
     map_fpath = os.path.join("../experiments/maps", "map_%d.txt" % args.map_id)
     vis_dpath = os.path.join("..", "vis", "task_%d" % args.tasks_id, "map_%d" % args.map_id)
     os.makedirs(vis_dpath, exist_ok=True)
-    run_visualizer(args.algo, args.ltl_id, classifier_dpath, map_fpath, vis_dpath)
+    run_visualizer(args.algo, args.ltl_id, classifier_dpath, map_fpath, vis_dpath, args.simple_vis)

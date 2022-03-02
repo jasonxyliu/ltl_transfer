@@ -49,7 +49,7 @@ To run zero-shot transfer
 
 To visualize initiation set classifiers
 
-    python visualize_classifiers.py --algo=lpopl --tasks_id=4 --map_id=0 --ltl_id=12
+    python visualize_classifiers.py --algo=lpopl --tasks_id=4 --map_id=0 --ltl_id=12 --simple_vis
     
 
 ## Generating new random maps
