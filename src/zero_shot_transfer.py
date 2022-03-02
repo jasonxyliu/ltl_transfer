@@ -92,21 +92,21 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
         if ltl_id in completed_ltls:
             continue  # Check if this formula was already compiled. If so continue to next formula
 
-        # if ltl_id not in [12, 16, 30]:
+        # if ltl_id not in [17]:
         #     continue
-        # print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
         start_time_ltl = time.time()
         print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, ltl_idx))
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
         # test_locs = list(zip(x_tests, y_tests))
-        # test_locs = [(5, 15), (10, 10)]
+        # test_locs = [(9, 2), (3, 11)]
         # print("test_locs: ", test_locs)
         for chunk_id, locs in enumerate(loc_chunks):
-            start_time_chunk = time.time()
             worker_commands = []
             for x, y in locs:
+                # print(x, y)
                 # if (x, y) not in test_locs:
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
@@ -117,19 +117,20 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                         saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     worker_commands.append("python3 run_single_worker.py %s" % args)
             # print(worker_commands)
-
-            with Pool(processes=len(worker_commands)) as pool:
-                retvals = pool.map(os.system, worker_commands)
-            for retval, worker_command in zip(retvals, worker_commands):
-                if retval:  # os.system exit code: 0 means correct execution
-                    print("Command failed: ", retval, worker_command)
-                    retval = os.system(worker_command)
-            print("chunk %s took: %0.2f, with %s states" % (chunk_id, (time.time()-start_time_chunk)/60), len(retval))
+            if worker_commands:
+                start_time_chunk = time.time()
+                with Pool(processes=len(worker_commands)) as pool:
+                    retvals = pool.map(os.system, worker_commands)
+                for retval, worker_command in zip(retvals, worker_commands):
+                    if retval:  # os.system exit code: 0 means correct execution
+                        print("Command failed: ", retval, worker_command)
+                        retval = os.system(worker_command)
+                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retval)))
         print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
         completed_ltls.append(ltl_id)
         with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), 'wb') as file:
             dill.dump({'completed_ltl': completed_ltls}, file)
-        with open(os.path.join(saver.classifier_dpath, "completed_ltls.json", 'w') as file:
+        with open(os.path.join(saver.classifier_dpath, "completed_ltls.json"), 'w') as file:
             json.dump(completed_ltls, file)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
@@ -145,13 +146,13 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
         id2ltl[ltl_id] = ltl
-        # if ltl_id not in [12, 16, 30]:
+        # if ltl_id not in [17]:
         #     continue
         policy2loc2edge2hits_json[str(ltl)] = {}
         policy2loc2edge2hits_pkl[ltl] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
-                # if (x, y) not in [(5, 15), (10, 10)]:
+                # if (x, y) not in [(9, 2), (3, 11)]:
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, x, y))
