@@ -125,7 +125,7 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     if retval:  # os.system exit code: 0 means correct execution
                         print("Command failed: ", retval, worker_command)
                         retval = os.system(worker_command)
-                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retval)))
+                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
         print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
         completed_ltls.append(ltl_id)
         with open(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), 'wb') as file:
