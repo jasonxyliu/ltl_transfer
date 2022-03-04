@@ -44,7 +44,7 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
 
     #ensure that tensorflow threads are restricted to a single core
-    config = tf.ConfigProto(intra_op_parallelism_threads=NUM_PARALLEL_EXEC_UNITS, 
+    config = tf.ConfigProto(intra_op_parallelism_threads=2, 
                         inter_op_parallelism_threads=2, 
                         allow_soft_placement=True,)
     with tf.Session(config=config) as sess:
