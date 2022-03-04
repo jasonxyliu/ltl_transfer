@@ -18,7 +18,7 @@ from dfa import *
 from game import *
 from run_single_worker import single_worker_rollouts
 
-CHUNK_SIZE = 32
+CHUNK_SIZE = 48
 
 
 def run_experiments(tester, curriculum, saver, loader, run_id):
