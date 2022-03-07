@@ -4,12 +4,12 @@ import dill
 from collections import defaultdict
 import numpy as np
 from PIL import Image
-Image.MAX_IMAGE_PIXELS = None
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.ticker as plticker
 from zero_shot_transfer import construct_initiation_set_classifiers
 
+Image.MAX_IMAGE_PIXELS = None
 LANDMARK_SZ = (5, 5)
 ID2NAME = {
     "a": "wood",
@@ -31,12 +31,12 @@ def run_visualizer(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath, simple_
     completed_ltls.sort()
     if ltl_id == -1:
         for ltl_id in completed_ltls:
-            visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath)
+            visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath, simple_vis)
     else:
-        visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath)
+        visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath, simple_vis)
 
 
-def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath, simple_vis=True):
+def visualize_discrete_classifier(algo, ltl_id, classifier_dpath, map_fpath, vis_dpath, simple_vis):
     out_fpath = os.path.join(vis_dpath, "output.txt")
     with open(out_fpath, "a") as file:
         file.write("\nGenerating visualization for LTL: %d\n" % ltl_id)
