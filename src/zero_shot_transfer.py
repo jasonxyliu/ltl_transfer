@@ -1,5 +1,6 @@
 import os
-import random, time, shutil
+import time
+import random
 import json
 import dill
 from multiprocessing import Pool
@@ -22,7 +23,6 @@ CHUNK_SIZE = 32
 
 
 def run_experiments(tester, curriculum, saver, loader, run_id):
-    # Running the tasks 'num_times'
     time_init = time.time()
     learning_params = tester.learning_params
 
@@ -46,7 +46,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # Relabel state-centric options to transition-centric options
     # relabel(tester, saver, curriculum, policy_bank)
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpat)
+    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath)
     # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
     # saver.save_transfer_results()
 
@@ -302,7 +302,7 @@ def construct_initiation_set_classifiers(classifier_dpath):
     return policy2edge2loc2prob
 
 
-def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
+def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times=1):
     transfer_tasks = tester.get_transfer_tasks()
     training_edges, edge2ltls = get_training_edges(policy2edge2loc2prob)
     training_edges = [sympy.simplify("c&~f"), sympy.simplify("f&~b"), sympy.simplify("b&h")]
@@ -315,62 +315,68 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob):
 
     task2sol = defaultdict(list)
     for transfer_task in transfer_tasks:
-        print("transfer task:", transfer_task)
-        task = Game(tester.get_task_params(transfer_task))  # same map as the training tasks
+        # Running each transfer task 'num_times'
+        for num_time in range(num_times):
+            print("transfer task:", transfer_task)
+            task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
 
-        # wrapper: DFA -> NetworkX graph
-        dfa_graph = dfa2graph(task.dfa)
-        # for edge, edge_data in dfa_graph.edges.items():
-        #     print(edge, edge_data)
-        # pos = nx.circular_layout(dfa_graph)
-        # nx.draw_networkx(dfa_graph, pos, with_labels=True)
-        # nx.draw_networkx_edges(dfa_graph, pos)
-        # ax = plt.gca()
-        # ax.margins(0.20)
-        # plt.axis("off")
-        # plt.show()
+            # wrapper: DFA -> NetworkX graph
+            dfa_graph = dfa2graph(task.dfa)
+            # for edge, edge_data in dfa_graph.edges.items():
+            #     print(edge, edge_data)
+            # pos = nx.circular_layout(dfa_graph)
+            # nx.draw_networkx(dfa_graph, pos, with_labels=True)
+            # nx.draw_networkx_edges(dfa_graph, pos)
+            # ax = plt.gca()
+            # ax.margins(0.20)
+            # plt.axis("off")
+            # plt.show()
 
-        # Graph search to find all simple paths from initial state to goal state
-        simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
-        simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
-        print("start: ", task.dfa.state, "goal: ", task.dfa.terminal)
-        print("simple paths: ", len(simple_paths_node), simple_paths_node)
+            # Graph search to find all simple paths from initial state to goal state
+            simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
+            simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
+            print("start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
+            print("simple paths: ", len(simple_paths_node), simple_paths_node)
 
-        # Find all paths consists of only edges matching training edges
-        feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges)
-        print("feasible paths: ", feasible_paths_node)
+            # Find all paths consists of only edges matching training edges
+            feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges)
+            print("feasible paths: ", feasible_paths_node)
 
-        total_reward = 0
-        while not task.ltl_game_over and not task.env_game_over:
-            cur_node = task.dfa.state
-            print("current node: ", cur_node)
-            # Find all feasible paths the current node is on then candidate target edges
-            candidate_target_edges = []
-            for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
-                print("feasible path: ", feasible_path_node)
-                if cur_node in feasible_path_node:
-                    pos = feasible_path_node.index(cur_node)  # current position on the path
-                    print("current position on a feasible path: ", pos)
-                    print("candidate target edge: ", feasible_path_edge[pos])
-                    candidate_target_edges.append(feasible_path_edge[pos])
+            total_reward = 0
+            while not task.ltl_game_over and not task.env_game_over:
+                cur_node = task.dfa.state
+                print("current node: ", cur_node)
+                # Find all feasible paths the current node is on then candidate target edges
+                candidate_target_edges = []
+                for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
+                    print("feasible path: ", feasible_path_node)
+                    if cur_node in feasible_path_node:
+                        pos = feasible_path_node.index(cur_node)  # current position on the path
+                        print("current position on a feasible path: ", pos)
+                        print("candidate target edge: ", feasible_path_edge[pos])
+                        candidate_target_edges.append(feasible_path_edge[pos])
+                print("candidate edges: ", candidate_target_edges)
 
-            # Find best edge to target based on success probability from current location
-            cur_loc = (task.agent.i, task.agent.j)
-            option2prob = {}
-            for edge in candidate_target_edges:
-                ltls = edge2ltls[edge]
-                for ltl in ltls:
-                    option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][cur_loc]
-            best_policy, best_edge = sorted(option2prob, key=lambda kv: kv[1])[-1][0]
-            print(option2prob)
-            print(best_policy)
-            print(best_edge)
+                # Find best edge to target based on success probability from current location
+                cur_loc = (task.agent.i, task.agent.j)
+                option2prob = {}
+                for edge in candidate_target_edges:
+                    ltls = edge2ltls[edge]
+                    for ltl in ltls:
+                        option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][cur_loc]
+                if option2prob:
+                    best_policy, best_edge = sorted(option2prob, key=lambda kv: kv[1])[-1][0]
+                    print(option2prob)
+                    print(best_policy)
+                    print(best_edge)
 
-            # Execute option
-            # total_reward += execute_option(task, policy_bank, best_policy, best_edge)
-
-            # task2sol[transfer_task].append(option)
-
+                    # Execute option
+                    # total_reward += execute_option(task, policy_bank, best_policy, best_edge)
+                    # task2sol[transfer_task].append(option)
+                else:
+                    print(option2prob)
+                    print("No options found to achieve from DFA state %d, location %s" % (cur_node, str(cur_loc)))
+                    break
     return task2sol
 
 
@@ -389,14 +395,13 @@ def get_training_edges(policy2edge2loc2prob):
 
 def dfa2graph(dfa):
     """
-    Convert DFA to a NetworkX graph
+    Convert DFA to NetworkX graph
     """
     nodelist = defaultdict(dict)
-    for u in dfa.nodelist:
-        for v, label in dfa.nodelist[u].items():
+    for u, v2label in dfa.nodelist.items():
+        for v, label in v2label.items():
             nodelist[u][v] = {"edge_label": label}
-    dfa_graph = nx.DiGraph(nodelist)
-    return dfa_graph
+    return nx.DiGraph(nodelist)
 
 
 def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, training_edges):
@@ -406,7 +411,7 @@ def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, trai
     feasible_paths_node = []
     feasible_paths_edge = []
     for simple_path_node, simple_path_edge in zip(all_simple_paths_node, all_simple_paths_edge):
-        print("path: ", simple_path_edge)
+        print("path: %s\n" % str(simple_path_edge))
         is_feasible_path = True
         for node_from, node_to in simple_path_edge:
             if not match_edges(dfa_graph.edges[node_from, node_to]["edge_label"], training_edges):
@@ -415,76 +420,51 @@ def feasible_paths(dfa_graph, all_simple_paths_node, all_simple_paths_edge, trai
         if is_feasible_path:
             feasible_paths_node.append(simple_path_node)
             feasible_paths_edge.append(simple_path_edge)
-        print()
     return feasible_paths_node, feasible_paths_edge
 
 
-def match_edges(test_edge, training_edges, overlap_rate=0.8):
+def match_edges(test_edge, training_edges):
     """
-    Assume edge propositions connected only by and
-    F((a | b) & Fc): (a&!c)|(b&!c), c, (a&c)|(b&c)
+    Determine if test_edge can be matched with any training_edge
+    match := exact match or test_edge is less constrained than a training_edge, aka. subset
 
-    subset match :=
-    truth propositions are exactly the same
-    false propositions of test_edge is a subset of any training_edge
-
-    significant overlapping :=
-    any subset of test_edge with size N, where N = overlap_rate * |terms in test_edge|
-    is subset of any training_edge
+    Assume training_edges are expressed in sympy and simplified
     """
     test_edge_symbol = sympy.simplify(test_edge.replace('!', '~'))
     is_exact_match = test_edge_symbol in training_edges
 
-    test_edge_terms = test_edge.split("&")
-    test_edge_true = [term for term in test_edge_terms if term[0] != '!']  # all true propositions
-    test_edge_true_symbol = None
-    if test_edge_true:
-        test_edge_true_symbol = sympy.simplify("&".join(test_edge_true))
-    test_edge_false = [term.replace('!', '~') for term in test_edge_terms if term[0] == '!']  # all false propositions
-    test_edge_false_symbol = None
-    if test_edge_false:
-        test_edge_false_symbol = sympy.simplify("&".join(test_edge_false))
-    is_subset = False
-    for training_edge in training_edges:
-        training_edge_terms = str(training_edge).split(' & ')
-        training_edge_true = [term for term in training_edge_terms if term[0] != '~']
-        training_edge_true_symbol = None
-        if training_edge_true:
-            training_edge_true_symbol = sympy.simplify("&".join(training_edge_true))
-        training_edge_false = [term for term in training_edge_terms if term[0] == '~']
-        training_edge_false_symbol = None
-        if training_edge_false:
-            training_edge_false_symbol = sympy.simplify("&".join(training_edge_false))
-        if training_edge_false_symbol:
-            if test_edge_false_symbol:
-                if training_edge_false_symbol.has(test_edge_false_symbol) \
-                        and training_edge_true_symbol == test_edge_true_symbol:
-                    is_subset = True
-                    break
-            else:
-                if training_edge_true_symbol == test_edge_true_symbol:
-                    is_subset = True
-                    break
+    test_edge_dnf = sympy.boolalg.to_dnf(test_edge_symbol)
+    training_edges_dnf = [sympy.boolalg.to_dnf(edge) for edge in training_edges]
+    is_subset = np.any([bool(_is_subset(test_edge_dnf, training_edge_dnf)) for training_edge_dnf in training_edges_dnf])
+
+    return is_exact_match or is_subset
+
+
+def _is_subset(test_edge, training_edge):
+    """
+    subset match :=
+    every conjunctive term of test_edge can be satisfied by the same training_edge
+
+    Assume edges are in DNF
+    DNF: negation can only precede a propositional variable
+    e.g. ~a | b is DNF; ~(a & b) is not DNF
+
+    https://github.com/sympy/sympy/issues/23167
+    """
+    # print("test_edge: ", test_edge)
+    # print("training_edge: ", training_edge)
+    if test_edge.func == sympy.Or:
+        if training_edge.func == sympy.Or:
+            return sympy.And(*[sympy.Or(*[_is_subset(test_term, train_term) for train_term in training_edge.args])
+                               for test_term in test_edge.args])
+        return sympy.Or(*[_is_subset(term, training_edge) for term in test_edge.args])
+    elif test_edge.func == sympy.And:
+        return training_edge.func == sympy.And and test_edge == training_edge
+    else:  # Atom, e.g. a, b, c or Not
+        if training_edge.func == sympy.And:
+            return test_edge in training_edge.args
         else:
-            if not test_edge_false_symbol and training_edge_true_symbol == test_edge_true_symbol:
-                is_subset = True
-                break
-
-    subset_size = int(overlap_rate * len(test_edge_terms))
-    subsets = permutations(test_edge_terms, subset_size)
-    is_significant_overlap = False
-    for subset in subsets:
-        if not subset:
-            print("empty subsets for test_edge: ", test_edge)
-            continue
-        subset_symbol = sympy.simplify("&".join(subset).replace('!', '~'))
-        for training_edge in training_edges:
-            if training_edge.has(subset_symbol):
-                is_significant_overlap = True
-
-    print(test_edge, training_edges)
-    print(is_exact_match, is_subset, is_significant_overlap)
-    return is_exact_match or is_subset  # or is_significant_overlap
+            return test_edge == training_edge
 
 
 def execute_option(task, policy_bank, ltl_policy, edge):
