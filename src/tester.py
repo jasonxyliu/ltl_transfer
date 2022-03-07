@@ -28,11 +28,11 @@ def test_match_edges():
         ("!c", [sympy.simplify("a&~b")], False),
 
         ("!a", [sympy.simplify("~a&~b")], True),
-        ("a", [sympy.simplify("~a&~b")], True),
+        ("a", [sympy.simplify("~a&~b")], False),
         ("!b", [sympy.simplify("~a&~b")], True),
-        ("b", [sympy.simplify("~a&~b")], True),
-        ("!c", [sympy.simplify("~a&~b")], True),
-        ("c", [sympy.simplify("~a&~b")], True),
+        ("b", [sympy.simplify("~a&~b")], False),
+        ("!c", [sympy.simplify("~a&~b")], False),
+        ("c", [sympy.simplify("~a&~b")], False),
 
         ("a&b", [sympy.simplify("a")], False),
         ("a&b", [sympy.simplify("~a")], False),
@@ -150,25 +150,31 @@ def test_match_edges():
         ("!a&!c", [sympy.simplify("a|~b")], False),
 
         ("a|b", [sympy.simplify("a&b")], True),
-        ("!a|b", [sympy.simplify("a&b")], False),
+        ("!a|b", [sympy.simplify("a&b")], True),
         ("!a|!b", [sympy.simplify("a&b")], False),
-        ("a|c", [sympy.simplify("a&b")], False),
-        ("a|!c", [sympy.simplify("a&b")], False),
+        ("a|c", [sympy.simplify("a&b")], True),
+        ("a|!c", [sympy.simplify("a&b")], True),
 
         ("a|!b", [sympy.simplify("a&~b")], True),
-        ("a|b", [sympy.simplify("a&~b")], False),
-        ("!a|!b", [sympy.simplify("a&~b")], False),
-        ("a|!c", [sympy.simplify("a&~b")], False),
-        ("a|c", [sympy.simplify("a&~b")], False),
+        ("a|b", [sympy.simplify("a&~b")], True),
+        ("!a|!b", [sympy.simplify("a&~b")], True),
+        ("a|!c", [sympy.simplify("a&~b")], True),
+        ("a|c", [sympy.simplify("a&~b")], True),
 
-        # ("a", [sympy.simplify("a&b|c")], False),
-        # ("a&b|c", [sympy.simplify("a&b")], True),
-        # ("a&b", [sympy.simplify("a&b|c")], False),
-        # ("a&b|c", [sympy.simplify("a|c")], False),
-        # ("a|c", [sympy.simplify("a&b|c")], True),
+        ("a", [sympy.simplify("a&b|c")], False),
+        ("a&b", [sympy.simplify("a&b|c")], False),
+        ("a&b|c", [sympy.simplify("a|c")], False),
+        ("a&b|c", [sympy.simplify("a&b")], True),
+        ("a|c", [sympy.simplify("a&b|c")], True),
+
+        ("!a&b|c", [sympy.simplify("~a&b|c")], True),
+        ("!a&b|c", [sympy.simplify("~a&b"), sympy.simplify("c")], True),
+        ("!a&b|c", [sympy.simplify("~a"), sympy.simplify("b"), sympy.simplify("c")], True),
+        ("!a&b|c", [sympy.simplify("~a"), sympy.simplify("b")], False),
     )
 
     for test_edge, training_edges, truth in test_samples:
+        print("\n")
         pred = match_edges(test_edge, training_edges)
         assert pred == truth, "\ntest egde: %s\ntraining edges: %s\n" \
                               "predicted: %s; ground truth: %s" % (test_edge, training_edges, pred, truth)
