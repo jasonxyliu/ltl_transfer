@@ -389,7 +389,7 @@ def get_training_edges(policy2edge2loc2prob):
     for ltl, edge2loc2prob in policy2edge2loc2prob.items():
         for edge, _ in edge2loc2prob.items():
             edge2ltls[edge].append(ltl)
-    training_edges = [sympy.simplify(edge.replace('!', '~')) for edge in edge2ltls.keys()]
+    training_edges = [sympy.simplify_logic(edge.replace('!', '~'), form='dnf') for edge in edge2ltls.keys()]
     return training_edges, edge2ltls
 
 
@@ -430,12 +430,10 @@ def match_edges(test_edge, training_edges):
 
     Assume training_edges are expressed in sympy and simplified
     """
-    test_edge_symbol = sympy.simplify(test_edge.replace('!', '~'))
-    is_exact_match = test_edge_symbol in training_edges
+    test_edge_dnf = sympy.simplify_logic(test_edge.replace('!', '~'), form='dnf')
+    is_exact_match = test_edge_dnf in training_edges
 
-    test_edge_dnf = sympy.boolalg.to_dnf(test_edge_symbol)
-    training_edges_dnf = [sympy.boolalg.to_dnf(edge) for edge in training_edges]
-    is_subset = np.any([bool(_is_subset(test_edge_dnf, training_edge_dnf)) for training_edge_dnf in training_edges_dnf])
+    is_subset = np.any([bool(_is_subset(test_edge_dnf, training_edge_dnf)) for training_edge_dnf in training_edges])
 
     return is_exact_match or is_subset
 
@@ -455,11 +453,13 @@ def _is_subset(test_edge, training_edge):
     # print("training_edge: ", training_edge)
     if test_edge.func == sympy.Or:
         if training_edge.func == sympy.Or:
-            return sympy.And(*[sympy.Or(*[_is_subset(test_term, train_term) for train_term in training_edge.args])
+            return sympy.And(*[sympy.Or(*[_is_subset(test_term, train_term) for test_term in test_edge.args])
+                               for train_term in training_edge.args]) and \
+                   sympy.And(*[sympy.Or(*[_is_subset(test_term, train_term) for train_term in training_edge.args])
                                for test_term in test_edge.args])
         return sympy.Or(*[_is_subset(term, training_edge) for term in test_edge.args])
     elif test_edge.func == sympy.And:
-        return training_edge.func == sympy.And and test_edge == training_edge
+        return training_edge.func == sympy.And and sympy.And(*[term in training_edge.args for term in test_edge.args])
     else:  # Atom, e.g. a, b, c or Not
         if training_edge.func == sympy.And:
             return test_edge in training_edge.args
