@@ -142,6 +142,7 @@ def simple_visualizer(vis_dpath, edge2loc2prob, ltl_id):
         fig.tight_layout()
         vis_classifier_fpath = os.path.join(vis_dpath, "ltl_%d_edge_%s_simple.png" % (ltl_id, edge))
         plt.savefig(vis_classifier_fpath)
+        plt.close()
 
 
 def decorate_map(map_fpath, landmark_dpath, save_fpath):
