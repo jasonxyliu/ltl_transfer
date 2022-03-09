@@ -3,8 +3,9 @@ from zero_shot_transfer import match_edges
 
 
 def test_match_edges():
+    # test edge, training edges, is_match
     test_samples = (
-        ("a", [sympy.simplify_logic("a", form='dnf')], True),  # test edge, training edges, is_match
+        ("a", [sympy.simplify_logic("a", form='dnf')], True),
         ("a", [sympy.simplify_logic("~a", form='dnf')], False),
         ("a", [sympy.simplify_logic("b", form='dnf')], False),
         ("a", [sympy.simplify_logic("~b", form='dnf')], False),
