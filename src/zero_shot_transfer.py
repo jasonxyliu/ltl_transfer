@@ -144,12 +144,14 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
         with open(os.path.join(saver.classifier_dpath, "completed_ltls.json"), 'w') as file:
             json.dump(completed_ltls, file)
 
-    aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
+    #aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
-    #classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
+    import os
+    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
     print(f'''Trying to run single worker rollout with following arguments:
             algo: {algo}
+            classifier_dpath: {classifier_dpath}
             run_id: {run_id}
             ltl_id: {ltl_id}
             state_id: {state_id}
