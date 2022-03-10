@@ -151,6 +151,7 @@ def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n
     classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (task_id, map_id), "classifier")
     print(f'''Trying to run single worker rollout with following arguments:
             algo: {algo}
+            classifier_dpath: {classifier_dpath}
             run_id: {run_id}
             ltl_id: {ltl_id}
             state_id: {state_id}
