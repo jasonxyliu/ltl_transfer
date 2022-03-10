@@ -122,6 +122,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                 with MPIPoolExecutor(max_workers = CHUNK_SIZE) as pool:
                     retvals = pool.starmap(run_single_worker_cluster, args)
                 print(retvals)
+                print(list(retvals))
                 '''
                 for retval, arg in zip(retvals, args):
                     if retval:  # os.system exit code: 0 means correct execution
@@ -151,10 +152,6 @@ def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n
             state_id: {state_id}
             n_rollouts: {n_rollouts}
             max_depth: {max_depth}''')
-    try:
-        from run_single_worker import single_worker_rollouts
-    except:
-        return 1
 
     return 0
 
