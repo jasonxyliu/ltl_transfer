@@ -121,11 +121,13 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                 start_time_chunk = time.time()
                 with MPIPoolExecutor(max_workers = CHUNK_SIZE) as pool:
                     retvals = pool.starmap(run_single_worker_cluster, args)
-
+                print(retvals)
+                '''
                 for retval, arg in zip(retvals, args):
                     if retval:  # os.system exit code: 0 means correct execution
                         print("Command failed: ", retval, arg)
                         retval = run_single_worker_cluster(*arg)
+                '''
 
                 print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
 
