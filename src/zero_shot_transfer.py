@@ -148,7 +148,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
 
 def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
     import os
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (tasks_id, map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (task_id, map_id), "classifier")
     print(f'''Trying to run single worker rollout with following arguments:
             algo: {algo}
             run_id: {run_id}
