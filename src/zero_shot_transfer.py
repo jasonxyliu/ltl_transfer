@@ -117,7 +117,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                     #args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
                     #    saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     #worker_commands.append("python3 run_single_worker.py %s" % args)
-            args2 = deepcopy(args2)
+            args2 = deepcopy(args)
 
             if args:
                 start_time_chunk = time.time()
