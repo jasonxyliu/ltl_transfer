@@ -18,4 +18,4 @@ source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
 module load mpi/openmpi_4.0.5_gcc_10.2_slurm20 gcc/10.2 cuda/11.1.1
 
-srun --mpi=pmix python -m mpi4py.futures mpi_test.py run_experiments.py --algorithm=$algo --tasks=$task --map=$map
+srun --mpi=pmix python -m mpi4py.futures run_experiments.py --algorithm=$algo --tasks=$task --map=$map

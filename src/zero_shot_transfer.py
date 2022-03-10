@@ -111,7 +111,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                     # create directory to store results from a single worker
                     # saver.create_worker_directory(ltl_id, state2id[(x, y)])
                     # create command to run a single worker
-                    arg = (saver.alg_name, tester.task_id, tester.map_id, run_id, ltl_id, state2id[(x,y)], n_rollouts, curriculum.num_steps)
+                    arg = (saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x,y)], n_rollouts, curriculum.num_steps)
                     args.append(arg)
                     #args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
                     #    saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
