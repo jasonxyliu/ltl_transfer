@@ -20,6 +20,7 @@ from game import *
 from run_single_worker import single_worker_rollouts
 from mpi4py import MPI
 from mpi4py.futures import MPIPoolExecutor
+from copy import deepcopy
 
 CHUNK_SIZE = 32
 
@@ -116,13 +117,15 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                     #args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
                     #    saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     #worker_commands.append("python3 run_single_worker.py %s" % args)
+            args2 = deepcopy(args2)
 
             if args:
                 start_time_chunk = time.time()
                 with MPIPoolExecutor(max_workers = CHUNK_SIZE) as pool:
                     retvals = pool.starmap(run_single_worker_cluster, args)
                 print(retvals)
-                print(list(retvals))
+                #print(list(retvals))
+
                 '''
                 for retval, arg in zip(retvals, args):
                     if retval:  # os.system exit code: 0 means correct execution
@@ -130,7 +133,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                         retval = run_single_worker_cluster(*arg)
                 '''
 
-                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
+                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
 
         print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
         completed_ltls.append(ltl_id)
@@ -143,7 +146,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
+    #classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
     print(f'''Trying to run single worker rollout with following arguments:
             algo: {algo}
             classifier_dpath: {classifier_dpath}
