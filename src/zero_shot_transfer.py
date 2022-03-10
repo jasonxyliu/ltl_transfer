@@ -44,7 +44,6 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # print(tester.results)
 
     # Relabel state-centric options to transition-centric options
-    # relabel(tester, saver, curriculum, policy_bank)
     relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
     # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath)
     # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
@@ -168,109 +167,6 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     policy2loc2edge2hits_json["ltls"] = id2ltl
     policy2loc2edge2hits_pkl["ltls"] = id2ltl
     saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits_json, policy2loc2edge2hits_pkl)
-
-
-def relabel(tester, saver, curriculum, policy_bank, n_rollouts=100):
-    """
-    To construct a relabeled transition-centric option,
-    rollout every state-centric option's policy to try to satisfy each outgoing edge
-    to learn an initiation set classifier for that edge
-    """
-    policy2loc2edge2hits = {"n_rollouts": n_rollouts}
-    id2ltl = {}
-    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
-        ltl_id = policy_bank.get_id(ltl)
-        id2ltl[ltl_id] = ltl
-        if ltl_id != 9:
-            continue
-        print(ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
-        policy = policy_bank.policies[policy_bank.get_id(ltl)]
-        print("outgoing edges: ", policy.get_edge_labels())
-        loc2edge2hits = learn_naive_classifier(tester, policy_bank, ltl_id, n_rollouts, curriculum.num_steps)
-        policy2loc2edge2hits[str(ltl)] = loc2edge2hits
-        print("\n")
-    print(policy2loc2edge2hits)
-    policy2loc2edge2hits["ltls"] = id2ltl
-    saver.save_rollout_results("rollout_results", policy2loc2edge2hits)
-
-
-def learn_naive_classifier(tester, policy_bank, ltl, n_rollouts=100, max_depth=100):
-    """
-    After n_rollouts from every loc, the initiation sets of an edge-centric option is
-    the probability of success from every loc
-    LPOPL learns deterministic policies, so at most 1 edge transition would occur from a loc
-    """
-    # edge2hits = rollout(tester, policy_bank, ltl, (13, 10), n_rollouts, max_depth)
-    # loc2edge2hits = {"(13, 10)": edge2hits}
-
-    loc2edge2hits = {}
-    # edge2locs = defaultdict(list)  # classifier for every edge
-    task_aux = Game(tester.get_task_params(ltl))
-    for x in range(task_aux.map_width):
-        for y in range(task_aux.map_height):
-            # if (x, y) != (10, 10):
-            #     continue
-            if task_aux.is_valid_agent_loc(x, y):
-                print("init_loc: ", (x, y))
-                edge2hits = rollout(tester, policy_bank, ltl, (x, y), n_rollouts, max_depth)
-                loc2edge2hits[str((x, y))] = edge2hits
-                # max_edge = None
-                # if edge2hits:
-                #     max_edge = max(edge2hits.items(), key=lambda kv: kv[1])[0]
-                # edge2locs[max_edge].append((x, y))
-    # print(edge2locs)
-
-    # process rollout results to construct a classifier
-    edge2loc2prob = defaultdict(dict)
-    for loc, edge2hits in loc2edge2hits.items():
-        for edge, hits in edge2hits.items():
-            edge2loc2prob[edge][loc] = hits / n_rollouts
-
-    policy = policy_bank.policies[policy_bank.get_id(ltl)]
-    for edge, classifier in edge2loc2prob.items():
-        policy.add_initiation_set_classifier(edge, classifier)
-
-    return loc2edge2hits
-
-
-def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
-    """
-    Rollout trained policy from init_loc to see which outgoing edges it satisfies
-    """
-    edge2hits = defaultdict(int)
-    task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-    initial_state = task_aux.dfa.state  # get DFA initial state before progressing on agent init_loc
-    for rollout in range(n_rollouts):
-        # print("init_loc: ", init_loc)
-        # print("initial_state: ", initial_state)
-        # print("rollout:", rollout)
-
-        task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
-        # print("cur_state: ", task.dfa.state)
-        # print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
-
-        traversed_edge = None
-        if initial_state != task.dfa.state:  # if agent starts at a given loc that triggers a desired transition
-            traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
-            # print("before while: ", traversed_edge)
-        depth = 0
-        while not traversed_edge and not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
-            s1 = task.get_features()
-            action = Actions(policy_bank.get_best_action(ltl, s1.reshape((1, len(task.get_features())))))
-            prev_state = task.dfa.state
-            _ = task.execute_action(action)
-            # print(prev_state, action, task.dfa.state)
-            if prev_state != task.dfa.state:
-                traversed_edge = task.dfa.nodelist[prev_state][task.dfa.state]
-                # print("in while: ", traversed_edge)
-                break
-            depth += 1
-        if traversed_edge:
-            if traversed_edge not in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
-                print("ERROR: traversed edge not an outgoing edge: ", traversed_edge)
-            edge2hits[traversed_edge] += 1
-    print(edge2hits)
-    return edge2hits
 
 
 def construct_initiation_set_classifiers(classifier_dpath):
@@ -432,9 +328,7 @@ def match_edges(test_edge, training_edges):
     """
     test_edge_dnf = sympy.simplify_logic(test_edge.replace('!', '~'), form='dnf')
     is_exact_match = test_edge_dnf in training_edges
-
     is_subset = np.any([bool(_is_subset(test_edge_dnf, training_edge_dnf)) for training_edge_dnf in training_edges])
-
     return is_exact_match or is_subset
 
 
