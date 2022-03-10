@@ -155,12 +155,8 @@ def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n
             state_id: {state_id}
             n_rollouts: {n_rollouts}
             max_depth: {max_depth}''')
-    try:
-        from run_single_worker import single_worker_rollouts
-        print(single_worker_rollouts)
-    except:
-        return 1
-
+    from run_single_worker import single_worker_rollouts
+    print(single_worker_rollouts)
     return 0
 
 
