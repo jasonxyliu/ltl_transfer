@@ -185,7 +185,9 @@ def run_single_worker_cluster(
     name = MPI.Get_processor_name()
     print(f"Running state {state_id} through process {rank} on {name}")
     try:
-        single_worker_rollouts(algo, classifier_dpath, run_id, ltl_id, state_id, n_rollouts, max_depth)
+        single_worker_rollouts(
+            algo, classifier_dpath, run_id, ltl_id, state_id, n_rollouts, max_depth
+        )
     except:
         return 1
     return 0
