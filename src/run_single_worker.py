@@ -74,7 +74,7 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     print("##### ltl: ", ltl, "\n")
     for policy in policy_bank.policies:
-        print(policy)
+        print(policy.ltl)
 
     edge2hits = defaultdict(int)
     task_aux = Game(
