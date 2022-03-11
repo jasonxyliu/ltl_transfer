@@ -239,6 +239,7 @@ class Loader:
         self.saver = saver
 
     def load_policy_bank(self, run_idx, sess):
+        print("inside loader")
         run_dpath = os.path.join(self.saver.policy_dpath, "run_%d" % run_idx)  # where all tf model are saved
         # saver = tf.train.import_meta_graph(run_dpath+"policy_bank.meta")
         saver = tf.train.Saver()
