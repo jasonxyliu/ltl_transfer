@@ -16,7 +16,6 @@ from lpopl import _initialize_policy_bank, _test_LPOPL
 from policy_bank import *
 from dfa import *
 from game import *
-from run_single_worker import single_worker_rollouts
 
 CHUNK_SIZE = 32
 
@@ -43,9 +42,9 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # print(tester.results)
 
     # Relabel state-centric options to transition-centric options
-    relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath)
-    # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times=1)
+    # relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+    policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath)
+    task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 1, curriculum.num_steps)
     # saver.save_transfer_results()
 
     tf.reset_default_graph()
@@ -197,7 +196,7 @@ def construct_initiation_set_classifiers(classifier_dpath):
     return policy2edge2loc2prob
 
 
-def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times):
+def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num_steps):
     transfer_tasks = tester.get_transfer_tasks()
     training_edges, edge2ltls = get_training_edges(policy2edge2loc2prob)
     # training_edges = [sympy.simplify("c&~f"), sympy.simplify("f&~b"), sympy.simplify("b&h")]
@@ -215,7 +214,7 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times):
             print("transfer task:", transfer_task)
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
 
-            # wrapper: DFA -> NetworkX graph
+            # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
             # for edge, edge_data in dfa_graph.edges.items():
             #     print(edge, edge_data)
@@ -251,7 +250,6 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times):
                         print("current position on a feasible path: ", pos)
                         print("candidate target edge: ", feasible_path_edge[pos])
                 print("candidate edges: ", candidate_edges, "\n")
-
                 # Find best edge to target based on rollout success probability from current location
                 cur_loc = (task.agent.i, task.agent.j)
                 option2prob = {}
@@ -265,15 +263,16 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times):
                     #     print(policy[1])
                     #     print(prob, "\n")
                     best_policy, best_edge_label = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
-
                     # Execute option
-                    # total_reward += execute_option(task, dfa_graph, policy_bank, best_policy, best_edge_label)
-                    # task2sol[transfer_task].append((best_policy, best_edge_label))  # add option to solution
+                    is_option_success, option_reward = execute_option(task, dfa_graph, policy_bank, best_policy, best_edge_label, policy2edge2loc2prob, num_steps)
+                    print(is_option_success, option_reward, "\n")
+                    if is_option_success:
+                        task2sol[transfer_task].append((best_policy, best_edge_label))  # add option to solution
+                        total_reward += option_reward
                 else:
                     print("option2prob: ", option2prob)
                     print("No options found to achieve for task %s\n from DFA state %d, location %s" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
-                break
     return task2sol
 
 
@@ -362,17 +361,21 @@ def _is_subset(test_edge, training_edge):
             return test_edge == training_edge
 
 
-def execute_option(task, dfa_graph, policy_bank, ltl_policy, edge):
-    # task = Game(tester.get_task_params(ltl_policy))
+def execute_option(task, dfa_graph, policy_bank, ltl_policy, edge_label, policy2edge2loc2prob, num_steps):
+    print("policy: ", ltl_policy)
+    print("edge: ", edge_label)
     num_features = task.get_num_features()
-
-    option_reward = 0
-    # while not termination condition and policy is defined in current MDP state
-    # termination condition: hit target edge or other edge transition
-    while not task.dfa.state != edge[1]:
+    is_option_success, option_reward, step = False, 0, 0
+    cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
+    # while not exceed max steps and no DFA transition occurs and option policy is still defined in current MDP state
+    while step < num_steps and cur_node == task.dfa.state and cur_loc in policy2edge2loc2prob[ltl_policy][edge_label]:
+        cur_node = task.dfa.state
         s1 = task.get_features()
         a = Actions(policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features))))
-        reward = task.execute_action(a)
-        option_reward += reward
-
-    return option_reward
+        option_reward += task.execute_action(a)
+        print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        cur_loc = (task.agent.i, task.agent.j)
+        step += 1
+    if dfa_graph.edges[cur_node, task.dfa.state]["edge_label"] == edge_label:  # desired edge transition occurs
+        is_option_success = True
+    return is_option_success, option_reward
