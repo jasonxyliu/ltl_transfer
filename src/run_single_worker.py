@@ -53,7 +53,7 @@ def single_worker_rollouts(
     )
     with tf.Session(config=config) as sess:
         # load policy_bank
-        print("loading policy bank")
+        # print("loading policy bank")
         policy_bank = initialize_policy_bank(sess, task_aux, tester)
         loader.load_policy_bank(run_id, sess)
 
@@ -62,7 +62,7 @@ def single_worker_rollouts(
         # print("policy for ltl: ", ltl)
 
         # run rollouts
-        print("Running Rollouts")
+        # print("Running Rollouts")
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
     # save rollout results
     saver.save_worker_results(run_id, ltl_id, init_state, edge2hits, n_rollouts)
