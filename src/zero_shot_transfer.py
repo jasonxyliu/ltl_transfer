@@ -105,19 +105,13 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
             #worker_commands = []
             args = []
             for x, y in locs:
-                # print(x, y)
-                # if (x, y) not in test_locs:
-                #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create directory to store results from a single worker
                     # saver.create_worker_directory(ltl_id, state2id[(x, y)])
                     # create command to run a single worker
                     arg = (saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x,y)], n_rollouts, curriculum.num_steps)
                     args.append(arg)
-                    #args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
-                    #    saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
-                    #worker_commands.append("python3 run_single_worker.py %s" % args)
-            #print(args)
+
             args2 = deepcopy(args)
 
             if args:
