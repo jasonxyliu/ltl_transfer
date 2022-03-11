@@ -41,6 +41,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
 
     # print("loading policy bank in lpopl")
     loader.load_policy_bank(run_id, sess)
+    print(tf.get_collection(tf.GraphKeys.VARIABLES))
     # print("policy_dpath in lpopl: ", loader.saver.policy_dpath)
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     num_features = task_aux.get_num_features()
