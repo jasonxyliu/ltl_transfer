@@ -72,9 +72,9 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     Rollout trained policy from init_loc to see which outgoing edges it satisfies
     """
-    print("##### ltl: ", ltl, "\n")
-    for policy in policy_bank.policies:
-        print(policy.ltl)
+    # print("##### ltl: ", ltl, "\n")
+    # for policy in policy_bank.policies:
+    #    print(policy.ltl)
 
     edge2hits = defaultdict(int)
     task_aux = Game(
