@@ -2,6 +2,7 @@ import os
 import time
 import random
 import json
+import logging
 import dill
 from multiprocessing import Pool
 from collections import defaultdict
@@ -21,6 +22,9 @@ CHUNK_SIZE = 32
 
 
 def run_experiments(tester, curriculum, saver, loader, run_id):
+    results_fpath = os.path.join("../results", "task_%s" % str(tester.tasks_id), "zero_shot_transfer_results.txt")
+    logging.basicConfig(filename=results_fpath, filemode='w', level=logging.INFO, format="%(message)s")
+
     time_init = time.time()
     learning_params = tester.learning_params
 
@@ -52,7 +56,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
 
     # Showing transfer results
     tester.show_transfer_results()
-    print("Time: %0.2f mins" % ((time.time() - time_init)/60))
+    logging.info("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
 
 
 def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
@@ -193,25 +197,28 @@ def construct_initiation_set_classifiers(classifier_dpath):
 
     with open(os.path.join(classifier_dpath, "classifier.json"), "w") as wf:
         json.dump(policy2edge2loc2prob_json, wf)  # save to json for easier inspection of dictionary
+
+    edge2ltls_fpath = os.path.join(classifier_dpath, "edge2ltls.txt")
+    if not os.path.exists(edge2ltls_fpath):
+        _, edge2ltls = get_training_edges(policy2edge2loc2prob)
+        with open(edge2ltls_fpath, "w") as wf:
+            for count, (edge, ltls) in enumerate(edge2ltls.items()):
+                wf.write("edge %d: %s\n" % (count, str(edge)))
+                for ltl in ltls:
+                    wf.write("ltl: %s\n" % str(ltl))
+                wf.write("\n")
     return policy2edge2loc2prob
 
 
 def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num_steps):
     transfer_tasks = tester.get_transfer_tasks()
     training_edges, edge2ltls = get_training_edges(policy2edge2loc2prob)
-    # training_edges = [sympy.simplify("c&~f"), sympy.simplify("f&~b"), sympy.simplify("b&h")]
-    # print("num training edges: ", len(edge2ltls))
-    # for edge, ltls in edge2ltls.items():
-    #     print("edge: ", edge, type(edge))
-    #     for ltl in ltls:
-    #         print("ltl: ", ltl)
-    #     print()
 
     task2sol = defaultdict(list)
     for transfer_task in transfer_tasks:
         # Running each transfer task 'num_times'
         for num_time in range(num_times):
-            print("transfer task:", transfer_task)
+            logging.info("* transfer task: %s" % str(transfer_task))
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
 
             # Wrapper: DFA -> NetworkX graph
@@ -229,50 +236,53 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
             # Graph search to find all simple paths from initial state to goal state
             simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
             simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
-            print("start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            print("simple paths: ", len(simple_paths_node), simple_paths_node)
+            logging.info("start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
+            logging.info("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
 
             # Find all paths consists of only edges matching training edges
             feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges)
-            print("feasible paths: ", feasible_paths_node, "\n")
+            logging.info("feasible paths: %s\n" % str(feasible_paths_node))
 
             total_reward = 0
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
-                print("current node: ", cur_node)
-                # Find all feasible paths the current node is on then candidate edges to target
-                candidate_edges = []
+                logging.info("current node: %d" % cur_node)
+
+                # Find all feasible paths the current node is on then candidate option edges to target
+                option_edges = []
                 for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
-                    print("feasible path: ", feasible_path_node)
+                    # print("feasible path: ", feasible_path_node)
                     if cur_node in feasible_path_node:
                         pos = feasible_path_node.index(cur_node)  # current position on the path
-                        candidate_edges.append(feasible_path_edge[pos])
-                        print("current position on a feasible path: ", pos)
-                        print("candidate target edge: ", feasible_path_edge[pos])
-                print("candidate edges: ", candidate_edges, "\n")
+                        dfa_edge = feasible_path_edge[pos]
+                        dfa_edge = dfa_graph.edges[dfa_edge]["edge_label"]  # get boolean formula for this edge
+                        for edge in training_edges:
+                            if edge not in option_edges and match_edges(dfa_edge, [edge]):
+                                option_edges.append(edge)
+                        # print("current position on a feasible path: ", pos)
+                        # print("candidate target dfa edge: ", feasible_path_edge[pos])
+                logging.info("candidate edges: %s" % str(option_edges))
+
                 # Find best edge to target based on rollout success probability from current location
-                cur_loc = (task.agent.i, task.agent.j)
                 option2prob = {}
-                for edge in candidate_edges:
-                    edge_label = dfa_graph.edges[edge]["edge_label"]  # get boolean formula for this edge
-                    for ltl in edge2ltls[edge_label]:
-                        option2prob[(ltl, edge_label)] = policy2edge2loc2prob[ltl][edge_label][cur_loc]
+                cur_loc = (task.agent.i, task.agent.j)
+                for edge in option_edges:
+                    for ltl in edge2ltls[edge]:
+                        option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][cur_loc]
                 if option2prob:
-                    # for policy, prob in option2prob.items():
-                    #     print(policy[0])
-                    #     print(policy[1])
-                    #     print(prob, "\n")
-                    best_policy, best_edge_label = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
+                    best_policy, best_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
+
                     # Execute option
-                    is_option_success, option_reward = execute_option(task, dfa_graph, policy_bank, best_policy, best_edge_label, policy2edge2loc2prob, num_steps)
-                    print(is_option_success, option_reward, "\n")
+                    is_option_success, option_reward = execute_option(task, dfa_graph, policy_bank, best_policy, best_edge, policy2edge2loc2prob[best_policy], num_steps)
+                    logging.info("%s, %d\n" % (str(is_option_success), option_reward))
                     if is_option_success:
-                        task2sol[transfer_task].append((best_policy, best_edge_label))  # add option to solution
+                        task2sol[transfer_task].append((best_policy, best_edge))  # add option to solution
                         total_reward += option_reward
                 else:
-                    print("option2prob: ", option2prob)
-                    print("No options found to achieve for task %s\n from DFA state %d, location %s" % (str(transfer_task), cur_node, str(cur_loc)))
+                    logging.info("option2prob: %s" % str(option2prob))
+                    logging.info("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
+            logging.info("current node: %d\n\n" % task.dfa.state)
     return task2sol
 
 
@@ -285,8 +295,7 @@ def get_training_edges(policy2edge2loc2prob):
     for ltl, edge2loc2prob in policy2edge2loc2prob.items():
         for edge, _ in edge2loc2prob.items():
             edge2ltls[edge].append(ltl)
-    training_edges = [sympy.simplify_logic(edge.replace('!', '~'), form='dnf') for edge in edge2ltls.keys()]
-    return training_edges, edge2ltls
+    return edge2ltls.keys(), edge2ltls
 
 
 def dfa2graph(dfa):
@@ -324,9 +333,10 @@ def match_edges(test_edge, training_edges):
     Determine if test_edge can be matched with any training_edge
     match := exact match or test_edge is less constrained than a training_edge, aka. subset
 
-    Assume training_edges are expressed in sympy and simplified
+    More efficient to convert 'training_edges' before calling this function
     """
     test_edge_dnf = sympy.simplify_logic(test_edge.replace('!', '~'), form='dnf')
+    training_edges = [sympy.simplify_logic(edge.replace('!', '~'), form='dnf') for edge in training_edges]
     is_exact_match = test_edge_dnf in training_edges
     is_subset = np.any([bool(_is_subset(test_edge_dnf, training_edge_dnf)) for training_edge_dnf in training_edges])
     return is_exact_match or is_subset
@@ -361,21 +371,27 @@ def _is_subset(test_edge, training_edge):
             return test_edge == training_edge
 
 
-def execute_option(task, dfa_graph, policy_bank, ltl_policy, edge_label, policy2edge2loc2prob, num_steps):
-    print("policy: ", ltl_policy)
-    print("edge: ", edge_label)
+def execute_option(task, dfa_graph, policy_bank, ltl_policy, option_edge, edge2loc2prob, num_steps):
+    """
+    'option_edge' is associated with edge-centric option
+    'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
+    """
+    logging.info("target option edge: %s" % str(option_edge))
+    logging.info("policy: %s" % str(ltl_policy))
     num_features = task.get_num_features()
     is_option_success, option_reward, step = False, 0, 0
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
     # while not exceed max steps and no DFA transition occurs and option policy is still defined in current MDP state
-    while step < num_steps and cur_node == task.dfa.state and cur_loc in policy2edge2loc2prob[ltl_policy][edge_label]:
+    while step < num_steps and cur_node == task.dfa.state and cur_loc in edge2loc2prob[option_edge]:
         cur_node = task.dfa.state
         s1 = task.get_features()
         a = Actions(policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features))))
+        if task._get_next_position(a) not in edge2loc2prob[option_edge]:  # avoid move to location violating constraint
+            break
         option_reward += task.execute_action(a)
-        print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        logging.info("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
-    if dfa_graph.edges[cur_node, task.dfa.state]["edge_label"] == edge_label:  # desired edge transition occurs
+    if dfa_graph.edges[cur_node, task.dfa.state]["edge_label"] == option_edge:  # desired edge transition occurs
         is_option_success = True
     return is_option_success, option_reward
