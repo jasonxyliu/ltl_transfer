@@ -41,14 +41,10 @@ def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
 
     # print("loading policy bank in lpopl")
     loader.load_policy_bank(run_id, sess)
-    key1 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2_1/W0/Adam'
-    key2 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/W0/Adam'
-    varnames = [n.name for n in tf.get_default_graph().as_graph_def().node]
-    print(varnames)
-    print ('key1: ', key1 in varnames)
-    print ('key2: ', key2 in varnames)
-    #print(tf.get_collection(tf.GraphKeys.VARIABLES))
-    # print("policy_dpath in lpopl: ", loader.saver.policy_dpath)
+    #key1 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2_1/W0/Adam'
+    #key2 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/W0/Adam'
+    #varnames = [n.name for n in tf.get_default_graph().as_graph_def().node]
+
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     num_features = task_aux.get_num_features()
     tester.run_test(
@@ -77,6 +73,10 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     """
     A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
     """
+
+    print('RELABELING STATE CENTRIC OPTIONS')
+
+
     # Save LTL formula to ID to mapping for inspection later
     ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id.pkl")
     if not os.path.exists(ltl2id_pkl_fpath):
