@@ -67,11 +67,11 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     edge2hits = defaultdict(int)
     task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-    initial_state = task_aux.dfa.state  # get default DFA initial state before progressing on agent's init_loc
+    default_initial_state = task_aux.dfa.state  # get default DFA initial state before progressing on agent's init_loc
     for rollout in range(n_rollouts):
         # print("\nrollout:", rollout)
         # print("init_loc: ", init_loc)
-        # print("initial_state: ", initial_state)
+        # print("default_initial_state: ", default_initial_state)
 
         # Overwrite default agent start location and DFA initial state
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
@@ -80,8 +80,8 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
         # print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
         traversed_edge = None
-        if initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
-            traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
+        if default_initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
+            traversed_edge = task.dfa.nodelist[default_initial_state][task.dfa.state]
             # print("traversed edge before while: ", traversed_edge)
         depth = 0
         while not traversed_edge and not task.ltl_game_over and not task.env_game_over and depth <= max_depth:

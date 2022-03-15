@@ -59,9 +59,9 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
         print("policy for ltl: ", ltl)
 
         edge2hits = {}
-        for edge_label in policy_bank.policies[ltl_id].get_edge_labels():
+        for target_edge in policy_bank.policies[ltl_id].get_edge_labels():
             # run rollouts with a target edge
-            edge2hits[edge_label] = rollout(tester, policy_bank, ltl, init_state, edge_label, n_rollouts, max_depth)
+            edge2hits[target_edge] = rollout(tester, policy_bank, ltl, init_state, target_edge, n_rollouts, max_depth)
     print(edge2hits)
     print("Rollout took: %0.2f mins\n" % ((time.time() - time_init)/60))
 
@@ -69,19 +69,19 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
     saver.save_worker_results(run_id, ltl_id, init_state, edge2hits, n_rollouts)
 
 
-def rollout(tester, policy_bank, ltl, init_loc, edge_label, n_rollouts, max_depth):
+def rollout(tester, policy_bank, ltl, init_loc, target_edge, n_rollouts, max_depth):
     """
-    Rollout trained policy 'ltl' from 'init_loc' to target a particular outgoing edge 'edge_label'
+    Rollout trained policy 'ltl' from 'init_loc' to target a particular outgoing edge 'target_edge'
     """
-    neg_props = [prop[1:] for prop in edge_label.split('&') if prop[0] == '!']
+    neg_props = [prop[1:] for prop in target_edge.split('&') if prop[0] == '!']
     hits = 0
     task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-    initial_state = task_aux.dfa.state  # get default DFA initial state before progressing on agent's init_loc
+    default_initial_state = task_aux.dfa.state  # get default DFA initial state before progressing on agent's init_loc
     for rollout in range(n_rollouts):
-        print("\ntarget edge: ", edge_label)
+        print("\ntarget edge: ", target_edge)
         print("rollout:", rollout)
         print("init_loc: ", init_loc)
-        print("initial_state: ", initial_state)
+        print("default_initial_state: ", default_initial_state)
 
         # Overwrite default agent start location and DFA initial state
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
@@ -90,8 +90,8 @@ def rollout(tester, policy_bank, ltl, init_loc, edge_label, n_rollouts, max_dept
         print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
         traversed_edge = None
-        if initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
-            traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
+        if default_initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
+            traversed_edge = task.dfa.nodelist[default_initial_state][task.dfa.state]
             print("traversed edge before while: ", traversed_edge)
         depth = 0
         while not traversed_edge and not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
@@ -109,10 +109,10 @@ def rollout(tester, policy_bank, ltl, init_loc, edge_label, n_rollouts, max_dept
         if traversed_edge:
             if traversed_edge not in policy_bank.policies[policy_bank.get_id(ltl)].get_edge_labels():
                 print("ERROR: policy %s traversed invalid outgoing edge %s from location %s" % (str(ltl), str(traversed_edge), str(init_loc)))
-            elif traversed_edge == edge_label:
+            elif traversed_edge == target_edge:
                 hits += 1
             else:
-                print("policy %s traversed edge %s, not the target edge %s" % (str(ltl), str(traversed_edge), str(edge_label)))
+                print("policy %s traversed edge %s, not the target edge %s" % (str(ltl), str(traversed_edge), str(target_edge)))
     print("hits: %d\n" % hits)
     return hits
 
