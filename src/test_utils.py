@@ -283,9 +283,9 @@ class Loader:
         # saver = tf.train.import_meta_graph(run_dpath+"policy_bank.meta")
         saver = tf.train.Saver()
         
-        print("policy bank path: ", os.path.abspath(run_dpath))
+        #print("policy bank path: ", os.path.abspath(run_dpath))
         saver.restore(sess, tf.train.latest_checkpoint(run_dpath))
-        print("values restored")
+        #print("values restored")
 
 
 def get_precentiles_str(a):
