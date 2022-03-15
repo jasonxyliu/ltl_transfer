@@ -64,6 +64,7 @@ def single_worker_rollouts(
         # run rollouts
         # print("Running Rollouts")
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
+        tf.reset_default_graph()
     # save rollout results
     saver.save_worker_results(run_id, ltl_id, init_state, edge2hits, n_rollouts)
 
