@@ -42,9 +42,9 @@ def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
     # print("loading policy bank in lpopl")
     loader.load_policy_bank(run_id, sess)
     key1 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2_1/W0'
-    key1 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2'
-    print ('key1: ', key in tf.GraphKeys.VARIABLES)
-    print ('key2: ', key in tf.GraphKeys.VARIABLES)
+    key2 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2'
+    print ('key1: ', key1 in tf.GraphKeys.VARIABLES)
+    print ('key2: ', key2 in tf.GraphKeys.VARIABLES)
     print(tf.get_collection(tf.GraphKeys.VARIABLES))
     # print("policy_dpath in lpopl: ", loader.saver.policy_dpath)
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
