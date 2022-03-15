@@ -51,10 +51,12 @@ def single_worker_rollouts(
         inter_op_parallelism_threads=1,
         allow_soft_placement=True,
     )
+
+    tf.reset_default_graph()
     with tf.Session(config=config) as sess:
         # load policy_bank
         # print("loading policy bank")
-        tf.reset_default_graph()
+        #tf.reset_default_graph()
         policy_bank = initialize_policy_bank(sess, task_aux, tester)
         loader.load_policy_bank(run_id, sess)
 
