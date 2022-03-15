@@ -200,6 +200,8 @@ class Saver:
                     state2id[(x, y)] = len(state2id)
         with open(os.path.join(self.classifier_dpath, "states.pkl"), "wb") as file:
             dill.dump(id2state, file)
+        with open(os.path.join(self.classifier_dpath, "states.json"), "w") as file:
+            json.dump(id2state, file)
         return state2id
 
     def create_worker_directory(self, ltl_id, state_id):
