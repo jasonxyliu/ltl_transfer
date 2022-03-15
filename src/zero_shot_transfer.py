@@ -190,7 +190,7 @@ def run_single_worker_cluster(
 
     rank = MPI.COMM_WORLD.Get_rank()
     name = MPI.Get_processor_name()
-    print(f"Running state {state_id} through process {rank} on {name}")
+    #print(f"Running state {state_id} through process {rank} on {name}")
     single_worker_rollouts(algo, classifier_dpath, run_id, ltl_id, state_id, n_rollouts, max_depth)
     return 0
 
