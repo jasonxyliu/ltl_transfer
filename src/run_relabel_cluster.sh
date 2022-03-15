@@ -4,6 +4,7 @@
 #SBATCH -t 10:00:00
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
+#SBATCH -e sbatch_out/job-%j.err
 #SBATCH -o sbatch_out/job-%j.out
 
 export PYTHONUNBUFFERED=TRUE
