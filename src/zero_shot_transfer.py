@@ -23,7 +23,7 @@ from mpi4py import MPI
 from mpi4py.futures import MPIPoolExecutor
 from copy import deepcopy
 
-CHUNK_SIZE = 32
+CHUNK_SIZE = 94
 
 
 def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
