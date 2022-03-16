@@ -368,8 +368,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     'option_edge' is 1 outgoing edge associated with edge-centric option
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
     """
-    tester.log_results("target option edge: %s" % str(option_edge))
-    tester.log_results("policy: %s" % str(ltl_policy))
+    tester.log_results("target option edge: %s; from policy %d: %s" % (str(option_edge), policy_bank.get_id(ltl_policy), str(ltl_policy)))
     num_features = task.get_num_features()
     option_reward, step = 0, 0
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)

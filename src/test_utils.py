@@ -56,7 +56,7 @@ class Tester:
             if tasks_id == 4:
                 self.tasks = tasks.get_interleaving_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
-                self.transfer_results_fpath = os.path.join("../results", "task_%s" % str(tasks_id), "zero_shot_transfer_results_test.txt")
+                self.transfer_results_fpath = os.path.join("../results", "task_%s" % str(tasks_id), "zero_shot_transfer_results.txt")
                 logging.basicConfig(filename=self.transfer_results_fpath, filemode='w', level=logging.INFO, format="%(message)s")
             optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
