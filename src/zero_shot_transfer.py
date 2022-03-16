@@ -1,8 +1,6 @@
 import os
 import time
 import random
-import json
-import dill
 from multiprocessing import Pool
 from collections import defaultdict
 import tensorflow as tf
@@ -47,7 +45,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     tf.reset_default_graph()
     sess.close()
 
-    # Showing transfer results
+    # Log transfer results
     tester.log_results("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
 
 
@@ -194,7 +192,6 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
         for num_time in range(num_times):
             tester.log_results("* Transfer Task: %s" % str(transfer_task))
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
-
             # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
             # for edge, edge_data in dfa_graph.edges.items():
@@ -249,7 +246,6 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
                     break
                 while option2prob and cur_loc == next_loc:
                     best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
-
                     # Execute option
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     if cur_loc != next_loc:
@@ -317,7 +313,7 @@ def feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edg
 def match_edges(test_edge_pair, train_edges):
     """
     Determine if test_edge can be matched with any training_edge
-    match := exact match or test_edge is less constrained than a training_edge, aka. subset
+    match := exact match (aka. eq) or test_edge is less constrained than a training_edge (aka. subset)
     Note: more efficient to convert 'training_edges' before calling this function
     """
     test_self_edge, test_out_edge = test_edge_pair
@@ -326,41 +322,36 @@ def match_edges(test_edge_pair, train_edges):
     train_self_edges = [sympy.simplify_logic(pair[0].replace('!', '~'), form='dnf') for pair in train_edges]
     train_out_edges = [sympy.simplify_logic(pair[1].replace('!', '~'), form='dnf') for pair in train_edges]
 
-    is_exact_self = test_self_edge in train_self_edges
-    is_exact_out = test_out_edge in train_out_edges
-    is_subset_self = np.any([bool(_is_subset(test_self_edge, train_self_edge)) for train_self_edge in train_self_edges])
-    is_subset_out = np.any([bool(_is_subset(test_out_edge, train_out_edge)) for train_out_edge in train_out_edges])
-    return (is_exact_self and is_exact_out) or \
-           (is_exact_self and is_subset_out) or\
-           (is_subset_self and is_subset_out) or \
-           (is_subset_self and is_exact_out)
+    is_subset_eq_self = np.any([bool(_is_subset_eq(test_self_edge, train_self_edge)) for train_self_edge in train_self_edges])
+    is_subset_eq_out = np.any([bool(_is_subset_eq(test_out_edge, train_out_edge)) for train_out_edge in train_out_edges])
+    return is_subset_eq_self and is_subset_eq_out
 
 
-def _is_subset(test_edge, training_edge):
+def _is_subset_eq(test_edge, train_edge):
     """
-    subset match :=
-    every conjunctive term of test_edge can be satisfied by the same training_edge
+    subset_eq match :=
+    every conjunctive term of 'test_edge' can be satisfied by the same 'training_edge'
 
-    Assume edges are in DNF
+    Assume edges are in sympy and DNF
     DNF: negation can only precede a propositional variable
     e.g. ~a | b is DNF; ~(a & b) is not DNF
 
     https://github.com/sympy/sympy/issues/23167
     """
     if test_edge.func == sympy.Or:
-        if training_edge.func == sympy.Or:
-            return sympy.And(*[sympy.Or(*[_is_subset(test_term, train_term) for test_term in test_edge.args])
-                               for train_term in training_edge.args]) and \
-                   sympy.And(*[sympy.Or(*[_is_subset(test_term, train_term) for train_term in training_edge.args])
+        if train_edge.func == sympy.Or:  # len(train_edge.args) <= len(test_edge.args)
+            return sympy.And(*[sympy.Or(*[_is_subset_eq(test_term, train_term) for test_term in test_edge.args])
+                               for train_term in train_edge.args]) and \
+                   sympy.And(*[sympy.Or(*[_is_subset_eq(test_term, train_term) for train_term in train_edge.args])
                                for test_term in test_edge.args])
-        return sympy.Or(*[_is_subset(term, training_edge) for term in test_edge.args])
+        return sympy.Or(*[_is_subset_eq(term, train_edge) for term in test_edge.args])
     elif test_edge.func == sympy.And:
-        return training_edge.func == sympy.And and sympy.And(*[term in training_edge.args for term in test_edge.args])
+        return train_edge.func == sympy.And and sympy.And(*[term in train_edge.args for term in test_edge.args])
     else:  # Atom, e.g. a, b, c or Not
-        if training_edge.func == sympy.And:
-            return test_edge in training_edge.args
+        if train_edge.func == sympy.And:
+            return test_edge in train_edge.args
         else:
-            return test_edge == training_edge
+            return test_edge == train_edge
 
 
 def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2prob, num_steps):
