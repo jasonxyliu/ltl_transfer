@@ -1,8 +1,8 @@
 import sympy
-from zero_shot_transfer import match_edges
+from zero_shot_transfer import _is_subset
 
 
-def test_match_edges():
+def test_is_subset():
     # test edge, training edges, is_match
     test_samples = (
         ("a", [sympy.simplify_logic("a", form='dnf')], True),
@@ -169,21 +169,20 @@ def test_match_edges():
         ("a|c", [sympy.simplify_logic("a&b|c", form='dnf')], True),
 
         ("!a&b|c", [sympy.simplify_logic("~a&b|c", form='dnf')], True),
-        ("!a&b|c", [sympy.simplify_logic("~a&b", form='dnf'), sympy.simplify_logic("c", form='dnf')], True),
-        ("!a&b|c", [sympy.simplify_logic("~a", form='dnf'), sympy.simplify_logic("b", form='dnf'), sympy.simplify_logic("c", form='dnf')], True),
-        ("!a&b|c", [sympy.simplify_logic("~a", form='dnf'), sympy.simplify_logic("b", form='dnf')], False),
-
+        ("!a&b|c", [sympy.simplify_logic("c", form='dnf')], True),
+        ("!a&b|c", [sympy.simplify_logic("~a&b", form='dnf')], True),
+        ("!a&b|c", [sympy.simplify_logic("~a", form='dnf')], False),
+        ("!a&b|c", [sympy.simplify_logic("b", form='dnf')], False),
         ("(!a&b)|(c&d)", [sympy.simplify_logic("(~a&b)|c", form='dnf')], False),
         ("(!a&b)|(c&d)", [sympy.simplify_logic("(~a&b)|(c&d)", form='dnf')], True),
         ("(!a&b)|(c&d)", [sympy.simplify_logic("(~a&b)|(c&d&e)", form='dnf')], True),
-
         ("(!a&b)|c", [sympy.simplify_logic("(~a&b)|c|d", form='dnf')], False),
         ("(!a&b)|c|d", [sympy.simplify_logic("(~a&b)|(c&d)", form='dnf')], True),
     )
 
     for test_edge, training_edges, truth in test_samples:
-        print("\n")
-        pred = match_edges(test_edge, training_edges)
+        test_edge = sympy.simplify_logic(test_edge.replace('!', '~'), form='dnf')
+        pred = _is_subset(test_edge, training_edges[0])
         assert pred == truth, "\ntest egde: %s\ntraining edges: %s\n" \
                               "predicted: %s; ground truth: %s" % (test_edge, training_edges, pred, truth)
 
