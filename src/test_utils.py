@@ -2,6 +2,7 @@ import os
 import json
 import dill
 import argparse
+import logging
 import numpy as np
 import tensorflow as tf
 from game import GameParams, Game
@@ -50,13 +51,13 @@ class Tester:
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
             if tasks_id == 3:
-                # self.tasks = tasks.get_training_tasks()
                 self.tasks = tasks.get_sequence_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
             if tasks_id == 4:
-                # self.tasks = tasks.get_training_tasks()
                 self.tasks = tasks.get_interleaving_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
+                self.transfer_results_fpath = os.path.join("../results", "task_%s" % str(tasks_id), "zero_shot_transfer_results_test.txt")
+                logging.basicConfig(filename=self.transfer_results_fpath, filemode='w', level=logging.INFO, format="%(message)s")
             optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
@@ -113,7 +114,6 @@ class Tester:
                 a = np.array(normalized_rewards)
                 if s not in average_reward: average_reward[s] = a
                 else: average_reward[s] = a + average_reward[s]
-
         # Showing average performance across all the task
         print("\nAverage discounted reward on this map --------------------")
         print("\tsteps\tP25\tP50\tP75")
@@ -122,9 +122,6 @@ class Tester:
             normalized_rewards = average_reward[s] / num_tasks
             p25, p50, p75 = get_precentiles_str(normalized_rewards)
             print("\t" + str(s) + "\t" + p25 + "\t" + p50 + "\t" + p75)
-
-    def show_transfer_results(self):
-        print()
 
     def export_results(self):
         # Showing performance per task
@@ -135,7 +132,6 @@ class Tester:
                 a = np.array(normalized_rewards)
                 if s not in average_reward: average_reward[s] = a
                 else: average_reward[s] = a + average_reward[s]
-
         # Computing average performance across all the task
         ret = []
         num_tasks = float(len(self.tasks))
@@ -143,6 +139,12 @@ class Tester:
             normalized_rewards = average_reward[s] / num_tasks
             ret.append([s, normalized_rewards])
         return ret
+
+    def log_results(self, data, log=True):
+        if log:
+            logging.info(data)
+        else:
+            print(data)
 
 
 class Saver:
@@ -187,10 +189,8 @@ class Saver:
         Save all data needed to learn classifiers in parallel
         """
         # save tester
-        with open(os.path.join(self.classifier_dpath, "tester.pkl"), "wb") as file:
-            dill.dump(self.tester, file)
-
-        # save valid agent locations from which rollouts start
+        save_pkl(os.path.join(self.classifier_dpath, "tester.pkl"), self.tester)
+        # save valid agent locations where rollouts start
         id2state = {}
         state2id = {}
         for x in range(task_aux.map_width):
@@ -198,18 +198,9 @@ class Saver:
                 if task_aux.is_valid_agent_loc(x, y):
                     id2state[len(id2state)] = (x, y)
                     state2id[(x, y)] = len(state2id)
-        with open(os.path.join(self.classifier_dpath, "states.pkl"), "wb") as file:
-            dill.dump(id2state, file)
-        with open(os.path.join(self.classifier_dpath, "states.json"), "w") as file:
-            json.dump(id2state, file)
+        save_pkl(os.path.join(self.classifier_dpath, "states.pkl"), id2state)
+        save_json(os.path.join(self.classifier_dpath, "states.json"), id2state)
         return state2id
-
-    def create_worker_directory(self, ltl_id, state_id):
-        """
-        Folder to store results from a single worker, specified by ltl_id and state_id
-        """
-        worker_dpath = os.path.join(self.classifier_dpath, "ltl%d_state%d" % (ltl_id, state_id))
-        os.makedirs(worker_dpath, exist_ok=True)
 
     def save_worker_results(self, run_idx, ltl_id, state, edge2hits, n_rollouts):
         """
@@ -223,17 +214,15 @@ class Saver:
             "n_rollouts": n_rollouts
         }
         worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, state[0], state[1]))
-        save_json(worker_fpath+"rollout_results_parallel.json", rollout_results)
-        with open(worker_fpath+"rollout_results_parallel.pkl", "wb") as file:
-            dill.dump(rollout_results, file)
+        save_pkl(worker_fpath+"rollout_results_parallel.pkl", rollout_results)
+        save_json(worker_fpath + "rollout_results_parallel.json", rollout_results)
 
-    def save_rollout_results(self, fname, policy2loc2edge2hits_json, policy2loc2edge2hits_pkl):
+    def save_rollout_results(self, fname, policy2loc2edge2hits_pkl, policy2loc2edge2hits_json):
         """
         Save results of rolling out state-centric policies from various states to compute initiation set classifiers
         """
+        save_pkl(os.path.join(self.classifier_dpath, fname+".pkl"), policy2loc2edge2hits_pkl)
         save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits_json)
-        with open(os.path.join(self.classifier_dpath, fname+".pkl"), "wb") as file:
-            dill.dump(policy2loc2edge2hits_pkl, file)
 
 
 class Loader:
@@ -279,13 +268,24 @@ def export_results(algorithm, task, task_id):
         f_out.close()
 
 
-def save_json(file, data):
-    with open(file, 'w') as outfile:
+def save_pkl(fpath, data):
+    with open(fpath, "wb") as file:
+        dill.dump(data, file)
+
+
+def load_pkl(fpath):
+    with open(fpath, 'rb') as file:
+        data = dill.load(file)
+    return data
+
+
+def save_json(fpath, data):
+    with open(fpath, 'w') as outfile:
         json.dump(data, outfile)
 
 
-def read_json(file):
-    with open(file) as data_file:
+def read_json(fpath):
+    with open(fpath) as data_file:
         data = json.load(data_file)
     return data
 
