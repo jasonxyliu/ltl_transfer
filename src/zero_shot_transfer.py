@@ -1,8 +1,6 @@
 import os
 import time
 import random
-import json
-import dill
 from multiprocessing import Pool
 from collections import defaultdict
 import tensorflow as tf
@@ -10,18 +8,19 @@ import tensorflow as tf
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import networkx as nx
 import sympy
-from itertools import permutations
 import numpy as np
 import matplotlib.pyplot as plt
-from pprint import pprint
 from lpopl import _initialize_policy_bank, _test_LPOPL
 from policy_bank import *
 from dfa import *
 from game import *
+
 from run_single_worker import single_worker_rollouts
 from mpi4py import MPI
 from mpi4py.futures import MPIPoolExecutor
 from copy import deepcopy
+from test_utils import save_pkl, load_pkl, save_json
+
 
 CHUNK_SIZE = 94
 
@@ -38,13 +37,8 @@ def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
 
     # Initializing policies per each subtask
     policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
-
-    # print("loading policy bank in lpopl")
     loader.load_policy_bank(run_id, sess)
-    #key1 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2_1/W0/Adam'
-    #key2 = 'P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/P1_and_P1_until_True_P1_and_a_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P1_until_True_P1_and_f_P1_until_True_P1_and_e_P1_until_True_g_P2_P2_P2_P2_P2_P2/W0/Adam'
-    #varnames = [n.name for n in tf.get_default_graph().as_graph_def().node]
-
+    
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     num_features = task_aux.get_num_features()
     tester.run_test(
@@ -53,20 +47,22 @@ def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
     # print(tester.results)
 
     # Relabel state-centric options to transition-centric options
+
     if cluster:
         relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
     else:
         relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+        
+    policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
+    task2run2sol, task2success = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 10, curriculum.num_steps)
 
-    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath)
-    # task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob)
-    # saver.save_transfer_results()
     tf.reset_default_graph()
     sess.close()
 
-    # Showing transfer results
-    tester.show_transfer_results()
-    print("Time:", "%0.2f" % ((time.time() - time_init) / 60), "mins")
+    # Log transfer results
+    tester.log_results("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
+    saver.save_transfer_results(task2run2sol, task2success)
+
 
 
 def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
@@ -195,11 +191,12 @@ def run_single_worker_cluster(
     return 0
 
 
+
 def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
     """
-    A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
+    A worker runs n_rollouts from a specific location for each LTL formula in policy_bank
     """
-    # Save LTL formula to ID to mapping for inspection later
+    # Save LTL formula to ID mapping
     ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id.pkl")
     if not os.path.exists(ltl2id_pkl_fpath):
         ltl2id_pkl = {}
@@ -208,10 +205,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
             ltl_id = policy_bank.get_id(ltl)
             ltl2id_pkl[ltl] = ltl_id
             ltl2id_json[str(ltl)] = ltl_id
-        with open(ltl2id_pkl_fpath, "wb") as file:
-            dill.dump(ltl2id_pkl, file)
-        with open(os.path.join(saver.classifier_dpath, "ltl2id.json"), "w") as file:
-            json.dump(ltl2id_json, file)
+        save_pkl(ltl2id_pkl_fpath, ltl2id_pkl)
+        save_json(os.path.join(saver.classifier_dpath, "ltl2id.json"),ltl2id_json )
 
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
@@ -224,23 +219,19 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     ]
     completed_ltls = []
     if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
-        with open(
-            os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), "rb"
-        ) as file:
-            old_list = dill.load(file)["completed_ltl"]
+        old_list = load_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))['completed_ltl']
         completed_ltls.extend(old_list)
 
-    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+    for idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
-
         if ltl_id in completed_ltls:
             continue  # Check if this formula was already compiled. If so continue to next formula
 
         # if ltl_id not in [17]:
         #     continue
-        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        print("index ", idx, ". ltl (sub)task: ", ltl, ltl_id)
         start_time_ltl = time.time()
-        print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, ltl_idx))
+        print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, idx))
 
         # x_tests = np.random.randint(1, 20, size=1)
         # y_tests = np.random.randint(1, 20, size=1)
@@ -254,8 +245,6 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 # if (x, y) not in test_locs:
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
-                    # create directory to store results from a single worker
-                    # saver.create_worker_directory(ltl_id, state2id[(x, y)])
                     # create command to run a single worker
                     args = (
                         "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d"
@@ -271,13 +260,12 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                         )
                     )
                     worker_commands.append("python3 run_single_worker.py %s" % args)
-            # print(worker_commands)
             if worker_commands:
                 start_time_chunk = time.time()
                 with Pool(processes=len(worker_commands)) as pool:
                     retvals = pool.map(os.system, worker_commands)
                 for retval, worker_command in zip(retvals, worker_commands):
-                    if retval:  # os.system exit code: 0 means correct execution
+                    if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, worker_command)
                         retval = os.system(worker_command)
                 print(
@@ -289,14 +277,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
             % (ltl_id, (time.time() - start_time_ltl) / 60)
         )
         completed_ltls.append(ltl_id)
-        with open(
-            os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), "wb"
-        ) as file:
-            dill.dump({"completed_ltl": completed_ltls}, file)
-        with open(
-            os.path.join(saver.classifier_dpath, "completed_ltls.json"), "w"
-        ) as file:
-            json.dump(completed_ltls, file)
+        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {'completed_ltl': completed_ltls})
+        save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
 
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
@@ -305,106 +287,80 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     """
     Aggregate results saved locally by parallel workers for learning classifiers
     """
-    policy2loc2edge2hits_json = {"n_rollouts": n_rollouts}
     policy2loc2edge2hits_pkl = {"n_rollouts": n_rollouts}
+    policy2loc2edge2hits_json = {"n_rollouts": n_rollouts}
     id2ltl = {}
-    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+    for ltl in policy_bank.get_LTL_policies():
         ltl_id = policy_bank.get_id(ltl)
         id2ltl[ltl_id] = ltl
         # if ltl_id not in [17]:
         #     continue
-        policy2loc2edge2hits_json[str(ltl)] = {}
         policy2loc2edge2hits_pkl[ltl] = {}
+        policy2loc2edge2hits_json[str(ltl)] = {}
         for x in range(task_aux.map_width):
             for y in range(task_aux.map_height):
                 # if (x, y) not in [(9, 2), (3, 11)]:
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
-                    worker_fpath = os.path.join(
-                        saver.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, x, y)
-                    )
-                    with open(
-                        worker_fpath + "rollout_results_parallel.pkl", "rb"
-                    ) as file:
-                        rollout_results = dill.load(file)
+                    worker_fpath = os.path.join(saver.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, x, y))
+                    rollout_results = load_pkl(worker_fpath+"rollout_results_parallel.pkl")
                     # try:  # for local testing parallel rollout with a few random locs
-                    #     with open(worker_fpath + "rollout_results_parallel.pkl", "rb") as file:
-                    #         rollout_results = dill.load(file)
+                    #     rollout_results = load_pkl(worker_fpath + "rollout_results_parallel.pkl")
                     # except IOError:
                     #     continue
-                    policy2loc2edge2hits_json[str(ltl)][str((x, y))] = rollout_results[
-                        "edge2hits"
-                    ]
                     policy2loc2edge2hits_pkl[ltl][(x, y)] = rollout_results["edge2hits"]
-    policy2loc2edge2hits_json["ltls"] = id2ltl
+                    policy2loc2edge2hits_json[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
     policy2loc2edge2hits_pkl["ltls"] = id2ltl
-    saver.save_rollout_results(
-        "rollout_results_parallel", policy2loc2edge2hits_json, policy2loc2edge2hits_pkl
-    )
+    policy2loc2edge2hits_json["ltls"] = id2ltl
+    saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits_pkl, policy2loc2edge2hits_json)
 
 
-def construct_initiation_set_classifiers(classifier_dpath):
+def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
     """
     Map edge-centric option policy to its initiation set classifier.
     Classifier (policy2edge2loc2prob) contain only outgoing edges that state-centric policies achieved during training,
     possibly not all outgoing edges.
     """
-    with open(
-        os.path.join(classifier_dpath, "rollout_results_parallel.pkl"), "rb"
-    ) as rf:
-        policy2loc2edge2hits = dill.load(rf)
-
+    policy2loc2edge2hits = load_pkl(os.path.join(classifier_dpath, "rollout_results_parallel.pkl"))
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
-    policy2edge2loc2prob = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(lambda: float))
-    )
-    policy2edge2loc2prob_json = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(lambda: float))
-    )
+    policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    policy2edge2loc2prob_json = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    
     for key, val in policy2loc2edge2hits.items():
         if key in ["n_rollouts", "ltls"]:
             continue
         ltl, loc2edge2hits = key, val
-        # print("ltl: ", ltl)
         for loc, edge2hits in loc2edge2hits.items():
-            # print("loc: ", loc)
             for edge, hits in edge2hits.items():
                 prob = hits / n_rollouts
                 policy2edge2loc2prob[ltl][edge][loc] = prob
                 policy2edge2loc2prob_json[str(ltl)][str(edge)][str(loc)] = prob
-    with open(os.path.join(classifier_dpath, "classifier.json"), "w") as wf:
-        json.dump(
-            policy2edge2loc2prob_json, wf
-        )  # save to json for easier inspection of dictionary
+    
+    save_json(os.path.join(classifier_dpath, "classifier.json"), policy2edge2loc2prob_json)
 
+    edges2ltls_fpath = os.path.join(classifier_dpath, "edges2ltls.txt")
+    if not os.path.exists(edges2ltls_fpath):
+        _, edges2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
+        with open(edges2ltls_fpath, "w") as wf:
+            for count, (edge, ltls) in enumerate(edges2ltls.items()):
+                wf.write("(self_edge, outgoing_edge) %d: %s\n" % (count, str(edge)))
+                for ltl in ltls:
+                    wf.write("ltl: %s\n" % str(ltl))
+                wf.write("\n")
     return policy2edge2loc2prob
 
 
-def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times=1):
+def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num_steps):
     transfer_tasks = tester.get_transfer_tasks()
-    training_edges, edge2ltls = get_training_edges(policy2edge2loc2prob)
-    training_edges = [
-        sympy.simplify("c&~f"),
-        sympy.simplify("f&~b"),
-        sympy.simplify("b&h"),
-    ]
-    # print("n_edges: ", len(edge2ltls))
-    # for edge, ltls in edge2ltls.items():
-    #     print("edge: ", edge)
-    #     for ltl in ltls:
-    #         print("ltl: ", ltl)
-    #     print()
-
-    task2sol = defaultdict(list)
+    train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
+    
+    task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in transfer_tasks}
+    task2success = {str(transfer_task): 0.0 for transfer_task in transfer_tasks}
     for transfer_task in transfer_tasks:
-        # Running each transfer task 'num_times'
         for num_time in range(num_times):
-            print("transfer task:", transfer_task)
-            task = Game(
-                tester.get_task_params(transfer_task)
-            )  # same grid map as the training tasks
-
-            # wrapper: DFA -> NetworkX graph
+            tester.log_results("* Run %d Transfer Task: %s" % (num_time, str(transfer_task)))
+            task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
+            # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
             # for edge, edge_data in dfa_graph.edges.items():
             #     print(edge, edge_data)
@@ -417,86 +373,82 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times=1):
             # plt.show()
 
             # Graph search to find all simple paths from initial state to goal state
-            simple_paths_node = list(
-                nx.all_simple_paths(
-                    dfa_graph, source=task.dfa.state, target=task.dfa.terminal
-                )
-            )
-            simple_paths_edge = [
-                list(path) for path in map(nx.utils.pairwise, simple_paths_node)
-            ]
-            print("start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            print("simple paths: ", len(simple_paths_node), simple_paths_node)
+            simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
+            simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
+            tester.log_results("dfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
+            tester.log_results("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
 
             # Find all paths consists of only edges matching training edges
-            feasible_paths_node, feasible_paths_edge = feasible_paths(
-                dfa_graph, simple_paths_node, simple_paths_edge, training_edges
-            )
-            print("feasible paths: ", feasible_paths_node)
+            feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, train_edges)
+            tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
+
 
             total_reward = 0
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
-                print("current node: ", cur_node)
-                # Find all feasible paths the current node is on then candidate target edges
-                candidate_target_edges = []
-                for feasible_path_node, feasible_path_edge in zip(
-                    feasible_paths_node, feasible_paths_edge
-                ):
-                    print("feasible path: ", feasible_path_node)
+                tester.log_results("current node: %d" % cur_node)
+
+                # Find all feasible paths the current node is on then candidate option edges to target
+                option_edges = []
+                for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
                     if cur_node in feasible_path_node:
-                        pos = feasible_path_node.index(
-                            cur_node
-                        )  # current position on the path
-                        print("current position on a feasible path: ", pos)
-                        print("candidate target edge: ", feasible_path_edge[pos])
-                        candidate_target_edges.append(feasible_path_edge[pos])
-                print("candidate edges: ", candidate_target_edges)
+                        pos = feasible_path_node.index(cur_node)  # current position on this path
+                        test_edge = feasible_path_edge[pos]
+                        self_edge = dfa_graph.edges[test_edge[0], test_edge[0]]["edge_label"]  # self_edge label
+                        test_edge = dfa_graph.edges[test_edge]["edge_label"]  # get boolean formula for outgoing edge
+                        test_edge_pair = (self_edge, test_edge)
+                        for train_edge_pair in train_edges:
+                            if train_edge_pair not in option_edges and match_edges(test_edge_pair, [train_edge_pair]):
+                                option_edges.append(train_edge_pair)
+                tester.log_results("candidate edges: %s" % str(option_edges))
 
-                # Find best edge to target based on success probability from current location
-                cur_loc = (task.agent.i, task.agent.j)
+                # Find best edge to target based on rollout success probability from current location
                 option2prob = {}
-                for edge in candidate_target_edges:
-                    ltls = edge2ltls[edge]
-                    for ltl in ltls:
-                        option2prob[(ltl, edge)] = policy2edge2loc2prob[ltl][edge][
-                            cur_loc
-                        ]
-                if option2prob:
-                    best_policy, best_edge = sorted(option2prob, key=lambda kv: kv[1])[
-                        -1
-                    ][0]
-                    print(option2prob)
-                    print(best_policy)
-                    print(best_edge)
-
-                    # Execute option
-                    # total_reward += execute_option(task, policy_bank, best_policy, best_edge)
-                    # task2sol[transfer_task].append(option)
-                else:
-                    print(option2prob)
-                    print(
-                        "No options found to achieve from DFA state %d, location %s"
-                        % (cur_node, str(cur_loc))
-                    )
+                cur_loc = (task.agent.i, task.agent.j)
+                next_loc = cur_loc
+                for self_edge, out_edge in option_edges:
+                    for ltl in edge2ltls[(self_edge, out_edge)]:
+                        option2prob[(ltl, self_edge, out_edge)] = policy2edge2loc2prob[ltl][out_edge][cur_loc]
+                if not option2prob:
+                    tester.log_results("option2prob: %s" % str(option2prob))
+                    tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
-    return task2sol
+                while option2prob and cur_loc == next_loc:
+                    best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
+                    # Execute option
+                    next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
+                    if cur_loc != next_loc:
+                        task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
+                        total_reward += option_reward
+                        tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
+                    else:  # if best option did not change agent location, try second best option
+                        print(option2prob)
+                        print(cur_loc, next_loc)
+                        del option2prob[(best_policy, best_self_edge, best_out_edge)]
+                if cur_loc == next_loc:
+                    tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    break
+            tester.log_results("current node: %d\n\n" % task.dfa.state)
+            if task.ltl_game_over:
+                task2success[str(transfer_task)] += 1
+    task2success = {task: success/num_times for task, success in task2success.items()}
+    return task2run2sol, task2success
 
 
-def get_training_edges(policy2edge2loc2prob):
+def get_training_edges(policy_bank, policy2edge2loc2prob):
     """
-    Get all outgoing edges that state-centric policies have achieved during training.
-    Map edge to corresponding LTLs, possibly one to many.
+    Pair every outgoing edge that each state-centric policy have achieved during training,
+    with the self-edge of the DFA progress state corresponding to the state-centric policy.
+    Map each edge pair to corresponding LTLs, possibly one to many.
     """
-    edge2ltls = defaultdict(list)
+    edges2ltls = defaultdict(list)
     for ltl, edge2loc2prob in policy2edge2loc2prob.items():
-        for edge, _ in edge2loc2prob.items():
-            edge2ltls[edge].append(ltl)
-    training_edges = [
-        sympy.simplify_logic(edge.replace("!", "~"), form="dnf")
-        for edge in edge2ltls.keys()
-    ]
-    return training_edges, edge2ltls
+        dfa = policy_bank.policies[policy_bank.get_id(ltl)].dfa
+        node = dfa.ltl2state[ltl]
+        self_edge = dfa.nodelist[node][node]
+        for out_edge in edge2loc2prob.keys():
+            edges2ltls[(self_edge, out_edge)].append(ltl)
+    return edges2ltls.keys(), edges2ltls
 
 
 def dfa2graph(dfa):
@@ -510,23 +462,18 @@ def dfa2graph(dfa):
     return nx.DiGraph(nodelist)
 
 
-def feasible_paths(
-    dfa_graph, all_simple_paths_node, all_simple_paths_edge, training_edges
-):
+def feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges):
     """
     A feasible path consists of only DFA edges seen in training
     """
     feasible_paths_node = []
     feasible_paths_edge = []
-    for simple_path_node, simple_path_edge in zip(
-        all_simple_paths_node, all_simple_paths_edge
-    ):
-        print("path: %s\n" % str(simple_path_edge))
+    for simple_path_node, simple_path_edge in zip(simple_paths_node, simple_paths_edge):
         is_feasible_path = True
-        for node_from, node_to in simple_path_edge:
-            if not match_edges(
-                dfa_graph.edges[node_from, node_to]["edge_label"], training_edges
-            ):
+        for edge in simple_path_edge:
+            self_edge = dfa_graph.edges[edge[0], edge[0]]["edge_label"]  # self_edge label
+            out_edge = dfa_graph.edges[edge]["edge_label"]  # get boolean formula for outgoing edge
+            if not match_edges((self_edge, out_edge), training_edges):
                 is_feasible_path = False
                 break
         if is_feasible_path:
@@ -535,85 +482,71 @@ def feasible_paths(
     return feasible_paths_node, feasible_paths_edge
 
 
-def match_edges(test_edge, training_edges):
+def match_edges(test_edge_pair, train_edges):
     """
     Determine if test_edge can be matched with any training_edge
-    match := exact match or test_edge is less constrained than a training_edge, aka. subset
-
-    Assume training_edges are expressed in sympy and simplified
+    match := exact match (aka. eq) or test_edge is less constrained than a training_edge (aka. subset)
+    Note: more efficient to convert 'training_edges' before calling this function
     """
-    test_edge_dnf = sympy.simplify_logic(test_edge.replace("!", "~"), form="dnf")
-    is_exact_match = test_edge_dnf in training_edges
-    is_subset = np.any(
-        [
-            bool(_is_subset(test_edge_dnf, training_edge_dnf))
-            for training_edge_dnf in training_edges
-        ]
-    )
-    return is_exact_match or is_subset
+    test_self_edge, test_out_edge = test_edge_pair
+    test_self_edge = sympy.simplify_logic(test_self_edge.replace('!', '~'), form='dnf')
+    test_out_edge = sympy.simplify_logic(test_out_edge.replace('!', '~'), form='dnf')
+    train_self_edges = [sympy.simplify_logic(pair[0].replace('!', '~'), form='dnf') for pair in train_edges]
+    train_out_edges = [sympy.simplify_logic(pair[1].replace('!', '~'), form='dnf') for pair in train_edges]
+
+    is_subset_eq_self = np.any([bool(_is_subset_eq(test_self_edge, train_self_edge)) for train_self_edge in train_self_edges])
+    is_subset_eq_out = np.any([bool(_is_subset_eq(test_out_edge, train_out_edge)) for train_out_edge in train_out_edges])
+    return is_subset_eq_self and is_subset_eq_out
 
 
-def _is_subset(test_edge, training_edge):
+def _is_subset_eq(test_edge, train_edge):
     """
-    subset match :=
-    every conjunctive term of test_edge can be satisfied by the same training_edge
+    subset_eq match :=
+    every conjunctive term of 'test_edge' can be satisfied by the same 'training_edge'
 
-    Assume edges are in DNF
+    Assume edges are in sympy and DNF
     DNF: negation can only precede a propositional variable
     e.g. ~a | b is DNF; ~(a & b) is not DNF
 
     https://github.com/sympy/sympy/issues/23167
     """
-    # print("test_edge: ", test_edge)
-    # print("training_edge: ", training_edge)
     if test_edge.func == sympy.Or:
-        if training_edge.func == sympy.Or:
-            return sympy.And(
-                *[
-                    sympy.Or(
-                        *[
-                            _is_subset(test_term, train_term)
-                            for test_term in test_edge.args
-                        ]
-                    )
-                    for train_term in training_edge.args
-                ]
-            ) and sympy.And(
-                *[
-                    sympy.Or(
-                        *[
-                            _is_subset(test_term, train_term)
-                            for train_term in training_edge.args
-                        ]
-                    )
-                    for test_term in test_edge.args
-                ]
-            )
-        return sympy.Or(*[_is_subset(term, training_edge) for term in test_edge.args])
+        if train_edge.func == sympy.Or:  # len(train_edge.args) <= len(test_edge.args)
+            return sympy.And(*[sympy.Or(*[_is_subset_eq(test_term, train_term) for test_term in test_edge.args])
+                               for train_term in train_edge.args]) and \
+                   sympy.And(*[sympy.Or(*[_is_subset_eq(test_term, train_term) for train_term in train_edge.args])
+                               for test_term in test_edge.args])
+        return sympy.Or(*[_is_subset_eq(term, train_edge) for term in test_edge.args])
     elif test_edge.func == sympy.And:
-        return training_edge.func == sympy.And and sympy.And(
-            *[term in training_edge.args for term in test_edge.args]
-        )
+        return train_edge.func == sympy.And and sympy.And(*[term in train_edge.args for term in test_edge.args])
     else:  # Atom, e.g. a, b, c or Not
-        if training_edge.func == sympy.And:
-            return test_edge in training_edge.args
+        if train_edge.func == sympy.And:
+            return test_edge in train_edge.args
         else:
-            return test_edge == training_edge
+            return test_edge == train_edge
 
 
-def execute_option(task, policy_bank, ltl_policy, edge):
-    # task = Game(tester.get_task_params(ltl_policy))
+def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2prob, num_steps):
+    """
+    'option_edge' is 1 outgoing edge associated with edge-centric option
+    'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
+    """
+    tester.log_results("target option edge: %s" % str(option_edge))
+    tester.log_results("from policy %d: %s" % (policy_bank.get_id(ltl_policy), str(ltl_policy)))
     num_features = task.get_num_features()
-
-    option_reward = 0
-    # while not termination condition and policy is defined in current MDP state
-    # termination condition: hit target edge or other edge transition
-    while not task.dfa.state != edge[1]:
+    option_reward, step = 0, 0
+    cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
+    tester.log_results("cur_loc: %s" % str(cur_loc))
+    # tester.log_results("initiation_set: %s" % str(edge2loc2prob[option_edge].keys()))
+    # while not exceed max steps AND no DFA transition occurs AND option policy is still defined in current MDP state
+    while step < num_steps and cur_node == task.dfa.state and cur_loc in edge2loc2prob[option_edge]:
+        cur_node = task.dfa.state
         s1 = task.get_features()
-        a = Actions(
-            policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features)))
-        )
-        reward = task.execute_action(a)
-        option_reward += reward
-
-    return option_reward
+        a = Actions(policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features))))
+        if task._get_next_position(a) not in edge2loc2prob[option_edge]:  # check if possible next loc in initiation set
+            break
+        option_reward += task.execute_action(a)
+        tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        cur_loc = (task.agent.i, task.agent.j)
+        step += 1
+    return cur_loc, option_reward

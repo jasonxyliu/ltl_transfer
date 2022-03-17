@@ -46,13 +46,13 @@ def single_worker_rollouts(
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
 
     # ensure that tensorflow threads are restricted to a single core
-    config = tf.ConfigProto(
-        intra_op_parallelism_threads=1,
-        inter_op_parallelism_threads=1,
-        allow_soft_placement=True,
-    )
 
+
+    
+
+    config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
     tf.reset_default_graph()
+
     with tf.Session(config=config) as sess:
         # load policy_bank
         # print("loading policy bank")
@@ -81,18 +81,13 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     #    print(policy.ltl)
 
     edge2hits = defaultdict(int)
-    task_aux = Game(
-        tester.get_task_params(
-            policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl
-        )
-    )
-    initial_state = (
-        task_aux.dfa.state
-    )  # get default DFA initial state before progressing on agent's init_loc
+    task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
+    default_initial_state = task_aux.dfa.state  # get default DFA initial state before progressing on agent's init_loc
+
     for rollout in range(n_rollouts):
         # print("\nrollout:", rollout)
         # print("init_loc: ", init_loc)
-        # print("initial_state: ", initial_state)
+        # print("default_initial_state: ", default_initial_state)
 
         # Overwrite default agent start location and DFA initial state
         task = Game(
@@ -105,10 +100,9 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
         # print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
         traversed_edge = None
-        if (
-            initial_state != task.dfa.state
-        ):  # agent starts at a loc that already triggers a desired transition
-            traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
+        if default_initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
+            traversed_edge = task.dfa.nodelist[default_initial_state][task.dfa.state]
+
             # print("traversed edge before while: ", traversed_edge)
         depth = 0
         while (
