@@ -56,8 +56,9 @@ class Tester:
             if tasks_id == 4:
                 self.tasks = tasks.get_interleaving_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
-                self.transfer_results_fpath = os.path.join("../results", "task_%s" % str(tasks_id), "zero_shot_transfer_results.txt")
-                logging.basicConfig(filename=self.transfer_results_fpath, filemode='w', level=logging.INFO, format="%(message)s")
+                self.transfer_results_dpath = os.path.join("../results", "task_%s" % str(tasks_id))
+                self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
+                logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
             optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
@@ -156,7 +157,6 @@ class Saver:
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
         self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
-        self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")  # store transfer results
 
         self.policy_dpath = os.path.join(exp_dir, "policy_model")
         os.makedirs(self.policy_dpath, exist_ok=True)
@@ -172,17 +172,19 @@ class Saver:
         results['results'] = dict([(str(t), self.tester.results[t]) for t in self.tester.results])
         save_json(self.file_out, results)
 
-    def save_transfer_results(self):
+    def save_transfer_results(self, task2run2sol, task2success):
         results = {
-            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks]
+            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
+            'task2run2sol': task2run2sol,
+            'task2success': task2success
         }
-        save_json(self.transfer_file_out, results)
+        transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
+        save_json(transfer_results_fpath, results)
 
     def save_policy_bank(self, policy_bank, run_idx):
         tf_saver = tf.train.Saver()
         policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_idx, "policy_bank")
         tf_saver.save(policy_bank.sess, policy_bank_prefix)
-        # policy_bank.save_policy_models(policy_bank_dname)
 
     def save_training_data(self, task_aux):
         """

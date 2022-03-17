@@ -40,13 +40,14 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # Relabel state-centric options to transition-centric options
     # relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
-    task2sol = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 1, curriculum.num_steps)
+    task2run2sol, task2success = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 10, curriculum.num_steps)
 
     tf.reset_default_graph()
     sess.close()
 
     # Log transfer results
     tester.log_results("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
+    saver.save_transfer_results(task2run2sol, task2success)
 
 
 def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
@@ -187,10 +188,11 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    task2sol = defaultdict(list)
+    task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in transfer_tasks}
+    task2success = {str(transfer_task): 0.0 for transfer_task in transfer_tasks}
     for transfer_task in transfer_tasks:
         for num_time in range(num_times):
-            tester.log_results("* Transfer Task: %s" % str(transfer_task))
+            tester.log_results("* Run %d Transfer Task: %s" % (num_time, str(transfer_task)))
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
             # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
@@ -249,7 +251,7 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
                     # Execute option
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     if cur_loc != next_loc:
-                        task2sol[transfer_task].append((best_policy, best_self_edge, best_out_edge))
+                        task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
                         total_reward += option_reward
                         tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
                     else:  # if best option did not change agent location, try second best option
@@ -260,7 +262,10 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
                     tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
             tester.log_results("current node: %d\n\n" % task.dfa.state)
-    return task2sol
+            if task.ltl_game_over:
+                task2success[str(transfer_task)] += 1
+    task2success = {task: success/num_times for task, success in task2success.items()}
+    return task2run2sol, task2success
 
 
 def get_training_edges(policy_bank, policy2edge2loc2prob):
@@ -359,7 +364,8 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     'option_edge' is 1 outgoing edge associated with edge-centric option
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
     """
-    tester.log_results("target option edge: %s; from policy %d: %s" % (str(option_edge), policy_bank.get_id(ltl_policy), str(ltl_policy)))
+    tester.log_results("target option edge: %s" % str(option_edge))
+    tester.log_results("from policy %d: %s" % (policy_bank.get_id(ltl_policy), str(ltl_policy)))
     num_features = task.get_num_features()
     option_reward, step = 0, 0
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
