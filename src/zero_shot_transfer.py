@@ -4,6 +4,7 @@ import random
 from multiprocessing import Pool
 from collections import defaultdict
 import tensorflow as tf
+
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 import networkx as nx
 import sympy
@@ -13,12 +14,18 @@ from lpopl import _initialize_policy_bank, _test_LPOPL
 from policy_bank import *
 from dfa import *
 from game import *
+
+from run_single_worker import single_worker_rollouts
+from mpi4py import MPI
+from mpi4py.futures import MPIPoolExecutor
+from copy import deepcopy
 from test_utils import save_pkl, load_pkl, save_json
 
-CHUNK_SIZE = 32
+
+CHUNK_SIZE = 94
 
 
-def run_experiments(tester, curriculum, saver, loader, run_id):
+def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
     time_init = time.time()
     learning_params = tester.learning_params
 
@@ -31,14 +38,21 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # Initializing policies per each subtask
     policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
     loader.load_policy_bank(run_id, sess)
-
+    
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     num_features = task_aux.get_num_features()
-    tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
+    tester.run_test(
+        -1, sess, _test_LPOPL, policy_bank, num_features
+    )  # -1 to signal test after restore models
     # print(tester.results)
 
     # Relabel state-centric options to transition-centric options
-    # relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+
+    if cluster:
+        relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
+    else:
+        relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+        
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
     task2run2sol, task2success = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 10, curriculum.num_steps)
 
@@ -48,6 +62,134 @@ def run_experiments(tester, curriculum, saver, loader, run_id):
     # Log transfer results
     tester.log_results("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
     saver.save_transfer_results(task2run2sol, task2success)
+
+
+
+def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
+    """
+    A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
+    """
+
+    print('RELABELING STATE CENTRIC OPTIONS')
+
+
+    # Save LTL formula to ID to mapping for inspection later
+    ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id.pkl")
+    if not os.path.exists(ltl2id_pkl_fpath):
+        ltl2id_pkl = {}
+        ltl2id_json = {}
+        for ltl in policy_bank.get_LTL_policies():
+            ltl_id = policy_bank.get_id(ltl)
+            ltl2id_pkl[ltl] = ltl_id
+            ltl2id_json[str(ltl)] = ltl_id
+        with open(ltl2id_pkl_fpath, "wb") as file:
+            dill.dump(ltl2id_pkl, file)
+        with open(os.path.join(saver.classifier_dpath, "ltl2id.json"), "w") as file:
+            json.dump(ltl2id_json, file)
+
+    task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
+    state2id = saver.save_training_data(task_aux)
+    all_locs = [
+        (x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)
+    ]
+    loc_chunks = [
+        all_locs[chunk_id : chunk_id + CHUNK_SIZE]
+        for chunk_id in range(0, len(all_locs), CHUNK_SIZE)
+    ]
+    completed_ltls = []
+    if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
+        with open(
+            os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), "rb"
+        ) as file:
+            old_list = dill.load(file)["completed_ltl"]
+        completed_ltls.extend(old_list)
+
+    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+        ltl_id = policy_bank.get_id(ltl)
+
+        if ltl_id in completed_ltls:
+            continue  # Check if this formula was already compiled. If so continue to next formula
+        # if ltl_id not in [17]:
+        #     continue
+        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        start_time_ltl = time.time()
+        print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, ltl_idx))
+
+        for chunk_id, locs in enumerate(loc_chunks):
+            # worker_commands = []
+            args = []
+            for x, y in locs:
+                if task_aux.is_valid_agent_loc(x, y):
+                    # create directory to store results from a single worker
+                    # saver.create_worker_directory(ltl_id, state2id[(x, y)])
+                    # create command to run a single worker
+                    arg = (
+                        saver.alg_name,
+                        tester.tasks_id,
+                        tester.map_id,
+                        run_id,
+                        ltl_id,
+                        state2id[(x, y)],
+                        n_rollouts,
+                        curriculum.num_steps,
+                    )
+                    args.append(arg)
+
+            args2 = deepcopy(args)
+
+            if args:
+                start_time_chunk = time.time()
+                with MPIPoolExecutor(max_workers=CHUNK_SIZE) as pool:
+                    retvals = pool.starmap(run_single_worker_cluster, args)
+                # print(retvals)
+                #print(list(retvals))
+
+                
+                for retval, arg in zip(retvals, args):
+                    if retval:  # os.system exit code: 0 means correct execution
+                        print("Command failed: ", retval, arg)
+                        retval = run_single_worker_cluster(*arg)
+                
+
+                print(
+                    "chunk %s took: %0.2f, with %d states"
+                    % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2))
+                )
+
+        print(
+            "Completed LTL %s took: %0.2f"
+            % (ltl_id, (time.time() - start_time_ltl) / 60)
+        )
+        completed_ltls.append(ltl_id)
+
+        with open(
+            os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), "wb"
+        ) as file:
+            dill.dump({"completed_ltl": completed_ltls}, file)
+        with open(
+            os.path.join(saver.classifier_dpath, "completed_ltls.json"), "w"
+        ) as file:
+            json.dump(completed_ltls, file)
+
+    # aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
+
+
+def run_single_worker_cluster(
+    algo, task_id, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth
+):
+    import os
+
+    classifier_dpath = os.path.join(
+        "../tmp/", "task_%d/map_%d" % (task_id, map_id), "classifier"
+    )
+    from run_single_worker import single_worker_rollouts
+
+    rank = MPI.COMM_WORLD.Get_rank()
+    name = MPI.Get_processor_name()
+    #print(f"Running state {state_id} through process {rank} on {name}")
+    single_worker_rollouts(algo, classifier_dpath, run_id, ltl_id, state_id, n_rollouts, max_depth)
+    return 0
+
 
 
 def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
@@ -68,8 +210,13 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
 
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
-    all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
-    loc_chunks = [all_locs[chunk_id: chunk_id+CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
+    all_locs = [
+        (x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)
+    ]
+    loc_chunks = [
+        all_locs[chunk_id : chunk_id + CHUNK_SIZE]
+        for chunk_id in range(0, len(all_locs), CHUNK_SIZE)
+    ]
     completed_ltls = []
     if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
         old_list = load_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))['completed_ltl']
@@ -99,8 +246,19 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    args = "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
-                        saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+                    args = (
+                        "--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d"
+                        % (
+                            saver.alg_name,
+                            tester.tasks_id,
+                            tester.map_id,
+                            run_id,
+                            ltl_id,
+                            state2id[(x, y)],
+                            n_rollouts,
+                            curriculum.num_steps,
+                        )
+                    )
                     worker_commands.append("python3 run_single_worker.py %s" % args)
             if worker_commands:
                 start_time_chunk = time.time()
@@ -110,8 +268,14 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, worker_command)
                         retval = os.system(worker_command)
-                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
-        print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time()-start_time_ltl)/60))
+                print(
+                    "chunk %s took: %0.2f, with %d states"
+                    % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals))
+                )
+        print(
+            "Completed LTL %s took: %0.2f"
+            % (ltl_id, (time.time() - start_time_ltl) / 60)
+        )
         completed_ltls.append(ltl_id)
         save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {'completed_ltl': completed_ltls})
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
@@ -161,6 +325,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
     policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     policy2edge2loc2prob_json = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    
     for key, val in policy2loc2edge2hits.items():
         if key in ["n_rollouts", "ltls"]:
             continue
@@ -170,6 +335,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
                 prob = hits / n_rollouts
                 policy2edge2loc2prob[ltl][edge][loc] = prob
                 policy2edge2loc2prob_json[str(ltl)][str(edge)][str(loc)] = prob
+    
     save_json(os.path.join(classifier_dpath, "classifier.json"), policy2edge2loc2prob_json)
 
     edges2ltls_fpath = os.path.join(classifier_dpath, "edges2ltls.txt")
@@ -187,7 +353,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
 def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num_steps):
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
-
+    
     task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in transfer_tasks}
     task2success = {str(transfer_task): 0.0 for transfer_task in transfer_tasks}
     for transfer_task in transfer_tasks:
@@ -215,6 +381,7 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
             # Find all paths consists of only edges matching training edges
             feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, train_edges)
             tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
+
 
             total_reward = 0
             while not task.ltl_game_over and not task.env_game_over:
