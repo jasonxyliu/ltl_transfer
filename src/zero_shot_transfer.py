@@ -48,21 +48,15 @@ def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
         relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
 
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
-    task2run2sol, task2success = zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 10, curriculum.num_steps)
+    zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 10, curriculum.num_steps)
 
     tf.reset_default_graph()
     sess.close()
 
     # Log transfer results
     tester.log_results("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
-    saver.save_transfer_results(task2run2sol, task2success)
+    saver.save_transfer_results()
 
-
-def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
-    """
-    A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
-    """
-    print('RELABELING STATE CENTRIC OPTIONS')
     # Save LTL formula to ID mapping
     if not os.path.exists(os.path.join(saver.classifier_dpath, "ltl2id.pkl")):
         ltl2id_pkl = {}
@@ -74,6 +68,12 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
         save_pkl(os.path.join(saver.classifier_dpath, "ltl2id.pkl"), ltl2id_pkl)
         save_json(os.path.join(saver.classifier_dpath, "ltl2id.json"), ltl2id_json)
 
+
+def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
+    """
+    A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
+    """
+    print('RELABELING STATE CENTRIC OPTIONS')
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
@@ -133,17 +133,6 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     """
     A worker runs n_rollouts from a specific location for each LTL formula in policy_bank
     """
-    # Save LTL formula to ID mapping
-    if not os.path.exists(os.path.join(saver.classifier_dpath, "ltl2id.pkl")):
-        ltl2id_pkl = {}
-        ltl2id_json = {}
-        for ltl in policy_bank.get_LTL_policies():
-            ltl_id = policy_bank.get_id(ltl)
-            ltl2id_pkl[ltl] = ltl_id
-            ltl2id_json[str(ltl)] = ltl_id
-        save_pkl(os.path.join(saver.classifier_dpath, "ltl2id.pkl"), ltl2id_pkl)
-        save_json(os.path.join(saver.classifier_dpath, "ltl2id.json"), ltl2id_json)
-
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
@@ -266,8 +255,6 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in transfer_tasks}
-    task2success = {str(transfer_task): 0.0 for transfer_task in transfer_tasks}
     for transfer_task in transfer_tasks:
         for num_time in range(num_times):
             tester.log_results("* Run %d Transfer Task: %s" % (num_time, str(transfer_task)))
@@ -329,7 +316,7 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
                     # Execute option
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     if cur_loc != next_loc:
-                        task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
+                        tester.task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
                         total_reward += option_reward
                         tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
                     else:  # if best option did not change agent location, try second best option
@@ -341,9 +328,8 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
                     break
             tester.log_results("current node: %d\n\n" % task.dfa.state)
             if task.ltl_game_over:
-                task2success[str(transfer_task)] += 1
-    task2success = {task: success/num_times for task, success in task2success.items()}
-    return task2run2sol, task2success
+                tester.task2success[str(transfer_task)] += 1
+    tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
 
 
 def get_training_edges(policy_bank, policy2edge2loc2prob):

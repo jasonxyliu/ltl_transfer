@@ -1,4 +1,5 @@
-import random, time, shutil
+import random
+import time
 import numpy as np
 import tensorflow as tf
 from policy_bank import *

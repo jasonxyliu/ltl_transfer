@@ -3,6 +3,7 @@ import json
 import dill
 import argparse
 import logging
+from collections import defaultdict
 import numpy as np
 import tensorflow as tf
 from game import GameParams, Game
@@ -69,10 +70,9 @@ class Tester:
                 self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
                 self.results[self.tasks[i]] = {}
             # save results for transfer learning
-            if tasks_id == 3:
-                self.transfer_results = {}
-                for idx, transfer_task in enumerate(self.transfer_tasks):
-                    self.transfer_results[transfer_task] = {}
+            if tasks_id > 2:
+                self.task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in self.transfer_tasks}
+                self.task2success = {str(transfer_task): 0.0 for transfer_task in self.transfer_tasks}
         else:
             # Loading precomputed results
             data = read_json(file_results)
@@ -80,7 +80,7 @@ class Tester:
             self.optimal = dict([(eval(t), data["optimal"][t]) for t in data["optimal"]])
             self.steps = data["steps"]
             self.tasks = [eval(t) for t in data["tasks"]]
-            # obs: json transform the interger keys from 'results' into strings
+            # obs: json transform the integer keys from 'results' into strings
             # so I'm changing the 'steps' to strings
             for i in range(len(self.steps)):
                 self.steps[i] = str(self.steps[i])
@@ -173,11 +173,11 @@ class Saver:
         }
         save_json(self.file_out, results)
 
-    def save_transfer_results(self, task2run2sol, task2success):
+    def save_transfer_results(self):
         results = {
             'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
-            'task2run2sol': task2run2sol,
-            'task2success': task2success
+            'task2run2sol': self.tester.task2run2sol,
+            'task2success': self.tester.task2success
         }
         transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
         save_json(transfer_results_fpath, results)
