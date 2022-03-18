@@ -181,8 +181,8 @@ def get_transfer_tasks():
 
         _get_sequence('agc'),
 
-        ('and', _until(_negate('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
-        _get_sequence_generic('ab'),  # F(a & Fb)
-        _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
+        # ('and', _until(_negate('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
+        # _get_sequence_generic('ab'),  # F(a & Fb)
+        # _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
     ]
     return tasks
