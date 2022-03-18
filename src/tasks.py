@@ -95,6 +95,36 @@ def _get_sequence_night(seq):
     return ('until', _sn(), ('and', _snp(seq[0]), _get_sequence_night(seq[1:])))
 
 
+def _negate(seq):
+    """
+    negate only atomic propositions following co-safe syntax, e.g. !a: correct; !(a&b): incorrect
+    """
+    if len(seq) > 1:
+        raise NotImplementedError("The following formula doesn't follow the cosafe syntactic restriction: " + str(seq))
+    return ('not', seq)
+
+
+def _until(seq1, seq2):
+    return ('until', seq1, seq2)
+
+
+def _next(seq):
+    return ('next', seq)
+
+
+def _get_sequence_generic(*seq):
+    """
+    seq = ('until', 'True', 'a'), ('next', 'a')
+    """
+    if len(seq) == 1:
+        if len(seq[0]) == 1:
+            return ('until', 'True', seq)
+        else:
+            return ('until', 'True', ('and', seq[0], _get_sequence(seq[1:])))
+    else:
+        return ('until', 'True', ('and', seq[0], ))
+
+
 ######### The following methods are for transfer learning #########
 def get_sequence_training_tasks():
     """ Sequence training tasks for the transfer tasks. """
@@ -150,5 +180,9 @@ def get_transfer_tasks():
         _get_sequence('af'),  # a & !f is a subset of a & !e & f: ('and', _get_sequence('ae'), _get_sequence('fe'))
 
         _get_sequence('agc'),
+
+        ('and', _until(_negate('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
+        _get_sequence_generic('ab'),  # F(a & Fb)
+        _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
     ]
     return tasks

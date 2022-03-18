@@ -187,7 +187,7 @@ def _progress(ltl_formula, truth_assignment):
             return 'True'
         if res2 == 'False':
             return f1
-        return res2  #('or', res2, f1)
+        return res2  # ('or', res2, f1)
 
 
 def _get_formula(truth_assignments, propositions):
