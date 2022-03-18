@@ -17,6 +17,7 @@ from policy_bank import *
 from dfa import *
 from game import *
 from test_utils import save_pkl, load_pkl, save_json
+from run_single_worker import single_worker_rollouts
 
 CHUNK_SIZE = 94
 
@@ -62,44 +63,39 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
     """
     print('RELABELING STATE CENTRIC OPTIONS')
-    # Save LTL formula to ID to mapping for inspection later
-    ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id.pkl")
-    if not os.path.exists(ltl2id_pkl_fpath):
+    # Save LTL formula to ID mapping
+    if not os.path.exists(os.path.join(saver.classifier_dpath, "ltl2id.pkl")):
         ltl2id_pkl = {}
         ltl2id_json = {}
         for ltl in policy_bank.get_LTL_policies():
             ltl_id = policy_bank.get_id(ltl)
             ltl2id_pkl[ltl] = ltl_id
             ltl2id_json[str(ltl)] = ltl_id
-        save_pkl(ltl2id_pkl_fpath, ltl2id_pkl)
+        save_pkl(os.path.join(saver.classifier_dpath, "ltl2id.pkl"), ltl2id_pkl)
         save_json(os.path.join(saver.classifier_dpath, "ltl2id.json"), ltl2id_json)
 
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
-    loc_chunks = [all_locs[chunk_id : chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
+    loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
     completed_ltls = []
     if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
         old_list = load_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))
         completed_ltls.extend(old_list)
 
-    for ltl_idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+    for idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
         if ltl_id in completed_ltls:
             continue  # Check if this formula was already compiled. If so continue to next formula
 
-        # if ltl_id not in [17]:
-        #     continue
-        print("index ", ltl_idx, ". ltl (sub)task: ", ltl, ltl_id)
+        print("index ", idx, ". ltl (sub)task: ", ltl, ltl_id)
         start_time_ltl = time.time()
-        print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, ltl_idx))
+        print("Starting LTL: %s, %s, %s" % (ltl_id, ltl, idx))
 
         for chunk_id, locs in enumerate(loc_chunks):
             args = []
             for x, y in locs:
                 if task_aux.is_valid_agent_loc(x, y):
-                    # create directory to store results from a single worker
-                    # saver.create_worker_directory(ltl_id, state2id[(x, y)])
                     # create command to run a single worker
                     arg = (saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     args.append(arg)
@@ -110,7 +106,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                 with MPIPoolExecutor(max_workers=CHUNK_SIZE) as pool:
                     retvals = pool.starmap(run_single_worker_cluster, args)
                 for retval, arg in zip(retvals, args):
-                    if retval:  # os.system exit code: 0 means correct execution
+                    if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, arg)
                         retval = run_single_worker_cluster(*arg)
                 print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
@@ -118,15 +114,14 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
         completed_ltls.append(ltl_id)
         save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {"completed_ltl": completed_ltls})
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
-    # aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
+    aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 
 def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
-    import os
+    # import os
+    # from run_single_worker import single_worker_rollouts
 
     classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (task_id, map_id), "classifier")
-    from run_single_worker import single_worker_rollouts
-
     rank = MPI.COMM_WORLD.Get_rank()
     name = MPI.Get_processor_name()
     # print(f"Running state {state_id} through process {rank} on {name}")
@@ -139,21 +134,20 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     A worker runs n_rollouts from a specific location for each LTL formula in policy_bank
     """
     # Save LTL formula to ID mapping
-    ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id.pkl")
-    if not os.path.exists(ltl2id_pkl_fpath):
+    if not os.path.exists(os.path.join(saver.classifier_dpath, "ltl2id.pkl")):
         ltl2id_pkl = {}
         ltl2id_json = {}
         for ltl in policy_bank.get_LTL_policies():
             ltl_id = policy_bank.get_id(ltl)
             ltl2id_pkl[ltl] = ltl_id
             ltl2id_json[str(ltl)] = ltl_id
-        save_pkl(ltl2id_pkl_fpath, ltl2id_pkl)
-        save_json(os.path.join(saver.classifier_dpath, "ltl2id.json"),ltl2id_json )
+        save_pkl(os.path.join(saver.classifier_dpath, "ltl2id.pkl"), ltl2id_pkl)
+        save_json(os.path.join(saver.classifier_dpath, "ltl2id.json"), ltl2id_json)
 
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     state2id = saver.save_training_data(task_aux)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
-    loc_chunks = [all_locs[chunk_id : chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
+    loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
     completed_ltls = []
     if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
         old_list = load_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))['completed_ltl']
