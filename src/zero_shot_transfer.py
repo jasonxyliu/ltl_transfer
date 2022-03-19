@@ -22,7 +22,7 @@ from run_single_worker import single_worker_rollouts
 CHUNK_SIZE = 94
 
 
-def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
+def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method, cluster=True):
     time_init = time.time()
     learning_params = tester.learning_params
 
@@ -42,13 +42,13 @@ def run_experiments(tester, curriculum, saver, loader, run_id, cluster=True):
     # print(tester.results)
 
     # Relabel state-centric options to transition-centric options
-    if cluster:
+    if relabel_method == 'cluster':  # use mpi
         relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
-    else:
+    elif relabel_method == 'parallel':  # use Python multiprocessing
         relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
 
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
-    zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 10, curriculum.num_steps)
+    zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 1, curriculum.num_steps)
 
     tf.reset_default_graph()
     sess.close()
