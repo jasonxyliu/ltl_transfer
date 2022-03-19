@@ -114,15 +114,21 @@ def _next(seq):
 
 def _get_sequence_generic(*seq):
     """
-    seq = ('until', 'True', 'a'), ('next', 'a')
+    e.g. 'seq' = 'a', ('next', ('until', 'True', 'b')) or 'abc'
     """
+    print("seq: ", seq)
     if len(seq) == 1:
+        print("seq[0]", seq[0])
         if len(seq[0]) == 1:
-            return ('until', 'True', seq)
+            if type(seq[0]) == str:
+                return ('until', 'True', seq[0])
+            else:
+                return seq[0][0]
         else:
-            return ('until', 'True', ('and', seq[0], _get_sequence(seq[1:])))
+            return ('until', 'True', ('and', seq[0][0], _get_sequence_generic(seq[0][1:])))
     else:
-        return ('until', 'True', ('and', seq[0], ))
+        print("seq[1:]: ", seq[1:])
+        return ('until', 'True', ('and', seq[0], _get_sequence_generic(seq[1:])))
 
 
 ######### The following methods are for transfer learning #########
@@ -163,26 +169,27 @@ def get_interleaving_training_tasks():
 def get_transfer_tasks():
     """ Testing tasks for the transfer tasks. """
     tasks = [
-        _get_sequence('ab'),
-        _get_sequence('ac'),
-        _get_sequence('de'),
-        _get_sequence('db'),
-        ('and', _get_sequence('ae'), _get_sequence('fe')),
-        ('and', _get_sequence('dc'), _get_sequence('abc')),
-        ('and', _get_sequence('fb'), _get_sequence('acb')),
-        ('and', _get_sequence('fc'), _get_sequence('ac')),
-        ('and', _get_sequence('aeg'), _get_sequence('feg')),
-        ('and', _get_sequence('fbh'), _get_sequence('acbh')),
+        # _get_sequence('ab'),
+        # _get_sequence('ac'),
+        # _get_sequence('de'),
+        # _get_sequence('db'),
+        # ('and', _get_sequence('ae'), _get_sequence('fe')),
+        # ('and', _get_sequence('dc'), _get_sequence('abc')),
+        # ('and', _get_sequence('fb'), _get_sequence('acb')),
+        # ('and', _get_sequence('fc'), _get_sequence('ac')),
+        # ('and', _get_sequence('aeg'), _get_sequence('feg')),
+        # ('and', _get_sequence('fbh'), _get_sequence('acbh')),
+        #
+        # ('and', _get_sequence('fbh'), _get_sequence('cbh')),
+        # _get_sequence('deg'),  # _get_sequence('de'), ('and', _get_sequence('aeg'), _get_sequence('feg'))
+        # _get_sequence('dcb'),  # ('and', _get_sequence('dc'), _get_sequence('abc')), ('and', _get_sequence('fb'), _get_sequence('acb'))
+        # _get_sequence('af'),  # a & !f is a subset of a & !e & f: ('and', _get_sequence('ae'), _get_sequence('fe'))
+        #
+        # _get_sequence('agc'),
 
-        ('and', _get_sequence('fbh'), _get_sequence('cbh')),
-        _get_sequence('deg'),  # _get_sequence('de'), ('and', _get_sequence('aeg'), _get_sequence('feg'))
-        _get_sequence('dcb'),  # ('and', _get_sequence('dc'), _get_sequence('abc')), ('and', _get_sequence('fb'), _get_sequence('acb'))
-        _get_sequence('af'),  # a & !f is a subset of a & !e & f: ('and', _get_sequence('ae'), _get_sequence('fe'))
-
-        _get_sequence('agc'),
-
-        # ('and', _until(_negate('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
         # _get_sequence_generic('ab'),  # F(a & Fb)
-        # _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
+        # ('and', _until(_negate('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
+        _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
+        # F(a & Xb)
     ]
     return tasks

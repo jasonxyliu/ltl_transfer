@@ -68,6 +68,7 @@ def extract_propositions(ltl_formula):
 
 
 def _get_propositions(ltl_formula):
+    # print(ltl_formula)
     if type(ltl_formula) == str:
         if ltl_formula in ['True', 'False']:
             return []
