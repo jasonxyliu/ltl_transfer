@@ -24,6 +24,16 @@ def soft_order(seq):
     else:
         return ('until', 'True', ('and', seq[0], soft_order(seq[1::])))
 
+def soft_order_strict(seq):
+    if len(seq)==1:
+        return ('until','True', seq[0])
+    else:
+        return ('until','True',('and', seq(0), ('next', soft_order_strict(seq[1::]))))
+
+def hard_order(p1,p2):
+    return ('until',('not',p1),p2)
+
+
 def sample_waypoints(props):
     visit_waypoints = []
     for p in props:
@@ -54,9 +64,32 @@ def seq2orders(sequences):
         for (i,p) in enumerate(seq):
             orders.extend([[p,p2] for p2 in seq[i+1::]])
     return orders
-    
+
+
+def order2clause(p1,p2, order_type):
+    if order_type == 'hard':
+        return hard_order(p1,p2)
+    elif order_type == 'soft':
+        return soft_order([p1,p2])
+    else:
+        return soft_order_strict([p1,p2])
+
 def orders2clauses(orders, order_type = 'mixed'):
-    a=1
+    clauses = []
+    for order in orders:
+        if order_type == 'mixed':
+            if np.random.binomial(1,0.5):
+                typ = 'hard'
+            else:
+                if np.random.binomial(1,0.5):
+                    typ = 'soft'
+                else:
+                    typ = 'soft_strict'
+        else:
+            typ = order_type
+    clauses.append(order2clause(order[0], order[1], typ))
+    return clauses
+        
 
 def seq2clauses(sequences):
     a=1
