@@ -2,6 +2,8 @@ import os
 import json
 import dill
 import argparse
+import logging
+from collections import defaultdict
 import numpy as np
 import tensorflow as tf
 from game import GameParams, Game
@@ -40,7 +42,7 @@ class Tester:
             self.tasks_id = tasks_id
             self.map_id = map_id
             self.experiment = "task_%d/map_%d" % (tasks_id, map_id)
-            self.map     = '../experiments/maps/map_%d.txt' % map_id
+            self.map = "../experiments/maps/map_%d.txt" % map_id
             self.consider_night = False
             if tasks_id == 0:
                 self.tasks = tasks.get_sequence_of_subtasks()
@@ -50,13 +52,15 @@ class Tester:
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
             if tasks_id == 3:
-                # self.tasks = tasks.get_training_tasks()
                 self.tasks = tasks.get_sequence_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
             if tasks_id == 4:
-                # self.tasks = tasks.get_training_tasks()
                 self.tasks = tasks.get_interleaving_training_tasks()
                 self.transfer_tasks = tasks.get_transfer_tasks()
+                self.transfer_results_dpath = os.path.join("../results", "task_%s" % str(tasks_id))
+                os.makedirs(self.transfer_results_dpath, exist_ok=True)
+                self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
+                logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
             optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
@@ -67,18 +71,17 @@ class Tester:
                 self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
                 self.results[self.tasks[i]] = {}
             # save results for transfer learning
-            if tasks_id == 3:
-                self.transfer_results = {}
-                for idx, transfer_task in enumerate(self.transfer_tasks):
-                    self.transfer_results[transfer_task] = {}
+            if tasks_id > 2:
+                self.task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in self.transfer_tasks}
+                self.task2success = {str(transfer_task): 0.0 for transfer_task in self.transfer_tasks}
         else:
             # Loading precomputed results
             data = read_json(file_results)
-            self.results = dict([(eval(t), data['results'][t]) for t in data['results']])
-            self.optimal = dict([(eval(t), data['optimal'][t]) for t in data['optimal']])
-            self.steps   = data['steps']
-            self.tasks   = [eval(t) for t in data['tasks']]
-            # obs: json transform the interger keys from 'results' into strings
+            self.results = dict([(eval(t), data["results"][t]) for t in data["results"]])
+            self.optimal = dict([(eval(t), data["optimal"][t]) for t in data["optimal"]])
+            self.steps = data["steps"]
+            self.tasks = [eval(t) for t in data["tasks"]]
+            # obs: json transform the integer keys from 'results' into strings
             # so I'm changing the 'steps' to strings
             for i in range(len(self.steps)):
                 self.steps[i] = str(self.steps[i])
@@ -109,11 +112,10 @@ class Tester:
         average_reward = {}
         for t in self.tasks:
             for s in self.steps:
-                normalized_rewards = [r/self.optimal[t] for r in self.results[t][s]]
+                normalized_rewards = [r / self.optimal[t] for r in self.results[t][s]]
                 a = np.array(normalized_rewards)
                 if s not in average_reward: average_reward[s] = a
                 else: average_reward[s] = a + average_reward[s]
-
         # Showing average performance across all the task
         print("\nAverage discounted reward on this map --------------------")
         print("\tsteps\tP25\tP50\tP75")
@@ -123,19 +125,15 @@ class Tester:
             p25, p50, p75 = get_precentiles_str(normalized_rewards)
             print("\t" + str(s) + "\t" + p25 + "\t" + p50 + "\t" + p75)
 
-    def show_transfer_results(self):
-        print()
-
     def export_results(self):
         # Showing performance per task
         average_reward = {}
         for t in self.tasks:
             for s in self.steps:
-                normalized_rewards = [r/self.optimal[t] for r in self.results[t][s]]
+                normalized_rewards = [r / self.optimal[t] for r in self.results[t][s]]
                 a = np.array(normalized_rewards)
                 if s not in average_reward: average_reward[s] = a
                 else: average_reward[s] = a + average_reward[s]
-
         # Computing average performance across all the task
         ret = []
         num_tasks = float(len(self.tasks))
@@ -143,6 +141,12 @@ class Tester:
             normalized_rewards = average_reward[s] / num_tasks
             ret.append([s, normalized_rewards])
         return ret
+
+    def log_results(self, data, log=True):
+        if log:
+            logging.info(data)
+        else:
+            print(data)
 
 
 class Saver:
@@ -154,7 +158,6 @@ class Saver:
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
         self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
-        self.transfer_file_out = os.path.join(exp_dir, alg_name + "_transfer.json")  # store transfer results
 
         self.policy_dpath = os.path.join(exp_dir, "policy_model")
         os.makedirs(self.policy_dpath, exist_ok=True)
@@ -163,34 +166,35 @@ class Saver:
         os.makedirs(self.classifier_dpath, exist_ok=True)
 
     def save_results(self):
-        results = {}
-        results['tasks'] = [str(t) for t in self.tester.tasks]
-        results['optimal'] = dict([(str(t), self.tester.optimal[t]) for t in self.tester.optimal])
-        results['steps'] = self.tester.steps
-        results['results'] = dict([(str(t), self.tester.results[t]) for t in self.tester.results])
+        results = {
+            "tasks": [str(t) for t in self.tester.tasks],
+            "optimal": dict([(str(t), self.tester.optimal[t]) for t in self.tester.optimal]),
+            "steps": self.tester.steps,
+            "results": dict([(str(t), self.tester.results[t]) for t in self.tester.results])
+        }
         save_json(self.file_out, results)
 
     def save_transfer_results(self):
         results = {
-            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks]
+            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
+            'task2run2sol': self.tester.task2run2sol,
+            'task2success': self.tester.task2success
         }
-        save_json(self.transfer_file_out, results)
+        transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
+        save_json(transfer_results_fpath, results)
 
     def save_policy_bank(self, policy_bank, run_idx):
         tf_saver = tf.train.Saver()
         policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_idx, "policy_bank")
         tf_saver.save(policy_bank.sess, policy_bank_prefix)
-        # policy_bank.save_policy_models(policy_bank_dname)
 
     def save_training_data(self, task_aux):
         """
         Save all data needed to learn classifiers in parallel
         """
         # save tester
-        with open(os.path.join(self.classifier_dpath, "tester.pkl"), "wb") as file:
-            dill.dump(self.tester, file)
-
-        # save valid agent locations from which rollouts start
+        save_pkl(os.path.join(self.classifier_dpath, "tester.pkl"), self.tester)
+        # save valid agent locations where rollouts start
         id2state = {}
         state2id = {}
         for x in range(task_aux.map_width):
@@ -198,16 +202,9 @@ class Saver:
                 if task_aux.is_valid_agent_loc(x, y):
                     id2state[len(id2state)] = (x, y)
                     state2id[(x, y)] = len(state2id)
-        with open(os.path.join(self.classifier_dpath, "states.pkl"), "wb") as file:
-            dill.dump(id2state, file)
+        save_pkl(os.path.join(self.classifier_dpath, "states.pkl"), id2state)
+        save_json(os.path.join(self.classifier_dpath, "states.json"), id2state)
         return state2id
-
-    def create_worker_directory(self, ltl_id, state_id):
-        """
-        Folder to store results from a single worker, specified by ltl_id and state_id
-        """
-        worker_dpath = os.path.join(self.classifier_dpath, "ltl%d_state%d" % (ltl_id, state_id))
-        os.makedirs(worker_dpath, exist_ok=True)
 
     def save_worker_results(self, run_idx, ltl_id, state, edge2hits, n_rollouts):
         """
@@ -218,21 +215,19 @@ class Saver:
             "ltl": ltl_id,
             "state": state,
             "edge2hits": edge2hits,
-            "n_rollouts": n_rollouts
+            "n_rollouts": n_rollouts,
         }
         worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, state[0], state[1]))
-        save_json(worker_fpath+"rollout_results_parallel.json", rollout_results)
-        with open(worker_fpath+"rollout_results_parallel.pkl", "wb") as file:
-            dill.dump(rollout_results, file)
+        save_pkl(worker_fpath+"rollout_results_parallel.pkl", rollout_results)
+        save_json(worker_fpath + "rollout_results_parallel.json", rollout_results)
 
-    def save_rollout_results(self, fname, policy2loc2edge2hits_json, policy2loc2edge2hits_pkl):
+    def save_rollout_results(self, fname, policy2loc2edge2hits_pkl, policy2loc2edge2hits_json):
         """
         Save results of rolling out state-centric policies from various states to compute initiation set classifiers
         """
+        save_pkl(os.path.join(self.classifier_dpath, fname+".pkl"), policy2loc2edge2hits_pkl)
         save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits_json)
-        with open(os.path.join(self.classifier_dpath, fname+".pkl"), "wb") as file:
-            dill.dump(policy2loc2edge2hits_pkl, file)
-
+        
 
 class Loader:
     def __init__(self, saver):
@@ -277,13 +272,24 @@ def export_results(algorithm, task, task_id):
         f_out.close()
 
 
-def save_json(file, data):
-    with open(file, 'w') as outfile:
+def save_pkl(fpath, data):
+    with open(fpath, "wb") as file:
+        dill.dump(data, file)
+
+
+def load_pkl(fpath):
+    with open(fpath, 'rb') as file:
+        data = dill.load(file)
+    return data
+
+
+def save_json(fpath, data):
+    with open(fpath, 'w') as outfile:
         json.dump(data, outfile)
 
 
-def read_json(file):
-    with open(file) as data_file:
+def read_json(fpath):
+    with open(fpath) as data_file:
         data = json.load(data_file)
     return data
 
@@ -293,16 +299,16 @@ if __name__ == "__main__":
 
     # Getting params
     algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
-    tasks      = ["sequence", "interleaving", "safety"]
+    tasks = ["sequence", "interleaving", "safety"]
 
-    parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
-    parser.add_argument('--algorithm', default='lpopl', type=str,
-                        help='This parameter indicated which RL algorithm to use. The options are: ' + str(algorithms))
-    parser.add_argument('--tasks', default='sequence', type=str,
-                        help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
+    parser = argparse.ArgumentParser(prog="run_experiments", description="Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.")
+    parser.add_argument("--algorithm", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algorithms))
+    parser.add_argument("--tasks", default="sequence", type=str, help="This parameter indicated which tasks to solve. The options are: " + str(tasks))
 
     args = parser.parse_args()
-    if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
-    if args.tasks not in tasks: raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
+    if args.algorithm not in algorithms:
+        raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
+    if args.tasks not in tasks:
+        raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
 
     export_results(args.algorithm, args.tasks, tasks.index(args.tasks))

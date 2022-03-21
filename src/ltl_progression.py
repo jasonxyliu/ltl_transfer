@@ -68,6 +68,7 @@ def extract_propositions(ltl_formula):
 
 
 def _get_propositions(ltl_formula):
+    # print(ltl_formula)
     if type(ltl_formula) == str:
         if ltl_formula in ['True', 'False']:
             return []
@@ -170,7 +171,7 @@ def _progress(ltl_formula, truth_assignment):
         return ('or', res1, res2)
 
     if ltl_formula[0] == 'next':
-        return _progress(ltl_formula[1], truth_assignment)
+        return ltl_formula[1]
 
     if ltl_formula[0] == 'until':
         res1 = _progress(ltl_formula[1], truth_assignment)
@@ -187,7 +188,7 @@ def _progress(ltl_formula, truth_assignment):
             return 'True'
         if res2 == 'False':
             return f1
-        return res2  #('or', res2, f1)
+        return res2  # ('or', res2, f1)
 
 
 def _get_formula(truth_assignments, propositions):
