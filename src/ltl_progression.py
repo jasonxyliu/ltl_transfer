@@ -171,7 +171,7 @@ def _progress(ltl_formula, truth_assignment):
         return ('or', res1, res2)
 
     if ltl_formula[0] == 'next':
-        return _progress(ltl_formula[1], truth_assignment)
+        return ltl_formula[1]
 
     if ltl_formula[0] == 'until':
         res1 = _progress(ltl_formula[1], truth_assignment)
