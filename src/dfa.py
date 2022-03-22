@@ -13,7 +13,7 @@ class DFA:
         self.state     = initial_state    # initial state id
         self.terminal  = accepting_states # list of terminal states
         self.ltl2state = ltl2state        # dictionary from ltl to state
-        self.state2ltl = dict([[v,k] for k,v in self.ltl2state.items()])
+        self.state2ltl = {v: k for k, v in self.ltl2state.items()}
         # Adding the edges
         self.nodelist = {}
         for v1, v2, label in edges:

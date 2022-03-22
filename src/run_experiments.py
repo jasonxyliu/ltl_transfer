@@ -52,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, run_id, show_print):
+def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, run_id, relabel_method, show_print):
     # configuration of testing params
     testing_params = TestingParameters()
 
@@ -85,28 +85,28 @@ def run_experiment(alg_name, map_id, tasks_id, num_times, r_good, run_id, show_p
     if alg_name == "lpopl":
         lpopl.run_experiments(tester, curriculum, saver, num_times, show_print)
 
-    # Zero shot transfer after relabeling state-centric options learn by LPOPL
+    # Relabel state-centric options learn by LPOPL then zero-shot transfer
     if alg_name == "zero_shot_transfer":
-        zero_shot_transfer.run_experiments(tester, curriculum, saver, loader, run_id)
+        zero_shot_transfer.run_experiments(tester, curriculum, saver, loader, run_id, relabel_method)
 
 
-def run_multiple_experiments(alg, tasks_id, run_id):
+def run_multiple_experiments(alg, tasks_id, run_id, relabel_method):
     num_times = 3
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
         print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-        run_experiment(alg, map_id, tasks_id, num_times, r_good, run_id, show_print)
+        run_experiment(alg, map_id, tasks_id, num_times, r_good, run_id, relabel_method, show_print)
 
 
-def run_single_experiment(alg, tasks_id, map_id, run_id):
+def run_single_experiment(alg, tasks_id, map_id, run_id, relabel_method):
     num_times  = 1  # each algo was run 3 times per map in the paper
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-    run_experiment(alg, map_id, tasks_id, num_times, r_good, run_id, show_print)
+    run_experiment(alg, map_id, tasks_id, num_times, r_good, run_id, relabel_method, show_print)
 
 
 if __name__ == "__main__":
@@ -115,6 +115,7 @@ if __name__ == "__main__":
     # Getting params
     algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
     tasks      = ["sequence", "interleaving", "safety", "transfer_sequence", "transfer_interleaving"]
+    relabel_methods = ["cluster", "parallel", ""]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
     parser.add_argument('--algorithm', default='lpopl', type=str,
@@ -127,7 +128,8 @@ if __name__ == "__main__":
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
     # parser.add_argument('--load_trained', action="store_true",
     #                     help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
-
+    parser.add_argument('--relabel_method', default='', type=str,
+                        help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     args = parser.parse_args()
     if args.algorithm not in algorithms: raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
     if args.tasks not in tasks: raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
@@ -139,6 +141,6 @@ if __name__ == "__main__":
     map_id   = args.map
 
     if map_id > -1:
-        run_single_experiment(alg, tasks_id, map_id, args.run_id)
+        run_single_experiment(alg, tasks_id, map_id, args.run_id, args.relabel_method)
     else:
-        run_multiple_experiments(alg, tasks_id, args.run_id)
+        run_multiple_experiments(alg, tasks_id, args.run_id, args.relabel_method)

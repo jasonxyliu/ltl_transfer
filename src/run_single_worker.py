@@ -9,7 +9,7 @@ from policy_bank import *
 
 
 def initialize_policy_bank(sess, task_aux, tester):
-    num_actions  = len(task_aux.get_actions())
+    num_actions = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
     policy_bank = PolicyBank(sess, num_actions, num_features, tester.learning_params)
     for f_task in tester.get_LTL_tasks():
@@ -43,13 +43,12 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
     # create task_aux
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
 
-    #ensure that tensorflow threads are restricted to a single core
-    config = tf.ConfigProto(intra_op_parallelism_threads=1, 
-                        inter_op_parallelism_threads=1, 
-                        allow_soft_placement=True,)
+    # ensure that tensorflow threads are restricted to a single core
+    config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
+    tf.reset_default_graph()
+
     with tf.Session(config=config) as sess:
         # load policy_bank
-        # print("loading policy bank")
         policy_bank = initialize_policy_bank(sess, task_aux, tester)
         loader.load_policy_bank(run_id, sess)
 
@@ -59,6 +58,7 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
 
         # run rollouts
         edge2hits = rollout(tester, policy_bank, ltl, init_state, n_rollouts, max_depth)
+
     # save rollout results
     saver.save_worker_results(run_id, ltl_id, init_state, edge2hits, n_rollouts)
 
@@ -69,11 +69,12 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
     """
     edge2hits = defaultdict(int)
     task_aux = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl))
-    initial_state = task_aux.dfa.state  # get default DFA initial state before progressing on agent's init_loc
+    default_initial_state = task_aux.dfa.state  # get default DFA initial state before progressing on agent's init_loc
+
     for rollout in range(n_rollouts):
         # print("\nrollout:", rollout)
         # print("init_loc: ", init_loc)
-        # print("initial_state: ", initial_state)
+        # print("default_initial_state: ", default_initial_state)
 
         # Overwrite default agent start location and DFA initial state
         task = Game(tester.get_task_params(policy_bank.policies[policy_bank.get_id(ltl)].f_task, ltl, init_loc))
@@ -82,8 +83,8 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
         # print("full ltl: ", policy_bank.policies[policy_bank.get_id(ltl)].f_task)
 
         traversed_edge = None
-        if initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
-            traversed_edge = task.dfa.nodelist[initial_state][task.dfa.state]
+        if default_initial_state != task.dfa.state:  # agent starts at a loc that already triggers a desired transition
+            traversed_edge = task.dfa.nodelist[default_initial_state][task.dfa.state]
             # print("traversed edge before while: ", traversed_edge)
         depth = 0
         while not traversed_edge and not task.ltl_game_over and not task.env_game_over and depth <= max_depth:
@@ -101,7 +102,6 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
                 print("ERROR: policy %s traversed invalid outgoing edge %s from location %s" % (str(ltl), str(traversed_edge), str(init_loc)))
             else:
                 edge2hits[traversed_edge] += 1
-    # print(edge2hits)
     return edge2hits
 
 
@@ -112,32 +112,22 @@ if __name__ == "__main__":
         1: "interleaving",
         2: "safety",
         3: "transfer_sequence",
-        4: "transfer_interleaving"
+        4: "transfer_interleaving",
     }  # for reference
 
-    parser = argparse.ArgumentParser(prog="run_single_rollout", description='Rollout a trained policy from a given state.')
-    parser.add_argument('--algo', default='lpopl', type=str,
-                        help='This parameter indicated which RL algorithm to use. The options are: ' + str(algos))
-    parser.add_argument('--tasks_id', default=4, type=int,
-                        help='This parameter indicated which tasks to solve. The options are: ' + str(id2tasks.keys()))
-    parser.add_argument('--map_id', default=0, type=int,
-                        help='This parameter indicated the ID of map to run rollouts')
-    parser.add_argument('--run_id', default=0, type=int,
-                        help='This parameter indicated the ID of the training run when models are saved')
-    parser.add_argument('--ltl_id', default=9, type=int,
-                        help='This parameter indicated the ID of trained policy to rollout')
-    parser.add_argument('--state_id', default=180, type=int,
-                        help='This parameter indicated the ID of state in which rollouts start')
-    parser.add_argument('--n_rollouts', default=100, type=int,
-                        help='This parameter indicated the number of rollouts')
-    parser.add_argument('--max_depth', default=100, type=int,
-                        help='This parameter indicated maximum depth of a rollout')
+    parser = argparse.ArgumentParser(prog="run_single_rollout", description="Rollout a trained policy from a given state.")
+    parser.add_argument("--algo", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
+    parser.add_argument("--tasks_id", default=4, type=int, help="This parameter indicated which tasks to solve. The options are: " + str(id2tasks.keys()))
+    parser.add_argument("--map_id", default=0, type=int, help="This parameter indicated the ID of map to run rollouts")
+    parser.add_argument("--run_id", default=0, type=int, help="This parameter indicated the ID of the training run when models are saved")
+    parser.add_argument("--ltl_id", default=9, type=int, help="This parameter indicated the ID of trained policy to rollout")
+    parser.add_argument("--state_id", default=180, type=int, help="This parameter indicated the ID of state in which rollouts start")
+    parser.add_argument("--n_rollouts", default=100, type=int, help="This parameter indicated the number of rollouts")
+    parser.add_argument("--max_depth", default=100, type=int, help="This parameter indicated maximum depth of a rollout")
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.tasks_id not in id2tasks: raise NotImplementedError("Tasks " + str(id2tasks[args.tasks_id]) + " hasn't been defined yet")
-    if not(-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
+    if not (-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
     classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
-
-    single_worker_rollouts(args.algo, classifier_dpath,
-                           args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)
+    single_worker_rollouts(args.algo, classifier_dpath, args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)
