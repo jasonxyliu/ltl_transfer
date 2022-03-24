@@ -149,6 +149,8 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
 
         # Initializing policies per each subtask
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
+        if show_print:
+            print("Policy bank initialization took: %0.2f mins" % ((time.time() - time_init)/60))
 
         # Running the tasks
         while not curriculum.stop_learning():

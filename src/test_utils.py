@@ -7,6 +7,7 @@ from collections import defaultdict
 import numpy as np
 import tensorflow as tf
 from game import GameParams, Game
+from dataset_creator import read_test_train_formulas
 import tasks
 
 
@@ -34,41 +35,48 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, tasks_id, file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, tasks_id, tasks, train_size, test_tasks, file_results=None):
         if file_results is None:
             # setting the test attributes
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.tasks_id = tasks_id
             self.map_id = map_id
-            self.experiment = "task_%d/map_%d" % (tasks_id, map_id)
+            self.experiment = "%s/map_%d" % (tasks, map_id)
             self.map = "../experiments/maps/map_%d.txt" % map_id
             self.consider_night = False
             if tasks_id == 0:
                 self.tasks = tasks.get_sequence_of_subtasks()
-            if tasks_id == 1:
+            elif tasks_id == 1:
                 self.tasks = tasks.get_interleaving_subtasks()
-            if tasks_id == 2:
+            elif tasks_id == 2:
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
-            if tasks_id == 3:
-                self.tasks = tasks.get_sequence_training_tasks()
-                self.transfer_tasks = tasks.get_transfer_tasks()
-            if tasks_id == 4:
-                self.tasks = tasks.get_interleaving_training_tasks()
-                self.transfer_tasks = tasks.get_transfer_tasks()
-                self.transfer_results_dpath = os.path.join("../results", "task_%s" % str(tasks_id))
+            else:
+                if tasks == 'transfer_sequence':
+                    self.tasks = tasks.get_sequence_training_tasks()
+                    self.transfer_tasks = tasks.get_transfer_tasks()
+                elif tasks == 'transfer_interleaving':
+                    self.tasks = tasks.get_interleaving_training_tasks()
+                    self.transfer_tasks = tasks.get_transfer_tasks()
+                else:
+                    self.tasks, self.transfer_tasks = read_test_train_formulas(tasks, test_tasks, train_size)
+                self.transfer_results_dpath = os.path.join("../results", tasks)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
                 logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
-            optimal_aux  = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
+
+            optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
             self.results = {}
             self.optimal = {}
             self.steps = []
             for i in range(len(self.tasks)):
-                self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
+                if tasks_id > 2:
+                    self.optimal[self.tasks[i]] = learning_params.gamma ** 20  # 20 is a placeholder
+                else:
+                    self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
                 self.results[self.tasks[i]] = {}
             # save results for transfer learning
             if tasks_id > 2:
@@ -253,7 +261,7 @@ def export_results(algorithm, task, task_id):
         normalized_rewards = None
         for map_id in maps:
             result = "../tmp/task_%d/map_%d/%s.json" % (task_id, map_id, algorithm)
-            tester = Tester(None, None, None, None, result)
+            tester = Tester(None, None, None, None, None, None, None, result)
             ret = tester.export_results()
             if normalized_rewards is None:
                 normalized_rewards = ret
@@ -261,7 +269,7 @@ def export_results(algorithm, task, task_id):
                 for j in range(len(normalized_rewards)):
                     normalized_rewards[j][1] = np.append(normalized_rewards[j][1], ret[j][1])
         # Saving the results
-        folders_out = "../results_tmp/%s/%s" % (task, map_type)
+        folders_out = "../tmp/%s/%s" % (task, map_type)
         if not os.path.exists(folders_out): os.makedirs(folders_out)
         file_out = "%s/%s.txt" % (folders_out, algorithm)
         f_out = open(file_out, "w")
