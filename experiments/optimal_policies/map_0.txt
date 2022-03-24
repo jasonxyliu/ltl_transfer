@@ -3,3 +3,8 @@
 [7, 8, 23, 27, 23, 26, 31, 25, 46, 46] # Value optimal policy for solution experiment 3
 [7, 8, 15, 13, 18, 22, 19, 20, 31, 25] # Value optimal policy for solution experiment 4 sequence training task for transfer
 [7, 8, 15, 13, 14, 22, 19, 13, 27, 25] # Value optimal policy for solution experiment 5 interleaving training task for transfer
+[7, 8, 15, 13, 14, 22, 19, 13, 27, 25] # placeholder for experiment 6 transfer training task hard
+[7, 8, 15, 13, 14, 22, 19, 13, 27, 25] # placeholder for experiment 7 transfer training task mixed
+[7, 8, 15, 13, 14, 22, 19, 13, 27, 25] # placeholder for experiment 8 transfer training task soft_strict
+[7, 8, 15, 13, 14, 22, 19, 13, 27, 25] # placeholder for experiment 9 transfer training task soft
+[7, 8, 15, 13, 14, 22, 19, 13, 27, 25] # placeholder for experiment 10 transfer training task no_orders
