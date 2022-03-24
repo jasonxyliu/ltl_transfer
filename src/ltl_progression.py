@@ -126,8 +126,11 @@ def _subsume_until(f1, f2):
 
 
 def _progress(ltl_formula, truth_assignment):
+    """
+    Implement LTL progression rules
+    """
     if type(ltl_formula) == str:
-        # True, False, or proposition
+        # proposition, True or False
         if len(ltl_formula) == 1:
             # ltl_formula is a proposition
             if ltl_formula in truth_assignment:

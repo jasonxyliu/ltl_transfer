@@ -256,6 +256,7 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
     for transfer_task in transfer_tasks:
+        # print("transfer_task: ", transfer_task)
         for num_time in range(num_times):
             tester.log_results("* Run %d Transfer Task: %s" % (num_time, str(transfer_task)))
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
