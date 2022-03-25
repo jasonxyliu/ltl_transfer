@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import random
 import matplotlib.pyplot as plt
@@ -216,6 +217,10 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
     policy2loc2edge2hits_pkl["ltls"] = id2ltl
     policy2loc2edge2hits_json["ltls"] = id2ltl
     saver.save_rollout_results("aggregated_rollout_results", policy2loc2edge2hits_pkl, policy2loc2edge2hits_json)
+    # Remove single worker rollout results to save space after aggregation
+    for fname in os.listdir(saver.classifier_dpath):
+        if re.match("ltl[0-9]+_state*", fname):
+            os.remove(os.path.join(saver.classifier_dpath, fname))
 
 
 def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
