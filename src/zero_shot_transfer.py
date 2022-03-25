@@ -22,7 +22,7 @@ from run_single_worker import single_worker_rollouts
 CHUNK_SIZE = 94
 
 
-def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method, cluster=True):
+def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method):
     time_init = time.time()
     learning_params = tester.learning_params
 
@@ -41,11 +41,12 @@ def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method, c
     tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
     # print(tester.results)
 
-    # Relabel state-centric options to transition-centric options
-    if relabel_method == 'cluster':  # use mpi
-        relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
-    elif relabel_method == 'parallel':  # use Python multiprocessing
-        relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+    # Relabel state-centric options to transition-centric options if not already done
+    if not os.path.exists(os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl")):
+        if relabel_method == 'cluster':  # use mpi
+            relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
+        if relabel_method == 'parallel':  # use Python multiprocessing
+            relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
 
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
     zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 1, curriculum.num_steps)
@@ -214,7 +215,7 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
                     policy2loc2edge2hits_json[str(ltl)][str((x, y))] = rollout_results["edge2hits"]
     policy2loc2edge2hits_pkl["ltls"] = id2ltl
     policy2loc2edge2hits_json["ltls"] = id2ltl
-    saver.save_rollout_results("rollout_results_parallel", policy2loc2edge2hits_pkl, policy2loc2edge2hits_json)
+    saver.save_rollout_results("aggregated_rollout_results", policy2loc2edge2hits_pkl, policy2loc2edge2hits_json)
 
 
 def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
