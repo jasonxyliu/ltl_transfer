@@ -133,6 +133,9 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
         print(f'Formula {i}, DFA construction time: {stop - start}')
 
         start = time.time()
+
+        print(f'Formula{i}, number of DFA states: {len(dfa.ltl2state)}')
+
         for ltl in dfa.ltl2state:
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
