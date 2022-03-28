@@ -156,6 +156,8 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
 
     time_dfa_construction = 0 # Time taken to compile component DFAs
     time_policy_init = 0 # Time taken to initialize policy bank
+    tf_policy_init_time = 0
+
 
     #Separating LTL set construction and policy initialization
     ltl_set = set()
@@ -172,13 +174,14 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
 
     for (i,ltl) in enumerate(ltl_set):
         #print(f'Formula{i} of {len(ltl_set)}')
-        start = time.time()
+        start1 = time.time()
         policy = Policy(ltl, f_task, dfa, policy_bank.sess, policy_bank.s1, policy_bank.a, policy_bank.s2, policy_bank.num_features, policy_bank.num_actions, policy_bank.learning_params.gamma, policy_bank.learning_params.lr)
+        stop1 = time.time()
         policy_bank._add_policy(ltl, policy)
         #policy_bank.add_LTL_policy(ltl, f_task, dfa)
-        stop = time.time()
-        time_policy_init = time_policy_init + (stop - start)
-        print(f'Formula {i} of {len(ltl_set)}: Policy initialization time: {stop - start}')
+        stop2 = time.time()
+        time_policy_init = time_policy_init + (stop2 - start)
+        print(f'Formula {i} of {len(ltl_set)}: TF Policy initialization time: {stop1 - start1} Policy addition to array: {stop2 - stop1}')
     print(f'Total policy initialization time {time_policy_init}')
 
     policy_bank.reconnect()  # -> creating the connections between the neural nets
