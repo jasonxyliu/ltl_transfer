@@ -173,7 +173,9 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     for (i,ltl) in enumerate(ltl_set):
         #print(f'Formula{i} of {len(ltl_set)}')
         start = time.time()
-        policy_bank.add_LTL_policy(ltl, f_task, dfa)
+        policy = Policy(ltl, f_task, dfa, policy_bank.sess, policy_bank.s1, policy_bank.a, policy_bank.s2, policy_bank.num_features, policy_bank.num_actions, policy_bank.learning_params.gamma, policy_bank.learning_params.lr)
+        policy_bank._add_policy(ltl, policy)
+        #policy_bank.add_LTL_policy(ltl, f_task, dfa)
         stop = time.time()
         time_policy_init = time_policy_init + (stop - start)
         print(f'Formula {i} of {len(ltl_set)}: Policy initialization time: {stop - start}')
