@@ -49,7 +49,7 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
             ltl_id = policy_bank.get_id(ltl)
             if task.env_game_over:
                 ltl_next_id = policy_bank.get_id("False")  # env deadends are equal to achive the 'False' formula
-            else: 
+            else:
                 ltl_next_id = policy_bank.get_id(policy_bank.get_policy_next_LTL(ltl, true_props))
             next_goals[ltl_id-2] = ltl_next_id
         replay_buffer.add(s1, a.value, s2, next_goals)
@@ -75,9 +75,9 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
 
         # Restarting the environment (Game Over)
         if task.ltl_game_over or task.env_game_over:
-            # NOTE: Game over occurs for one of three reasons: 
-            # 1) DFA reached a terminal state, 
-            # 2) DFA reached a deadend, or 
+            # NOTE: Game over occurs for one of three reasons:
+            # 1) DFA reached a terminal state,
+            # 2) DFA reached a deadend, or
             # 3) The agent reached an environment deadend (e.g. a PIT)
             task = Game(task_params)  # Restarting
 
@@ -90,7 +90,7 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
         if curriculum.stop_learning():
             break
 
-    if show_print: 
+    if show_print:
         print("Done! Total reward:", training_reward)
 
 
@@ -121,11 +121,23 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     num_actions  = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
+
+    time_dfa_construction = 0 # Time taken to compile component DFAs
+    time_policy_init = 0 # Time taken to initialize policy bank
+
     for f_task in tester.get_LTL_tasks():
+        start = time.time()
         dfa = DFA(f_task)
+        stop = time.time()
+        time_dfa_construction = time_dfa_construction + (stop - start)
+
+        start = time.time()
         for ltl in dfa.ltl2state:
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
+        stop = time.time()
+        time_policy_init = time_policy_imit + (stop - start)
+
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
     # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
