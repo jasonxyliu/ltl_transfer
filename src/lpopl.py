@@ -168,14 +168,16 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
         print(f'Formula {i}, DFA construction time: {stop - start}')
         start = time.time()
     print(f'LTL set contains {len(ltl_set)} formulas')
+    print(f'Total DFA construction time: {time_dfa_construction}')
 
-    for ltl in ltl_set:
+    for (i,ltl) in enumerate(ltl_set):
         #print(f'Formula{i} of {len(ltl_set)}')
         start = time.time()
         policy_bank.add_LTL_policy(ltl, f_task, dfa)
         stop = time.time()
         time_policy_init = time_policy_init + (stop - start)
         print(f'Formula {i} of {len(ltl_set)}: Policy initialization time: {stop - start}')
+    print(f'Total policy initialization time {time_policy_init}')
 
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
