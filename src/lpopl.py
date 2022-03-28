@@ -125,18 +125,20 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     time_dfa_construction = 0 # Time taken to compile component DFAs
     time_policy_init = 0 # Time taken to initialize policy bank
 
-    for f_task in tester.get_LTL_tasks():
+    for (i,f_task) in enumerate(tester.get_LTL_tasks()):
         start = time.time()
         dfa = DFA(f_task)
         stop = time.time()
         time_dfa_construction = time_dfa_construction + (stop - start)
+        print(f'Formula {i}, DFA construction time: {stop - start}')
 
         start = time.time()
         for ltl in dfa.ltl2state:
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
         stop = time.time()
-        time_policy_init = time_policy_imit + (stop - start)
+        time_policy_init = time_policy_init + (stop - start)
+        print(f'Formula {i}: Policy initialization time: {stop - start}')
 
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
