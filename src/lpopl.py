@@ -116,7 +116,7 @@ def _test_LPOPL(sess, task_params, learning_params, testing_params, policy_bank,
     return r_total
 
 
-def _initialize_policy_bank(sess, learning_params, curriculum, tester):
+def _initialize_policy_bank_v1(sess, learning_params, curriculum, tester):
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     num_actions  = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
@@ -142,6 +142,40 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
         stop = time.time()
         time_policy_init = time_policy_init + (stop - start)
         print(f'Formula {i}: Policy initialization time: {stop - start}')
+
+    policy_bank.reconnect()  # -> creating the connections between the neural nets
+
+    # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
+    return policy_bank
+
+def _initialize_policy_bank(sess, learning_params, curriculum, tester):
+    task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
+    num_actions  = len(task_aux.get_actions())
+    num_features = task_aux.get_num_features()
+    policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
+
+    time_dfa_construction = 0 # Time taken to compile component DFAs
+    time_policy_init = 0 # Time taken to initialize policy bank
+
+    #Separating LTL set construction and policy initialization
+    ltl_set = set()
+    for (i,f_task) in enumerate(tester.get_LTL_tasks()):
+        start = time.time()
+        dfa = DFA(f_task)
+        ltl_set = ltl_set | set(dfa.ltl2state.keys())
+        stop = time.time()
+        time_dfa_construction = time_dfa_construction + (stop - start)
+        print(f'Formula {i}, DFA construction time: {stop - start}')
+        start = time.time()
+    print(f'LTL set contains {len(ltl_set)} formulas')
+
+    for ltl in ltl_set:
+        #print(f'Formula{i} of {len(ltl_set)}')
+        start = time.time()
+        policy_bank.add_LTL_policy(ltl, f_task, dfa)
+        stop = time.time()
+        time_policy_init = time_policy_init + (stop - start)
+        print(f'Formula {i} of {len(ltl_set)}: Policy initialization time: {stop - start}')
 
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
