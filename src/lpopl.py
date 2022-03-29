@@ -120,13 +120,22 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     num_actions  = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
+    start_time = time.time()
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
+    print("policy bank initialization took %0.2f mins" % ((time.time() - start_time)/60))
     for f_task in tester.get_LTL_tasks():
+        start_time = time.time()
         dfa = DFA(f_task)
+        print("processing LTL: %s" % str(f_task))
+        print("took %0.2f mins to construct DFA" % ((time.time() - start_time)/60))
+        start_time = time.time()
         for ltl in dfa.ltl2state:
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa)
+        print("took %0.2f mins to add policy" % ((time.time() - start_time)/60))
+    start_time = time.time()
     policy_bank.reconnect()  # -> creating the connections between the neural nets
+    print("took %0.2f mins to reconnect" % ((time.time() - start_time)/60))
 
     # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
     return policy_bank
@@ -153,13 +162,15 @@ def run_experiments(tester, curriculum, saver, num_times, show_print):
             print("Policy bank initialization took: %0.2f mins" % ((time.time() - time_init)/60))
 
         # Running the tasks
+        num_tasks = 0
         while not curriculum.stop_learning():
             task = curriculum.get_next_task()
             if show_print:
                 print("Current step:", curriculum.get_current_step(), "from", curriculum.total_steps)
-                print("Current task: ", task)
+                print("%d Current task: %d, %s" % (num_tasks, curriculum.current_task, str(task)))
             task_params = tester.get_task_params(task)
             _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
+            num_tasks += 1
         saver.save_policy_bank(policy_bank, t)
         # Backing up the results
         saver.save_results()
