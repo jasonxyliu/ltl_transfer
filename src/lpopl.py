@@ -123,10 +123,10 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     start_time = time.time()
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
     print("policy bank initialization took %0.2f mins" % ((time.time() - start_time)/60))
-    for f_task in tester.get_LTL_tasks():
+    for idx, f_task in enumerate(tester.get_LTL_tasks()):
         start_time = time.time()
         dfa = DFA(f_task)
-        print("processing LTL: %s" % str(f_task))
+        print("%d processing LTL: %s" % (idx, str(f_task)))
         print("took %0.2f mins to construct DFA" % ((time.time() - start_time)/60))
         start_time = time.time()
         for ltl in dfa.ltl2state:
