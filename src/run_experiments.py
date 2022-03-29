@@ -120,14 +120,14 @@ if __name__ == "__main__":
         "safety",
         "transfer_sequence",
         "transfer_interleaving",
-        "hard"
+        "hard",
         "mixed",
         "soft_strict",
         "soft",
         "no_orders",
     ]
     test_tasks = [
-        "hard"
+        "hard",
         "mixed",
         "soft_strict",
         "soft",
