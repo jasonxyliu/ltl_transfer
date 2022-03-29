@@ -162,7 +162,7 @@ class Saver:
         self.alg_name = alg_name
         self.tester = tester
 
-        exp_dir = os.path.join("../tmp/", tester.experiment)
+        exp_dir = os.path.join("../tmp", tester.experiment)
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
         self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
@@ -196,7 +196,7 @@ class Saver:
         policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_idx, "policy_bank")
         tf_saver.save(policy_bank.sess, policy_bank_prefix)
 
-    def save_training_data(self, task_aux):
+    def save_training_data(self, task_aux, id2ltls):
         """
         Save all data needed to learn classifiers in parallel
         """
@@ -212,6 +212,9 @@ class Saver:
                     state2id[(x, y)] = len(state2id)
         save_pkl(os.path.join(self.classifier_dpath, "states.pkl"), id2state)
         save_json(os.path.join(self.classifier_dpath, "states.json"), id2state)
+        # save map from subtask ltl_id to (subtask ltl, its corresponding full ltl)
+        save_pkl(os.path.join(self.classifier_dpath, "id2ltls.pkl"), id2ltls)
+        save_json(os.path.join(self.classifier_dpath, "id2ltls.json"), id2ltls)
         return state2id
 
     def save_worker_results(self, run_idx, ltl_id, state, edge2hits, n_rollouts):
@@ -244,6 +247,7 @@ class Loader:
     def load_policy_bank(self, run_idx, sess):
         run_dpath = os.path.join(self.saver.policy_dpath, "run_%d" % run_idx)  # where all tf model are saved
         # saver = tf.train.import_meta_graph(run_dpath+"policy_bank.meta")
+        print(run_dpath)
         saver = tf.train.Saver()
         saver.restore(sess, tf.train.latest_checkpoint(run_dpath))
 
