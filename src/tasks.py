@@ -95,21 +95,21 @@ def _get_sequence_night(seq):
     return ('until', _sn(), ('and', _snp(seq[0]), _get_sequence_night(seq[1:])))
 
 
-def _negate(seq):
+def _not(seq):
     """
     negate only atomic propositions following co-safe syntax, e.g. !a: correct; !(a&b): incorrect
     """
-    if len(seq) > 1:
-        raise NotImplementedError("The following formula doesn't follow the cosafe syntactic restriction: " + str(seq))
-    return ('not', seq)
+    if isinstance(seq, str) and len(seq) == 1:
+        return 'not', seq
+    raise NotImplementedError("The following formula doesn't follow the cosafe syntactic restriction: " + str(seq))
 
 
 def _until(seq1, seq2):
-    return ('until', seq1, seq2)
+    return 'until', seq1, seq2
 
 
 def _next(seq):
-    return ('next', seq)
+    return 'next', seq
 
 
 def _get_sequence_generic(*seq):
@@ -120,15 +120,18 @@ def _get_sequence_generic(*seq):
     if len(seq) == 1:
         print("seq[0]", seq[0])
         if len(seq[0]) == 1:
-            if type(seq[0]) == str:
-                return ('until', 'True', seq[0])
+            if isinstance(seq[0], str):
+                return 'until', 'True', seq[0]
             else:
+                print("seq[0][0]", seq[0][0])
                 return seq[0][0]
         else:
-            return ('until', 'True', ('and', seq[0][0], _get_sequence_generic(seq[0][1:])))
+            if len(seq[0][0]) > 1:  # 1st element is an operator, e.g. seq=(('next', 'b'),)
+                return 'until', 'True', seq[0]
+            return 'until', 'True', ('and', seq[0][0], _get_sequence_generic(seq[0][1:]))
     else:
         print("seq[1:]: ", seq[1:])
-        return ('until', 'True', ('and', seq[0], _get_sequence_generic(seq[1:])))
+        return 'until', 'True', ('and', seq[0], _get_sequence_generic(seq[1:]))
 
 
 ######### The following methods are for transfer learning #########
@@ -186,10 +189,13 @@ def get_transfer_tasks():
         # _get_sequence('af'),  # a & !f is a subset of a & !e & f: ('and', _get_sequence('ae'), _get_sequence('fe'))
         #
         # _get_sequence('agc'),
-
+        #
         # _get_sequence_generic('ab'),  # F(a & Fb)
-        # ('and', _until(_negate('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
-        _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
-        # F(a & Xb)
+        # ('and', _until(_not('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
+        _next(_get_sequence_generic('b')),  # XFb
+        _get_sequence_generic(_next('b')),  # FXb
+        # _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
+        # _get_sequence_generic('a', _get_sequence_generic(_next('b'))),  # F(a & FXb)
+        # _get_sequence_generic('a', _next('b')),  # F(a & Xb)
     ]
     return tasks
