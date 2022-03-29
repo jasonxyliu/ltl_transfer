@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -n 64
-#SBATCH --mem=98G
+#SBATCH --mem=198G
 #SBATCH -t 96:00:00
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
