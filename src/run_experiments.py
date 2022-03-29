@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     # Getting params
     algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
-    tasks      = [
+    train_types = [
         "sequence",
         "interleaving",
         "safety",
@@ -126,7 +126,7 @@ if __name__ == "__main__":
         "soft",
         "no_orders",
     ]
-    test_tasks = [
+    test_types = [
         "hard",
         "mixed",
         "soft_strict",
@@ -139,11 +139,11 @@ if __name__ == "__main__":
     parser.add_argument('--algo', default='lpopl', type=str,
                         help='This parameter indicated which RL algorithm to use. The options are: ' + str(algos))
     parser.add_argument('--tasks', default='sequence', type=str,
-                        help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
+                        help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
     parser.add_argument('--train_size', default=10, type=int,
                         help='This parameter indicated the number of LTLs in the training set')
     parser.add_argument('--test_tasks', default='sequence', type=str,
-                        help='This parameter indicated which test tasks to solve. The options are: ' + str(test_tasks))
+                        help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
     parser.add_argument('--run_id', default=0, type=int,
@@ -154,13 +154,13 @@ if __name__ == "__main__":
                         help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
-    if args.tasks not in tasks: raise NotImplementedError("Training Tasks " + str(args.tasks) + " hasn't been defined yet")
-    if args.test_tasks not in test_tasks: raise NotImplementedError("Test Tasks " + str(args.test_tasks) + " hasn't been defined yet")
+    if args.tasks not in train_types: raise NotImplementedError("Training Tasks " + str(args.tasks) + " hasn't been defined yet")
+    if args.test_tasks not in test_types: raise NotImplementedError("Test Tasks " + str(args.test_tasks) + " hasn't been defined yet")
     if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
     # Running the experiment
     alg        = args.algo
-    tasks_id   = tasks.index(args.tasks)
+    tasks_id   = train_types.index(args.tasks)
     tasks      = args.tasks
     train_size = args.train_size
     test_tasks = args.test_tasks
