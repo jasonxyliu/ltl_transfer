@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -n 2
+#SBATCH -n 64
 #SBATCH --mem=98G
-#SBATCH -t 24:00:00
+#SBATCH -t 96:00:00
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
 #SBATCH -e sbatch_out/job-%j.err
@@ -11,7 +11,7 @@ export PYTHONUNBUFFERED=TRUE
 
 algo="lpopl"
 task="no_orders"
-train_size=10
+train_size=50
 test_task="no_orders"
 map=0
 
