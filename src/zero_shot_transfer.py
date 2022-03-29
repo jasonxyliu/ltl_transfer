@@ -36,7 +36,7 @@ def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method):
     # Initializing policies per each subtask
     policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
     loader.load_policy_bank(run_id, sess)
-    
+
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
     num_features = task_aux.get_num_features()
     tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
