@@ -103,7 +103,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
             for x, y in locs:
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    arg = (saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+                    arg = (saver.alg_name, tester.train_type, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     args.append(arg)
             args2 = deepcopy(args)
 
@@ -123,11 +123,11 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 
-def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
+def run_single_worker_cluster(algo, train_type, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
     # import os
     # from run_single_worker import single_worker_rollouts
 
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (task_id, map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (train_type, map_id), "classifier")
     rank = MPI.COMM_WORLD.Get_rank()
     name = MPI.Get_processor_name()
     # print(f"Running state {state_id} through process {rank} on {name}")
@@ -176,8 +176,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    args = ("--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
-                            saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps))
+                    args = ("--algo=%s --train_type=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
+                            saver.alg_name, tester.train_type, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps))
                     worker_commands.append("python3 run_single_worker.py %s" % args)
             if worker_commands:
                 start_time_chunk = time.time()

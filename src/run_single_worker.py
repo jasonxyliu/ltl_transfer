@@ -114,18 +114,23 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
 
 
 if __name__ == "__main__":
-    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
+    algos = ["zero_shot_transfer"]
     id2tasks = {
         0: "sequence",
         1: "interleaving",
         2: "safety",
         3: "transfer_sequence",
         4: "transfer_interleaving",
+        5: "hard",
+        7: "mixed",
+        8: "soft_strict",
+        9: "soft",
+        10: "no_orders",
     }  # for reference
 
     parser = argparse.ArgumentParser(prog="run_single_rollout", description="Rollout a trained policy from a given state.")
-    parser.add_argument("--algo", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
-    parser.add_argument("--tasks_id", default=4, type=int, help="This parameter indicated which tasks to solve. The options are: " + str(id2tasks.keys()))
+    parser.add_argument("--algo", default="zero_shot_transfer", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
+    parser.add_argument("--train_type", default="soft", type=int, help="This parameter indicated which tasks to solve. The options are: " + str(id2tasks.values()))
     parser.add_argument("--map_id", default=0, type=int, help="This parameter indicated the ID of map to run rollouts")
     parser.add_argument("--run_id", default=0, type=int, help="This parameter indicated the ID of the training run when models are saved")
     parser.add_argument("--ltl_id", default=9, type=int, help="This parameter indicated the ID of trained policy to rollout")
@@ -134,8 +139,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_depth", default=100, type=int, help="This parameter indicated maximum depth of a rollout")
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
-    if args.tasks_id not in id2tasks: raise NotImplementedError("Tasks " + str(id2tasks[args.tasks_id]) + " hasn't been defined yet")
+    if args.train_type not in id2tasks.values: raise NotImplementedError("Tasks " + str(args.train_type) + " hasn't been defined yet")
     if not (-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    classifier_dpath = os.path.join("../tmp", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp", "task_%d/map_%d" % (args.train_type, args.map_id), "classifier")
     single_worker_rollouts(args.algo, classifier_dpath, args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)

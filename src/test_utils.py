@@ -41,6 +41,7 @@ class Tester:
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.tasks_id = tasks_id
+            self.train_type = self.train_type
             self.map_id = map_id
             self.experiment = "%s/map_%d" % (train_type, map_id)
             self.map = "../experiments/maps/map_%d.txt" % map_id
