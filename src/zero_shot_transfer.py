@@ -77,7 +77,10 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     """
     print('RELABELING STATE CENTRIC OPTIONS')
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
-    id2ltls = {ltl_id: (ltl, policy_bank.policies[ltl_id].f_task) for ltl, ltl_id in policy_bank.policy2id.items()}
+    id2ltls = {}
+    for ltl in policy_bank.get_LTL_policies():
+        ltl_id = policy_bank.get_id(ltl)
+        id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
     state2id = saver.save_training_data(task_aux, id2ltls)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
     loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
@@ -137,7 +140,10 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     A worker runs n_rollouts from a specific location for each LTL formula in policy_bank
     """
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
-    id2ltls = {ltl_id: (ltl, policy_bank.policies[ltl_id].f_task) for ltl, ltl_id in policy_bank.policy2id.items()}
+    id2ltls = {}
+    for ltl in policy_bank.get_LTL_policies():
+        ltl_id = policy_bank.get_id(ltl)
+        id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
     state2id = saver.save_training_data(task_aux, id2ltls)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
     loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]

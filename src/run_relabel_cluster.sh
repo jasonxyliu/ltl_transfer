@@ -25,4 +25,3 @@ module load mpi/openmpi_4.0.5_gcc_10.2_slurm20 gcc/10.2 cuda/11.1.1
 srun --mpi=pmix python -m mpi4py.futures run_experiments.py --algo=$algo --tasks=$train_type --train_size=$train_size --test_tasks=$test_type --map=$map --run_id=$run_id --relabel_method=$relabel_method
 cp -r ../tmp ~/data_gdk/shared/ltl-transfer/tmp_jason
 #cp -r ../tmp/* ~/data/shared/ltl-transfer/tmp/
-
