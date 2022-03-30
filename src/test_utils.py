@@ -73,10 +73,7 @@ class Tester:
             self.optimal = {}
             self.steps = []
             for i in range(len(self.tasks)):
-                if tasks_id > 2:
-                    self.optimal[self.tasks[i]] = learning_params.gamma ** 20  # 20 is a placeholder
-                else:
-                    self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
+                self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
                 self.results[self.tasks[i]] = {}
             # save results for transfer learning
             if tasks_id > 2:
