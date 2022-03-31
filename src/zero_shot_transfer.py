@@ -127,7 +127,7 @@ def run_single_worker_cluster(algo, train_type, map_id, run_id, ltl_id, state_id
     # import os
     # from run_single_worker import single_worker_rollouts
 
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (train_type, map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp/", "%s/map_%d" % (train_type, map_id), "classifier")
     rank = MPI.COMM_WORLD.Get_rank()
     name = MPI.Get_processor_name()
     # print(f"Running state {state_id} through process {rank} on {name}")

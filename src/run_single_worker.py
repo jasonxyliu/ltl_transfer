@@ -142,5 +142,5 @@ if __name__ == "__main__":
     if args.train_type not in id2tasks.values: raise NotImplementedError("Tasks " + str(args.train_type) + " hasn't been defined yet")
     if not (-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    classifier_dpath = os.path.join("../tmp", "task_%d/map_%d" % (args.train_type, args.map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp", "%s/map_%d" % (args.train_type, args.map_id), "classifier")
     single_worker_rollouts(args.algo, classifier_dpath, args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)
