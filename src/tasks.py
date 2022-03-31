@@ -172,28 +172,28 @@ def get_interleaving_training_tasks():
 def get_transfer_tasks():
     """ Testing tasks for the transfer tasks. """
     tasks = [
-        # _get_sequence('ab'),
-        # _get_sequence('ac'),
-        # _get_sequence('de'),
-        # _get_sequence('db'),
-        # ('and', _get_sequence('ae'), _get_sequence('fe')),
-        # ('and', _get_sequence('dc'), _get_sequence('abc')),
-        # ('and', _get_sequence('fb'), _get_sequence('acb')),
-        # ('and', _get_sequence('fc'), _get_sequence('ac')),
-        # ('and', _get_sequence('aeg'), _get_sequence('feg')),
-        # ('and', _get_sequence('fbh'), _get_sequence('acbh')),
-        #
-        # ('and', _get_sequence('fbh'), _get_sequence('cbh')),
-        # _get_sequence('deg'),  # _get_sequence('de'), ('and', _get_sequence('aeg'), _get_sequence('feg'))
-        # _get_sequence('dcb'),  # ('and', _get_sequence('dc'), _get_sequence('abc')), ('and', _get_sequence('fb'), _get_sequence('acb'))
-        # _get_sequence('af'),  # a & !f is a subset of a & !e & f: ('and', _get_sequence('ae'), _get_sequence('fe'))
-        #
-        # _get_sequence('agc'),
-        #
+        _get_sequence('ab'),
+        _get_sequence('ac'),
+        _get_sequence('de'),
+        _get_sequence('db'),
+        ('and', _get_sequence('ae'), _get_sequence('fe')),
+        ('and', _get_sequence('dc'), _get_sequence('abc')),
+        ('and', _get_sequence('fb'), _get_sequence('acb')),
+        ('and', _get_sequence('fc'), _get_sequence('ac')),
+        ('and', _get_sequence('aeg'), _get_sequence('feg')),
+        ('and', _get_sequence('fbh'), _get_sequence('acbh')),
+
+        ('and', _get_sequence('fbh'), _get_sequence('cbh')),
+        _get_sequence('deg'),  # _get_sequence('de'), ('and', _get_sequence('aeg'), _get_sequence('feg'))
+        _get_sequence('dcb'),  # ('and', _get_sequence('dc'), _get_sequence('abc')), ('and', _get_sequence('fb'), _get_sequence('acb'))
+        _get_sequence('af'),  # a & !f is a subset of a & !e & f: ('and', _get_sequence('ae'), _get_sequence('fe'))
+
+        _get_sequence('agc'),
+
         # _get_sequence_generic('ab'),  # F(a & Fb)
         # ('and', _until(_not('b'), 'a'), _get_sequence_generic('b')),  # !b U a & F(b)
-        _next(_get_sequence_generic('b')),  # XFb
-        _get_sequence_generic(_next('b')),  # FXb
+        # _next(_get_sequence_generic('b')),  # XFb
+        # _get_sequence_generic(_next('b')),  # FXb
         # _get_sequence_generic('a', _next(_get_sequence_generic('b'))),  # F(a & XFb)
         # _get_sequence_generic('a', _get_sequence_generic(_next('b'))),  # F(a & FXb)
         # _get_sequence_generic('a', _next('b')),  # F(a & Xb)

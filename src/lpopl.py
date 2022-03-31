@@ -118,7 +118,7 @@ def _test_LPOPL(sess, task_params, learning_params, testing_params, policy_bank,
 
 def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
-    num_actions  = len(task_aux.get_actions())
+    num_actions = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
     start_time = time.time()
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
@@ -136,15 +136,14 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
     start_time = time.time()
     policy_bank.reconnect()  # -> creating the connections between the neural nets
     print("took %0.2f mins to reconnect" % ((time.time() - start_time)/60))
-
     # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
     return policy_bank
 
 
 def run_experiments(tester, curriculum, saver, num_times, show_print):
-    # Running the tasks 'num_times'
     time_init = time.time()
     learning_params = tester.learning_params
+    # Running the tasks 'num_times'
     for t in range(num_times):
         # Setting the random seed to 't'
         random.seed(t)

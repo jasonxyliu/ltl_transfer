@@ -40,9 +40,9 @@ class Tester:
             # setting the test attributes
             self.learning_params = learning_params
             self.testing_params = testing_params
+            self.map_id = map_id
             self.tasks_id = tasks_id
             self.train_type = train_type
-            self.map_id = map_id
             self.experiment = "%s/map_%d" % (train_type, map_id)
             self.map = "../experiments/maps/map_%d.txt" % map_id
             self.consider_night = False
@@ -67,6 +67,7 @@ class Tester:
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
                 logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
 
+            # load pre-computed optimal steps for 'task_type' in 'map_id'
             optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
@@ -256,12 +257,12 @@ def get_precentiles_str(a):
     return p25, p50, p75
 
 
-def export_results(algorithm, task, task_id):
+def export_results(algorithm, task_type):
     for map_type, maps in [("random", range(0, 5)), ("adversarial", range(5, 10))]:
         # Computing the summary of the results
         normalized_rewards = None
         for map_id in maps:
-            result = "../tmp/task_%d/map_%d/%s.json" % (task_id, map_id, algorithm)
+            result = "../tmp/%s/map_%d/%s.json" % (task_type, map_id, algorithm)
             tester = Tester(None, None, None, None, None, None, None, result)
             ret = tester.export_results()
             if normalized_rewards is None:
@@ -270,7 +271,7 @@ def export_results(algorithm, task, task_id):
                 for j in range(len(normalized_rewards)):
                     normalized_rewards[j][1] = np.append(normalized_rewards[j][1], ret[j][1])
         # Saving the results
-        folders_out = "../tmp/%s/%s" % (task, map_type)
+        folders_out = "../results/%s/%s" % (task_type, map_type)
         if not os.path.exists(folders_out): os.makedirs(folders_out)
         file_out = "%s/%s.txt" % (folders_out, algorithm)
         f_out = open(file_out, "w")
@@ -304,7 +305,7 @@ def read_json(fpath):
 
 
 if __name__ == "__main__":
-    # EXAMPLE: python3 test_utils.py --algorithm="lpopl" --tasks="sequence"
+    # EXAMPLE: python test_utils.py --algorithm=lpopl --tasks=sequence
 
     # Getting params
     algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
@@ -320,4 +321,4 @@ if __name__ == "__main__":
     if args.tasks not in tasks:
         raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
 
-    export_results(args.algorithm, args.tasks, tasks.index(args.tasks))
+    export_results(args.algorithm, args.tasks)

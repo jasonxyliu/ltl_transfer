@@ -10,13 +10,13 @@
 export PYTHONUNBUFFERED=TRUE
 
 algo="lpopl"
-task="no_orders"
+train_type="no_orders"
 train_size=50
-test_task="no_orders"
+test_type="no_orders"
 map=0
 
 module load anaconda/2020.02
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
 
-python run_experiments.py --algo=$algo --tasks=$task --train_size=$train_size --test_tasks=$test_task --map=$map
+python run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --test_type=$test_type --map=$map
