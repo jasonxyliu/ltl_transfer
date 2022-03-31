@@ -150,7 +150,7 @@ if __name__ == "__main__":
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
     # parser.add_argument('--load_trained', action="store_true",
     #                     help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
-    parser.add_argument('--relabel_method', default='', type=str,
+    parser.add_argument('--relabel_method', default='cluster', type=str,
                         help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")

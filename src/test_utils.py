@@ -312,7 +312,7 @@ if __name__ == "__main__":
     tasks = ["sequence", "interleaving", "safety"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description="Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.")
-    parser.add_argument("--algorithm", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algorithms))
+    parser.add_argument("--algo", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algorithms))
     parser.add_argument("--tasks", default="sequence", type=str, help="This parameter indicated which tasks to solve. The options are: " + str(tasks))
 
     args = parser.parse_args()

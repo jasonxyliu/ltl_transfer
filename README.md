@@ -21,7 +21,7 @@ You might clone this repository by running:
 
 LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy](http://www.numpy.org/), [tensorflow](https://www.tensorflow.org/), and [sympy](http://www.sympy.org). 
 
-Transfer Learning requires [dill](https://dill.readthedocs.io/en/latest/), [NetworkX](https://networkx.org/), and [Matplotlib](https://matplotlib.org/).
+Transfer Learning requires [dill](https://dill.readthedocs.io/en/latest/), [NetworkX](https://networkx.org/), [Matplotlib](https://matplotlib.org/), and [mpi4py](https://mpi4py.readthedocs.io/en/stable/) if use on a cluster.
 
 Visualization requires [pillow](https://pillow.readthedocs.io/en/stable/index.html)
 
@@ -33,17 +33,17 @@ Install all dependencies in a conda environment by running the following command
 
 To run LPOPL and our three baselines, move to the *src* folder and execute *run_experiments.py*. This code receives 3 parameters: The RL algorithm to use (which might be "dqn-l", "hrl-e", "hrl-l", or "lpopl"), the tasks to solve (which might be "sequence", "interleaving", "safety"), and the map (which is an integer between -1 and 9). Maps 0 to 4 were randomly generated. Maps 5 to 9 are adversarial maps. Select '--map=-1' to run experiments over the 10 maps with three trials per map. For instance, the following command solves the 10 *sequence tasks* over map 0 using LPOPL:
 
-    python3 run_experiments.py --algorithm="lpopl" --tasks="sequence" --map=0
+    python3 run_experiments.py --algo=lpopl --tasks=sequence --map=0
 
 The results will be printed and saved in './tmp'. After running LPOPL over all the maps, you might run *test_util.py* (which also receives the algorithm and task parameters) to compute the average performance across the 10 maps:
 
-    python3 test_utils.py --algorithm="lpopl" --tasks="sequence"
+    python3 test_utils.py --algo=lpopl --tasks=sequence
 
 The overall results will be saved in the './results' folder.
 
 To run zero-shot transfer
 
-    python3 run_experiments.py --algorithm="zero_shot_transfer" --tasks="transfer_interleaving" --map=0
+    python3 run_experiments.py --algo=zero_shot_transfer --tasks=mixed --train_size=50 --test_tasks=soft --map=0 --relabel_method=parallel
 
 ## Visualization
 
