@@ -47,6 +47,8 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
     with open(os.path.join(classifier_dpath, "id2ltls.pkl"), "rb") as file:
         id2ltls = dill.load(file)
     ltl, f_task = id2ltls[ltl_id]
+    # print("policy for ltl %d: %s" % (ltl_id, str(ltl)))
+    # print("full ltl: ", f_task)
 
     # create task_aux
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
@@ -60,8 +62,8 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
         policy_bank = initialize_policy_bank(sess, task_aux, tester, ltl, f_task)
         loader.load_policy_bank(run_id, sess)
 
-        id2ltl = {pid: policy for policy, pid in policy_bank.policy2id.items()}
-        ltl = id2ltl[ltl_id]
+        # id2ltl = {pid: policy for policy, pid in policy_bank.policy2id.items()}
+        # ltl = id2ltl[ltl_id]
         # print("policy for ltl: ", ltl)
 
         # run rollouts

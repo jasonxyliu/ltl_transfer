@@ -10,9 +10,9 @@
 export PYTHONUNBUFFERED=TRUE
 
 algo="zero_shot_transfer"
-train_type="soft_strict"
+train_type="no_orders"
 train_size=50
-test_type="soft_strict"
+test_type="no_orders"
 map=0
 run_id=0
 relabel_method="cluster"
