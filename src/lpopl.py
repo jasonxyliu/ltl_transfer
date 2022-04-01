@@ -15,23 +15,23 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
     time_init = time.time()
     tester_original = tester
     curriculum_original = curriculum
+    loader = Loader(saver)
     train_dpath = os.path.join("../tmp", tester.experiment, "train_data")
 
     # Running the tasks 'num_times'
     for run_id in range(num_times):
+        run_dpath = os.path.join(train_dpath, "run_%d" % run_id)
         # Overwrite 'tester' and 'curriculum' if incremental training
-        tester_fpath = os.path.join(train_dpath, "run_%d" % run_id, "tester.pkl")
-        if os.path.exists(tester_fpath):
+        tester_fpath = os.path.join(run_dpath, "tester.pkl")
+        if os.path.exists(run_dpath) and os.path.exists(tester_fpath):
             tester = load_pkl(tester_fpath)
-            loader = Loader(saver)
         else:
             tester = tester_original
-            loader = None
 
         learning_params = tester.learning_params
 
-        curriculum_fpath = os.path.join(train_dpath, "run_%d" % run_id, "curriculum.pkl")
-        if os.path.exists(curriculum_fpath):
+        curriculum_fpath = os.path.join(run_dpath, "curriculum.pkl")
+        if os.path.exists(run_dpath) and os.path.exists(curriculum_fpath):
             curriculum = load_pkl(curriculum_fpath)
             learning_params.learning_starts += curriculum.total_steps  # recollect 'replay_buffer'
             curriculum.incremental_learning(train_steps)
@@ -52,8 +52,8 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
         # Initializing policies per each subtask
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
         # Load 'policy_bank' if incremental training
-        run_dpath = os.path.join(saver.policy_dpath, "run_%d" % run_id)
-        if os.path.exists(run_dpath) and os.listdir(run_dpath):
+        policy_dpath = os.path.join(saver.policy_dpath, "run_%d" % run_id)
+        if os.path.exists(policy_dpath) and os.listdir(policy_dpath):
             loader.load_policy_bank(run_id, sess)
         if show_print:
             print("Policy bank initialization took: %0.2f mins" % ((time.time() - time_init)/60))
