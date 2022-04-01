@@ -15,6 +15,7 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
     time_init = time.time()
     tester_original = tester
     curriculum_original = curriculum
+    loader = Loader(saver)
     train_dpath = os.path.join("../tmp", tester.experiment, "train_data")
 
     # Running the tasks 'num_times'
@@ -23,10 +24,8 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
         tester_fpath = os.path.join(train_dpath, "run_%d" % run_id, "tester.pkl")
         if os.path.exists(tester_fpath):
             tester = load_pkl(tester_fpath)
-            loader = Loader(saver)
         else:
             tester = tester_original
-            loader = None
 
         learning_params = tester.learning_params
 
