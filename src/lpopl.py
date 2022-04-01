@@ -1,3 +1,4 @@
+import os
 import random
 import time
 import numpy as np
@@ -7,6 +8,101 @@ from schedules import LinearSchedule
 from replay_buffer import ReplayBuffer
 from dfa import *
 from game import *
+from test_utils import Loader, load_pkl
+
+
+def run_experiments(tester, curriculum, saver, num_times, train_steps, show_print):
+    time_init = time.time()
+    tester_original = tester
+    curriculum_original = curriculum
+    train_dpath = os.path.join("../tmp", tester.experiment, "train_data")
+
+    # Running the tasks 'num_times'
+    for run_id in range(num_times):
+        # Overwrite 'tester' and 'curriculum' if incremental training
+        tester_fpath = os.path.join(train_dpath, "run_%d" % run_id, "tester.pkl")
+        if os.path.exists(tester_fpath):
+            tester = load_pkl(tester_fpath)
+            loader = Loader(saver)
+        else:
+            tester = tester_original
+            loader = None
+
+        learning_params = tester.learning_params
+
+        curriculum_fpath = os.path.join(train_dpath, "run_%d" % run_id, "curriculum.pkl")
+        if os.path.exists(curriculum_fpath):
+            curriculum = load_pkl(curriculum_fpath)
+            learning_params.learning_starts += curriculum.total_steps  # recollect 'replay_buffer'
+            curriculum.incremental_learning(train_steps)
+        else:
+            curriculum = curriculum_original
+
+        # Setting the random seed to 'run_id'
+        random.seed(run_id)
+        sess = tf.Session()
+
+        # Reseting default values
+        if not curriculum.incremental:
+            curriculum.restart()
+
+        # Initializing experience replay buffer
+        replay_buffer = ReplayBuffer(learning_params.buffer_size)
+
+        # Initializing policies per each subtask
+        policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
+        # Load 'policy_bank' if incremental training
+        run_dpath = os.path.join(saver.policy_dpath, "run_%d" % run_id)
+        if os.path.exists(run_dpath) and os.listdir(run_dpath):
+            loader.load_policy_bank(run_id, sess)
+        if show_print:
+            print("Policy bank initialization took: %0.2f mins" % ((time.time() - time_init)/60))
+
+        # Running the tasks
+        num_tasks = 0
+        while not curriculum.stop_learning():
+            task = curriculum.get_next_task()
+            if show_print:
+                print("Current step:", curriculum.get_current_step(), "from", curriculum.total_steps)
+                print("%d Current task: %d, %s" % (num_tasks, curriculum.current_task, str(task)))
+            task_params = tester.get_task_params(task)
+            _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
+            num_tasks += 1
+        # Save 'policy_bank' for incremental training and transferring
+        saver.save_policy_bank(policy_bank, run_id)
+        # Backing up the results
+        saver.save_results()
+        # Save 'tester' and 'curriculum' for incremental training
+        saver.save_train_data(curriculum, run_id)
+
+        tf.reset_default_graph()
+        sess.close()
+
+    # Showing results
+    tester.show_results()
+    print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")
+
+
+def _initialize_policy_bank(sess, learning_params, curriculum, tester):
+    task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
+    num_actions = len(task_aux.get_actions())
+    num_features = task_aux.get_num_features()
+    start_time = time.time()
+    policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
+    print("policy bank initialization took %0.2f mins" % ((time.time() - start_time)/60))
+    for idx, f_task in enumerate(tester.get_LTL_tasks()):
+        start_time = time.time()
+        dfa = DFA(f_task)
+        print("%d processing LTL: %s" % (idx, str(f_task)))
+        print("took %0.2f mins to construct DFA" % ((time.time() - start_time)/60))
+        start_time = time.time()
+        for ltl in dfa.ltl2state:
+            # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
+            policy_bank.add_LTL_policy(ltl, f_task, dfa)
+        print("took %0.2f mins to add policy" % ((time.time() - start_time)/60))
+    policy_bank.reconnect()  # -> creating the connections between the neural nets
+    print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
+    return policy_bank
 
 
 def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print):
@@ -114,69 +210,3 @@ def _test_LPOPL(sess, task_params, learning_params, testing_params, policy_bank,
         if task.ltl_game_over or task.env_game_over:
             break
     return r_total
-
-
-def _initialize_policy_bank(sess, learning_params, curriculum, tester):
-    task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
-    num_actions = len(task_aux.get_actions())
-    num_features = task_aux.get_num_features()
-    start_time = time.time()
-    policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
-    print("policy bank initialization took %0.2f mins" % ((time.time() - start_time)/60))
-    for idx, f_task in enumerate(tester.get_LTL_tasks()):
-        start_time = time.time()
-        dfa = DFA(f_task)
-        print("%d processing LTL: %s" % (idx, str(f_task)))
-        print("took %0.2f mins to construct DFA" % ((time.time() - start_time)/60))
-        start_time = time.time()
-        for ltl in dfa.ltl2state:
-            # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
-            policy_bank.add_LTL_policy(ltl, f_task, dfa)
-        print("took %0.2f mins to add policy" % ((time.time() - start_time)/60))
-    start_time = time.time()
-    policy_bank.reconnect()  # -> creating the connections between the neural nets
-    print("took %0.2f mins to reconnect" % ((time.time() - start_time)/60))
-    # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
-    return policy_bank
-
-
-def run_experiments(tester, curriculum, saver, num_times, show_print):
-    time_init = time.time()
-    learning_params = tester.learning_params
-    # Running the tasks 'num_times'
-    for t in range(num_times):
-        # Setting the random seed to 't'
-        random.seed(t)
-        sess = tf.Session()
-
-        # Reseting default values
-        curriculum.restart()
-
-        # Initializing experience replay buffer
-        replay_buffer = ReplayBuffer(learning_params.buffer_size)
-
-        # Initializing policies per each subtask
-        policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
-        if show_print:
-            print("Policy bank initialization took: %0.2f mins" % ((time.time() - time_init)/60))
-
-        # Running the tasks
-        num_tasks = 0
-        while not curriculum.stop_learning():
-            task = curriculum.get_next_task()
-            if show_print:
-                print("Current step:", curriculum.get_current_step(), "from", curriculum.total_steps)
-                print("%d Current task: %d, %s" % (num_tasks, curriculum.current_task, str(task)))
-            task_params = tester.get_task_params(task)
-            _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
-            num_tasks += 1
-        saver.save_policy_bank(policy_bank, t)
-        # Backing up the results
-        saver.save_results()
-
-        tf.reset_default_graph()
-        sess.close()
-
-    # Showing results
-    tester.show_results()
-    print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")

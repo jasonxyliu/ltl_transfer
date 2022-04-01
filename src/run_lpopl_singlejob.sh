@@ -14,9 +14,10 @@ train_type="no_orders"
 train_size=50
 test_type="no_orders"
 map=0
+train_steps=250000
 
 module load anaconda/2020.02
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
 
-python run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --test_type=$test_type --map=$map
+python run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --test_type=$test_type --map=$map --train_steps=$train_steps

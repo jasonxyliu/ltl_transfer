@@ -17,13 +17,15 @@ from lpopl import _initialize_policy_bank, _test_LPOPL
 from policy_bank import *
 from dfa import *
 from game import *
-from test_utils import save_pkl, load_pkl, save_json
+from test_utils import Loader, save_pkl, load_pkl, save_json
 from run_single_worker import single_worker_rollouts
 
 CHUNK_SIZE = 94
 
 
-def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method):
+def run_experiments(tester, curriculum, saver, run_id, relabel_method):
+    loader = Loader(saver)
+
     time_init = time.time()
     learning_params = tester.learning_params
 
@@ -81,7 +83,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     for ltl in policy_bank.get_LTL_policies():
         ltl_id = policy_bank.get_id(ltl)
         id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
-    state2id = saver.save_training_data(task_aux, id2ltls)
+    state2id = saver.save_transfer_data(task_aux, id2ltls)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
     loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
     completed_ltls = []
@@ -144,7 +146,7 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     for ltl in policy_bank.get_LTL_policies():
         ltl_id = policy_bank.get_id(ltl)
         id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
-    state2id = saver.save_training_data(task_aux, id2ltls)
+    state2id = saver.save_transfer_data(task_aux, id2ltls)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
     loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
     completed_ltls = []

@@ -74,9 +74,9 @@ class Tester:
             self.results = {}
             self.optimal = {}
             self.steps = []
-            for i in range(len(self.tasks)):
-                self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
-                self.results[self.tasks[i]] = {}
+            for idx, task in enumerate(self.tasks):
+                self.optimal[task] = learning_params.gamma ** (float(optimal_aux[idx]) - 1)
+                self.results[task] = {}
             # save results for transfer learning
             if tasks_id > 2:
                 self.task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in self.transfer_tasks}
@@ -90,8 +90,8 @@ class Tester:
             self.tasks = [eval(t) for t in data["tasks"]]
             # obs: json transform the integer keys from 'results' into strings
             # so I'm changing the 'steps' to strings
-            for i in range(len(self.steps)):
-                self.steps[i] = str(self.steps[i])
+            for idx, step in enumerate(self.steps):
+                self.steps[idx] = str(step)
 
     def get_LTL_tasks(self):
         return self.tasks
@@ -105,14 +105,14 @@ class Tester:
     def run_test(self, step, sess, test_function, *test_args):
         # 'test_function' parameters should be (sess, task_params, learning_params, testing_params, *test_args)
         # and returns the reward
-        for t in self.tasks:
-            task_params = self.get_task_params(t)
+        for task in self.tasks:
+            task_params = self.get_task_params(task)
             reward = test_function(sess, task_params, self.learning_params, self.testing_params, *test_args)
-            if step not in self.results[t]:
-                self.results[t][step] = []  # store reward per run for a total of 'num_times' runs
+            if step not in self.results[task]:
+                self.results[task][step] = []  # store reward per run for a total of 'num_times' runs
             if len(self.steps) == 0 or self.steps[-1] < step:
                 self.steps.append(step)
-            self.results[t][step].append(reward)
+            self.results[task][step].append(reward)
 
     def show_results(self):
         # Computing average performance per task
@@ -162,15 +162,31 @@ class Saver:
         self.tester = tester
 
         exp_dir = os.path.join("../tmp", tester.experiment)
-        if not os.path.exists(exp_dir):
-            os.makedirs(exp_dir)
-        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
+        os.makedirs(exp_dir, exist_ok=True)
 
-        self.policy_dpath = os.path.join(exp_dir, "policy_model")
+        self.train_dpath = os.path.join(exp_dir, "train_data")
+        os.makedirs(self.train_dpath, exist_ok=True)
+
+        self.policy_dpath = os.path.join(self.train_dpath, "policy_model")
         os.makedirs(self.policy_dpath, exist_ok=True)
 
         self.classifier_dpath = os.path.join(exp_dir, "classifier")
         os.makedirs(self.classifier_dpath, exist_ok=True)
+
+        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
+
+    def save_train_data(self, curriculum, run_id):
+        run_dpath = os.path.join(self.train_dpath, "run_%d" % run_id)
+        os.makedirs(run_dpath, exist_ok=True)
+        # save tester
+        save_pkl(os.path.join(run_dpath, "tester.pkl"), self.tester)
+        # save curriculum
+        save_pkl(os.path.join(run_dpath, "curriculum.pkl"), curriculum)
+
+    def save_policy_bank(self, policy_bank, run_id):
+        tf_saver = tf.train.Saver()
+        policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_id, "policy_bank")
+        tf_saver.save(policy_bank.sess, policy_bank_prefix)
 
     def save_results(self):
         results = {
@@ -181,21 +197,7 @@ class Saver:
         }
         save_json(self.file_out, results)
 
-    def save_transfer_results(self):
-        results = {
-            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
-            'task2run2sol': self.tester.task2run2sol,
-            'task2success': self.tester.task2success
-        }
-        transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
-        save_json(transfer_results_fpath, results)
-
-    def save_policy_bank(self, policy_bank, run_idx):
-        tf_saver = tf.train.Saver()
-        policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_idx, "policy_bank")
-        tf_saver.save(policy_bank.sess, policy_bank_prefix)
-
-    def save_training_data(self, task_aux, id2ltls):
+    def save_transfer_data(self, task_aux, id2ltls):
         """
         Save all data needed to learn classifiers in parallel
         """
@@ -215,6 +217,15 @@ class Saver:
         save_pkl(os.path.join(self.classifier_dpath, "id2ltls.pkl"), id2ltls)
         save_json(os.path.join(self.classifier_dpath, "id2ltls.json"), id2ltls)
         return state2id
+
+    def save_transfer_results(self):
+        results = {
+            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
+            'task2run2sol': self.tester.task2run2sol,
+            'task2success': self.tester.task2success
+        }
+        transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
+        save_json(transfer_results_fpath, results)
 
     def save_worker_results(self, run_idx, ltl_id, state, edge2hits, n_rollouts):
         """
@@ -237,7 +248,7 @@ class Saver:
         """
         save_pkl(os.path.join(self.classifier_dpath, fname+".pkl"), policy2loc2edge2hits_pkl)
         save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits_json)
-        
+
 
 class Loader:
     def __init__(self, saver):
