@@ -1,4 +1,5 @@
 import os
+import time
 import dill
 import argparse
 from collections import defaultdict
@@ -14,7 +15,6 @@ def initialize_policy_bank(sess, task_aux, tester, ltl, f_task):
     policy_bank = PolicyBank(sess, num_actions, num_features, tester.learning_params)
 
     policy_bank.add_LTL_policy(ltl, f_task, DFA(f_task))
-
     # for f_task in tester.get_LTL_tasks():
     #     dfa = DFA(f_task)
     #     for ltl in dfa.ltl2state:
@@ -59,11 +59,12 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
 
     with tf.Session(config=config) as sess:
         # load policy_bank
+        start_time = time.time()
         policy_bank = initialize_policy_bank(sess, task_aux, tester, ltl, f_task)
         loader.load_policy_bank(run_id, sess)
+        print("took %0.2f mins to load policy: %s" % ((time.time() - start_time) / 60, str(ltl)))
 
-        # id2ltl = {pid: policy for policy, pid in policy_bank.policy2id.items()}
-        # ltl = id2ltl[ltl_id]
+        # ltl = policy_bank.policies[ltl_id]
         # print("policy for ltl: ", ltl)
 
         # run rollouts
