@@ -56,7 +56,6 @@ if __name__ == "__main__":
             train_tasks, _ = read_test_train_formulas(task_type, test_type, train_size)
             task_aux = Game(GameParams(map_fpath, train_tasks[0], consider_night, init_dfa_state=None, init_loc=None))
             time_init = time.time()
-            train_tasks = train_tasks[:5]
             out_str = evaluate_optimal_policy(task_aux.map_array, task_aux.agent.i, task_aux.agent.j, consider_night, train_tasks, task_id+1)
             with open(policy_fpath, "r") as rfile:
                 lines = rfile.readlines()  # readlines reads the newline character at the end of a line
