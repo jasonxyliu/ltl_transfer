@@ -137,4 +137,6 @@ def evaluate_optimal_policy(map_array, agent_i, agent_j, consider_night, tasks, 
 
         summary.append(int(-V[s]))
 
-    print(summary, "# Value optimal policy for solution experiment", task_id)
+    out_str = "%s # Value optimal policy for solution experiment %d\n" % (str(summary), task_id)
+    print(out_str)
+    return out_str

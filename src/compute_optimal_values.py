@@ -5,7 +5,7 @@ from dataset_creator import read_test_train_formulas
 from value_iteration import evaluate_optimal_policy
 
 if __name__ == "__main__":
-    # EXAMPLE: python compute_optimal_policies.py  --map=0 --train_type=soft_strict --train_size=50 --test_type=soft_strict
+    # EXAMPLE: python compute_optimal_values.py --map=0 --train_type=soft_strict --train_size=50 --test_type=soft_strict
 
     # Getting params
     train_types = [
@@ -50,11 +50,20 @@ if __name__ == "__main__":
 
     for map_id in map_ids:
         map_fpath = "../experiments/maps/map_%d.txt" % map_id
+        policy_fpath = "../experiments/optimal_policies/map_%d.txt" % map_id
         for task_id in task_ids:
             task_type = train_types[task_id]
             train_tasks, _ = read_test_train_formulas(task_type, test_type, train_size)
             task_aux = Game(GameParams(map_fpath, train_tasks[0], consider_night, init_dfa_state=None, init_loc=None))
             time_init = time.time()
-            evaluate_optimal_policy(task_aux.map_array, task_aux.agent.i, task_aux.agent.j, consider_night, train_tasks, task_id+1)
+            train_tasks = train_tasks[:5]
+            out_str = evaluate_optimal_policy(task_aux.map_array, task_aux.agent.i, task_aux.agent.j, consider_night, train_tasks, task_id+1)
+            with open(policy_fpath, "r") as rfile:
+                lines = rfile.readlines()  # readlines reads the newline character at the end of a line
+            while task_id >= len(lines):
+                lines.append("\n")
+            lines[task_id] = out_str
+            with open(policy_fpath, "w") as wfile:
+                wfile.writelines(lines)  # writelines does not write a newline character to the end of a line
             print("task %s, map_%d took: %0.2f mins\n" % (task_type, map_id, (time.time() - time_init)/60))
         print("\n")
