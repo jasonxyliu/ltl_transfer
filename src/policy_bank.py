@@ -28,10 +28,7 @@ class PolicyBank:
 
     def add_LTL_policy(self, ltl, f_task, dfa, load_tf = True):
         if ltl not in self.policy2id:
-            if load_tf:
-                policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr)
-            else:
-                policy = None
+            policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr, load_tf = load_tf)
             self._add_policy(ltl, policy)
 
     def _add_policy(self, ltl, policy):
@@ -119,13 +116,14 @@ class ConstantPolicy:
 
 
 class Policy:
-    def __init__(self, ltl, f_task, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr):
+    def __init__(self, ltl, f_task, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr, load_tf = True):
         self.ltl = ltl  # ltl subtask this policy is trained to solve
         self.f_task = f_task  # the full ltl task which self.ltl is a part of
         self.dfa = dfa  # the dfa for the full ltl task
         self.sess = sess
         self.ltl_scope_name = str(ltl).replace("&", "AND").replace("|", "OR").replace("!", "NOT").replace("(", "P1_").replace(")", "_P2").replace("'", "").replace(" ", "").replace(",", "_")
-        self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
+        if load_tf:
+            self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
         self.edge2classifier = {}
 
     def _initialize_model(self, s1, a, s2, num_features, num_actions, gamma, lr):
