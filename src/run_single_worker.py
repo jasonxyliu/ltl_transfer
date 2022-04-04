@@ -62,7 +62,7 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
         start_time = time.time()
         policy_bank = initialize_policy_bank(sess, task_aux, tester, ltl, f_task)
         loader.load_policy_bank(run_id, sess)
-        print("took %0.2f mins to load policy: %s" % ((time.time() - start_time) / 60, str(ltl)))
+        #print("took %0.2f mins to load policy: %s" % ((time.time() - start_time) / 60, str(ltl)))
 
         # ltl = policy_bank.policies[ltl_id]
         # print("policy for ltl: ", ltl)

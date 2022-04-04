@@ -36,7 +36,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method):
     curriculum.restart()
 
     # Initializing policies per each subtask
-    policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
+    policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf = False)
     loader.load_policy_bank(run_id, sess)
 
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))

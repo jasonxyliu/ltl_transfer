@@ -83,7 +83,7 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
     print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")
 
 
-def _initialize_policy_bank(sess, learning_params, curriculum, tester):
+def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf = True):
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     num_actions = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
@@ -98,7 +98,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester):
         start_time = time.time()
         for ltl in dfa.ltl2state:
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
-            policy_bank.add_LTL_policy(ltl, f_task, dfa)
+            policy_bank.add_LTL_policy(ltl, f_task, dfa, load_tf = load_tf)
         print("took %0.2f mins to add policy" % ((time.time() - start_time)/60))
     policy_bank.reconnect()  # -> creating the connections between the neural nets
     print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
@@ -145,7 +145,7 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
             ltl_id = policy_bank.get_id(ltl)
             if task.env_game_over:
                 ltl_next_id = policy_bank.get_id("False")  # env deadends are equal to achive the 'False' formula
-            else: 
+            else:
                 ltl_next_id = policy_bank.get_id(policy_bank.get_policy_next_LTL(ltl, true_props))
             next_goals[ltl_id-2] = ltl_next_id
         replay_buffer.add(s1, a.value, s2, next_goals)
@@ -171,9 +171,9 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
 
         # Restarting the environment (Game Over)
         if task.ltl_game_over or task.env_game_over:
-            # NOTE: Game over occurs for one of three reasons: 
-            # 1) DFA reached a terminal state, 
-            # 2) DFA reached a deadend, or 
+            # NOTE: Game over occurs for one of three reasons:
+            # 1) DFA reached a terminal state,
+            # 2) DFA reached a deadend, or
             # 3) The agent reached an environment deadend (e.g. a PIT)
             task = Game(task_params)  # Restarting
 
@@ -186,7 +186,7 @@ def _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer
         if curriculum.stop_learning():
             break
 
-    if show_print: 
+    if show_print:
         print("Done! Total reward:", training_reward)
 
 

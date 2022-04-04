@@ -26,9 +26,12 @@ class PolicyBank:
         policy = ConstantPolicy(ltl, value, self.s2, self.num_features)
         self._add_policy(ltl, policy)
 
-    def add_LTL_policy(self, ltl, f_task, dfa):
+    def add_LTL_policy(self, ltl, f_task, dfa, load_tf = True):
         if ltl not in self.policy2id:
-            policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr)
+            if load_tf:
+                policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr)
+            else:
+                policy = None
             self._add_policy(ltl, policy)
 
     def _add_policy(self, ltl, policy):
