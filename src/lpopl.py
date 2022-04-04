@@ -100,7 +100,8 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf =
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
             policy_bank.add_LTL_policy(ltl, f_task, dfa, load_tf = load_tf)
         print("took %0.2f mins to add policy" % ((time.time() - start_time)/60))
-    policy_bank.reconnect()  # -> creating the connections between the neural nets
+    if load_tf:
+        policy_bank.reconnect()  # -> creating the connections between the neural nets
     print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
     return policy_bank
 
