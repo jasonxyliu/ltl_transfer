@@ -327,10 +327,10 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
                     break
                 while option2prob and cur_loc == next_loc:
                     best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
-                    # Load policy into policy_bank when need to execute it
+                    # Overwrite empty policy by policy with tf model then load its weights when need to execute it
                     policy = policy_bank.policies[policy_bank.policy2id[best_policy]]
                     if not policy.load_tf:
-                        policy_bank.add_LTL_policy(policy.ltl, policy.f_task, policy.dfa)
+                        policy_bank.replace_policy(policy.ltl, policy.f_task, policy.dfa)
                         loader.load_policy_bank(run_id, sess)
                     # Execute option
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)

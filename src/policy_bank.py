@@ -31,6 +31,13 @@ class PolicyBank:
             policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr, load_tf=load_tf)
             self._add_policy(ltl, policy)
 
+    def replace_policy(self, ltl, f_task, dfa):
+        """
+        Replace an empty policy without TF model by a policy with TF model
+        """
+        policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr, load_tf=True)
+        self.policies[self.policy2id[ltl]] = policy
+
     def _add_policy(self, ltl, policy):
         self.policy2id[ltl] = len(self.policies)
         self.policies.append(policy)
