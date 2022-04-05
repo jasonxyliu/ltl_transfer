@@ -329,7 +329,7 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
                     best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
                     # Load policy into policy_bank when need to execute it
                     policy = policy_bank.policies[policy_bank.policy2id[best_policy]]
-                    if not policy:
+                    if not policy.load_tf:
                         policy_bank.add_LTL_policy(policy.ltl, policy.f_task, policy.dfa)
                         loader.load_policy_bank(run_id, sess)
                     # Execute option
