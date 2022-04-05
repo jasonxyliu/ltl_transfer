@@ -83,7 +83,7 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
     print("Time:", "%0.2f" % ((time.time() - time_init)/60), "mins")
 
 
-def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf = True):
+def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=True):
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     num_actions = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
@@ -98,7 +98,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf =
         start_time = time.time()
         for ltl in dfa.ltl2state:
             # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
-            policy_bank.add_LTL_policy(ltl, f_task, dfa, load_tf = load_tf)
+            policy_bank.add_LTL_policy(ltl, f_task, dfa, load_tf=load_tf)
         print("took %0.2f mins to add policy" % ((time.time() - start_time)/60))
     if load_tf:
         policy_bank.reconnect()  # -> creating the connections between the neural nets

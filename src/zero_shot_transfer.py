@@ -36,12 +36,12 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method):
     curriculum.restart()
 
     # Initializing policies per each subtask
-    policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf = False)
-    #loader.load_policy_bank(run_id, sess)
+    policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=False)
+    # loader.load_policy_bank(run_id, sess)
 
-    #task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
-    #num_features = task_aux.get_num_features()
-    #tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
+    # task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
+    # num_features = task_aux.get_num_features()
+    # tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
     # print(tester.results)
 
     # Relabel state-centric options to transition-centric options if not already done
@@ -117,8 +117,8 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                     if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, arg)
                         retval = run_single_worker_cluster(*arg)
-                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
-        print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time() - start_time_ltl) / 60))
+                print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
+        print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
         save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {"completed_ltl": completed_ltls})
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
@@ -126,9 +126,6 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
 
 
 def run_single_worker_cluster(algo, train_type, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
-    # import os
-    # from run_single_worker import single_worker_rollouts
-
     classifier_dpath = os.path.join("../tmp/", "%s/map_%d" % (train_type, map_id), "classifier")
     rank = MPI.COMM_WORLD.Get_rank()
     name = MPI.Get_processor_name()
@@ -189,8 +186,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, worker_command)
                         retval = os.system(worker_command)
-                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
-        print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time() - start_time_ltl) / 60))
+                print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
+        print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
         save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {'completed_ltl': completed_ltls})
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
