@@ -120,7 +120,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                 print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
         print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
-        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {"completed_ltl": completed_ltls})
+        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), completed_ltls)
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
@@ -189,7 +189,7 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
         print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
-        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {'completed_ltl': completed_ltls})
+        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), completed_ltls)
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
@@ -236,7 +236,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
     Classifier (policy2edge2loc2prob) contain only outgoing edges that state-centric policies achieved during training,
     possibly not all outgoing edges.
     """
-    policy2loc2edge2hits = load_pkl(os.path.join(classifier_dpath, "rollout_results_parallel.pkl"))
+    policy2loc2edge2hits = load_pkl(os.path.join(classifier_dpath, "aggregated_rollout_results.pkl"))
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
 
     policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
