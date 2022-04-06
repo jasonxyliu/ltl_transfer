@@ -342,6 +342,10 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
                         policy_bank.replace_policy(policy.ltl, policy.f_task, policy.dfa)
                         loader.load_policy_bank(run_id, sess)
                     # Execute option
+                    tester.log_results("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
+                    tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
+                    print("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
+                    print("from policy %d: %s\n" % (policy_bank.get_id(best_policy), str(best_policy)))
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     if cur_loc != next_loc:
                         tester.task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
@@ -459,15 +463,11 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     'option_edge' is 1 outgoing edge associated with edge-centric option
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
     """
-    tester.log_results("target option edge: %s" % str(option_edge))
-    tester.log_results("from policy %d: %s" % (policy_bank.get_id(ltl_policy), str(ltl_policy)))
-    print("target option edge: %s\n" % str(option_edge))
-    print("from policy %d: %s\n" % (policy_bank.get_id(ltl_policy), str(ltl_policy)))
     num_features = task.get_num_features()
     option_reward, step = 0, 0
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
     tester.log_results("cur_loc: %s" % str(cur_loc))
-    print("cur_loc: %s\n" % str(cur_loc))
+    print("cur_loc: %s" % str(cur_loc))
     # tester.log_results("initiation_set: %s" % str(edge2loc2prob[option_edge].keys()))
     # while not exceed max steps AND no DFA transition occurs AND option policy is still defined in current MDP state
     while step < num_steps and cur_node == task.dfa.state and cur_loc in edge2loc2prob[option_edge]:
@@ -478,7 +478,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
             break
         option_reward += task.execute_action(a)
         tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
-        print("step %d: dfa_state: %d; %s; %s; %d\n" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward
