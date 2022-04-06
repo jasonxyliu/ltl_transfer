@@ -269,11 +269,11 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    for transfer_task in transfer_tasks:
+    for task_idx, transfer_task in enumerate(transfer_tasks):
         # print("transfer_task: ", transfer_task)
         for num_time in range(num_times):
             tester.log_results("* Run %d Transfer Task: %s" % (num_time, str(transfer_task)))
-            print("* Run %d Transfer Task: %s\n" % (num_time, str(transfer_task)))
+            print("* Run %d Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
             # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
@@ -291,14 +291,14 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
             simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
             simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
             tester.log_results("dfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            tester.log_results("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
             print("dfa start: %d; goal: %s\n" % (task.dfa.state, str(task.dfa.terminal)))
-            print("simple paths: %d, %s\n" % (len(simple_paths_node), str(simple_paths_node)))
+            # tester.log_results("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
+            # print("simple paths: %d, %s\n" % (len(simple_paths_node), str(simple_paths_node)))
 
             # Find all paths consists of only edges matching training edges
             feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, train_edges)
-            tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
-            print("feasible paths: %s\n\n" % str(feasible_paths_node))
+            # tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
+            # print("feasible paths: %s\n\n" % str(feasible_paths_node))
 
             total_reward = 0
             while not task.ltl_game_over and not task.env_game_over:
@@ -318,8 +318,8 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
                         for train_edge_pair in train_edges:
                             if train_edge_pair not in option_edges and match_edges(test_edge_pair, [train_edge_pair]):
                                 option_edges.append(train_edge_pair)
-                tester.log_results("candidate edges: %s" % str(option_edges))
-                print("candidate edges: %s\n" % str(option_edges))
+                # tester.log_results("candidate edges: %s" % str(option_edges))
+                # print("candidate edges: %s\n" % str(option_edges))
 
                 # Find best edge to target based on rollout success probability from current location
                 option2prob = {}
