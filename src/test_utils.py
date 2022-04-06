@@ -62,7 +62,7 @@ class Tester:
                     self.transfer_tasks = tasks.get_transfer_tasks()
                 else:
                     self.tasks, self.transfer_tasks = read_test_train_formulas(train_type, test_type, train_size)
-                self.transfer_results_dpath = os.path.join("../results", train_type)
+                self.transfer_results_dpath = os.path.join("../results", self.experiment)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
                 logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
