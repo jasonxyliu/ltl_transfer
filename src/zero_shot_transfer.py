@@ -59,6 +59,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method):
 
     # Log transfer results
     tester.log_results("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
+    print("Time: %0.2f mins\n\n" % ((time.time() - time_init) / 60))
     saver.save_transfer_results()
 
     # Save LTL formula to ID mapping
@@ -272,6 +273,7 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
         # print("transfer_task: ", transfer_task)
         for num_time in range(num_times):
             tester.log_results("* Run %d Transfer Task: %s" % (num_time, str(transfer_task)))
+            print("* Run %d Transfer Task: %s\n" % (num_time, str(transfer_task)))
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
             # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
@@ -290,15 +292,19 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
             simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
             tester.log_results("dfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
             tester.log_results("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
+            print("dfa start: %d; goal: %s\n" % (task.dfa.state, str(task.dfa.terminal)))
+            print("simple paths: %d, %s\n" % (len(simple_paths_node), str(simple_paths_node)))
 
             # Find all paths consists of only edges matching training edges
             feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, train_edges)
             tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
+            print("feasible paths: %s\n\n" % str(feasible_paths_node))
 
             total_reward = 0
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
                 tester.log_results("current node: %d" % cur_node)
+                print("current node: %d\n" % cur_node)
 
                 # Find all feasible paths the current node is on then candidate option edges to target
                 option_edges = []
@@ -313,6 +319,7 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
                             if train_edge_pair not in option_edges and match_edges(test_edge_pair, [train_edge_pair]):
                                 option_edges.append(train_edge_pair)
                 tester.log_results("candidate edges: %s" % str(option_edges))
+                print("candidate edges: %s\n" % str(option_edges))
 
                 # Find best edge to target based on rollout success probability from current location
                 option2prob = {}
@@ -324,6 +331,8 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
                 if not option2prob:
                     tester.log_results("option2prob: %s" % str(option2prob))
                     tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    print("option2prob: %s\n" % str(option2prob))
+                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
                 while option2prob and cur_loc == next_loc:
                     best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
@@ -338,14 +347,17 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
                         tester.task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
                         total_reward += option_reward
                         tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
+                        print("option changed loc: %s; option_reward: %d\n\n" % (str(cur_loc != next_loc), option_reward))
                     else:  # if best option did not change agent location, try second best option
                         print(option2prob)
                         print(cur_loc, next_loc)
                         del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc:
                     tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
             tester.log_results("current node: %d\n\n" % task.dfa.state)
+            print("current node: %d\n\n\n" % task.dfa.state)
             if task.ltl_game_over:
                 tester.task2success[str(transfer_task)] += 1
     tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
@@ -449,10 +461,13 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     """
     tester.log_results("target option edge: %s" % str(option_edge))
     tester.log_results("from policy %d: %s" % (policy_bank.get_id(ltl_policy), str(ltl_policy)))
+    print("target option edge: %s\n" % str(option_edge))
+    print("from policy %d: %s\n" % (policy_bank.get_id(ltl_policy), str(ltl_policy)))
     num_features = task.get_num_features()
     option_reward, step = 0, 0
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
     tester.log_results("cur_loc: %s" % str(cur_loc))
+    print("cur_loc: %s\n" % str(cur_loc))
     # tester.log_results("initiation_set: %s" % str(edge2loc2prob[option_edge].keys()))
     # while not exceed max steps AND no DFA transition occurs AND option policy is still defined in current MDP state
     while step < num_steps and cur_node == task.dfa.state and cur_loc in edge2loc2prob[option_edge]:
@@ -463,6 +478,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
             break
         option_reward += task.execute_action(a)
         tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        print("step %d: dfa_state: %d; %s; %s; %d\n" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward
