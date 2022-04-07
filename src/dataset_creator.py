@@ -28,6 +28,14 @@ def create_datasets(set_types=set_types, train_sizes=[10, 20, 30, 40, 50], test_
         create_dataset(set_name='test', set_type=typ, sizes=[test_size])
 
 
+def create_dataset_directories():
+    dataset_path = '../datasets'
+    if not os.path.exists(dataset_path):
+        os.mkdir(dataset_path)
+        os.mkdir(training_set_path)
+        os.mkdir(test_set_path)
+
+
 def create_dataset(set_name='train', set_type='mixed', sizes=[10, 20, 30, 40, 50]):
     if set_name == 'train':
         savepath = training_set_path
@@ -42,8 +50,16 @@ def create_dataset(set_name='train', set_type='mixed', sizes=[10, 20, 30, 40, 50
         human_readable_filename = f'{set_name}_{set_type}_{size}.json'
         with open(os.path.join(savepath, filename), 'wb') as file:
             dill.dump(formulas[0:size], file)
-        #with open(os.path.join(savepath, human_readable_filename), 'w') as file:
-        #    json.dump(formulas[0:size], file, indent = 4)
+        # with open(os.path.join(savepath, human_readable_filename), 'w') as file:
+        #     json.dump(formulas[0:size], file, indent=4)
+
+
+def sample_dataset_formulas(set_type='mixed', n=50):
+    if set_type == 'no_orders':
+        formulas = [sample_formula(orders=False)[0] for i in range(n)]
+    else:
+        formulas = [sample_formula(orders=True, order_type=set_type)[0] for i in range(n)]
+    return formulas
 
 
 def read_test_train_formulas(train_set_type='mixed', test_set_type='mixed', size=50):
@@ -56,22 +72,6 @@ def read_test_train_formulas(train_set_type='mixed', test_set_type='mixed', size
         test_formulas = dill.load(file)
 
     return train_formulas, test_formulas
-
-
-def create_dataset_directories():
-    dataset_path = '../datasets'
-    if not os.path.exists(dataset_path): 
-        os.mkdir(dataset_path)
-        os.mkdir(training_set_path)
-        os.mkdir(test_set_path)
-
-
-def sample_dataset_formulas(set_type='mixed', n=50):
-    if set_type == 'no_orders':
-        formulas = [sample_formula(orders=False)[0] for i in range(n)]
-    else:
-        formulas = [sample_formula(orders=True, order_type=set_type)[0] for i in range(n)]
-    return formulas    
 
 
 if __name__ == '__main__':

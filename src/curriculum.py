@@ -3,7 +3,7 @@ class CurriculumLearner:
     Decides when to stop one task and which to execute next
     In addition, it controls how many steps the agent has given so far
     """
-    def __init__(self, tasks, r_good=0.9, num_steps=100, min_steps=1000, total_steps=100000):
+    def __init__(self, tasks, r_good=0.9, num_steps=100, min_steps=1000, total_steps=250000):
         """Parameters
         -------
         tasks: list of strings
@@ -24,6 +24,11 @@ class CurriculumLearner:
         self.num_steps = num_steps
         self.min_steps = min_steps
         self.total_steps = total_steps
+        self.incremental = False
+
+    def incremental_learning(self, incremental_steps):
+        self.incremental = True
+        self.total_steps += incremental_steps
 
     def restart(self):
         self.current_step = 0

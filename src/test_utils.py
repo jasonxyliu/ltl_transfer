@@ -35,14 +35,15 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, tasks_id, tasks, train_size, test_tasks, file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, file_results=None):
         if file_results is None:
             # setting the test attributes
             self.learning_params = learning_params
             self.testing_params = testing_params
-            self.tasks_id = tasks_id
             self.map_id = map_id
-            self.experiment = "%s/map_%d" % (tasks, map_id)
+            self.tasks_id = tasks_id
+            self.train_type = train_type
+            self.experiment = "%s/map_%d" % (train_type, map_id)
             self.map = "../experiments/maps/map_%d.txt" % map_id
             self.consider_night = False
             if tasks_id == 0:
@@ -53,31 +54,29 @@ class Tester:
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
             else:
-                if tasks == 'transfer_sequence':
+                if train_type == 'transfer_sequence':
                     self.tasks = tasks.get_sequence_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
-                elif tasks == 'transfer_interleaving':
+                elif train_type == 'transfer_interleaving':
                     self.tasks = tasks.get_interleaving_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
                 else:
-                    self.tasks, self.transfer_tasks = read_test_train_formulas(tasks, test_tasks, train_size)
-                self.transfer_results_dpath = os.path.join("../results", tasks)
+                    self.tasks, self.transfer_tasks = read_test_train_formulas(train_type, test_type, train_size)
+                self.transfer_results_dpath = os.path.join("../results", self.experiment)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
                 logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
 
+            # load pre-computed optimal steps for 'task_type' in 'map_id'
             optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
             self.results = {}
             self.optimal = {}
             self.steps = []
-            for i in range(len(self.tasks)):
-                if tasks_id > 2:
-                    self.optimal[self.tasks[i]] = learning_params.gamma ** 20  # 20 is a placeholder
-                else:
-                    self.optimal[self.tasks[i]] = learning_params.gamma ** (float(optimal_aux[i]) - 1)
-                self.results[self.tasks[i]] = {}
+            for idx, task in enumerate(self.tasks):
+                self.optimal[task] = learning_params.gamma ** (float(optimal_aux[idx]) - 1)
+                self.results[task] = {}
             # save results for transfer learning
             if tasks_id > 2:
                 self.task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in self.transfer_tasks}
@@ -91,8 +90,8 @@ class Tester:
             self.tasks = [eval(t) for t in data["tasks"]]
             # obs: json transform the integer keys from 'results' into strings
             # so I'm changing the 'steps' to strings
-            for i in range(len(self.steps)):
-                self.steps[i] = str(self.steps[i])
+            for idx, step in enumerate(self.steps):
+                self.steps[idx] = str(step)
 
     def get_LTL_tasks(self):
         return self.tasks
@@ -106,14 +105,14 @@ class Tester:
     def run_test(self, step, sess, test_function, *test_args):
         # 'test_function' parameters should be (sess, task_params, learning_params, testing_params, *test_args)
         # and returns the reward
-        for t in self.tasks:
-            task_params = self.get_task_params(t)
+        for task in self.tasks:
+            task_params = self.get_task_params(task)
             reward = test_function(sess, task_params, self.learning_params, self.testing_params, *test_args)
-            if step not in self.results[t]:
-                self.results[t][step] = []  # store reward per run for a total of 'num_times' runs
+            if step not in self.results[task]:
+                self.results[task][step] = []  # store reward per run for a total of 'num_times' runs
             if len(self.steps) == 0 or self.steps[-1] < step:
                 self.steps.append(step)
-            self.results[t][step].append(reward)
+            self.results[task][step].append(reward)
 
     def show_results(self):
         # Computing average performance per task
@@ -162,16 +161,32 @@ class Saver:
         self.alg_name = alg_name
         self.tester = tester
 
-        exp_dir = os.path.join("../tmp/", tester.experiment)
-        if not os.path.exists(exp_dir):
-            os.makedirs(exp_dir)
-        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
+        exp_dir = os.path.join("../tmp", tester.experiment)
+        os.makedirs(exp_dir, exist_ok=True)
 
-        self.policy_dpath = os.path.join(exp_dir, "policy_model")
+        self.train_dpath = os.path.join(exp_dir, "train_data")
+        os.makedirs(self.train_dpath, exist_ok=True)
+
+        self.policy_dpath = os.path.join(self.train_dpath, "policy_model")
         os.makedirs(self.policy_dpath, exist_ok=True)
 
         self.classifier_dpath = os.path.join(exp_dir, "classifier")
         os.makedirs(self.classifier_dpath, exist_ok=True)
+
+        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
+
+    def save_train_data(self, curriculum, run_id):
+        run_dpath = os.path.join(self.train_dpath, "run_%d" % run_id)
+        os.makedirs(run_dpath, exist_ok=True)
+        # save tester
+        save_pkl(os.path.join(run_dpath, "tester.pkl"), self.tester)
+        # save curriculum
+        save_pkl(os.path.join(run_dpath, "curriculum.pkl"), curriculum)
+
+    def save_policy_bank(self, policy_bank, run_id):
+        tf_saver = tf.train.Saver()
+        policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_id, "policy_bank")
+        tf_saver.save(policy_bank.sess, policy_bank_prefix)
 
     def save_results(self):
         results = {
@@ -182,21 +197,7 @@ class Saver:
         }
         save_json(self.file_out, results)
 
-    def save_transfer_results(self):
-        results = {
-            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
-            'task2run2sol': self.tester.task2run2sol,
-            'task2success': self.tester.task2success
-        }
-        transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
-        save_json(transfer_results_fpath, results)
-
-    def save_policy_bank(self, policy_bank, run_idx):
-        tf_saver = tf.train.Saver()
-        policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_idx, "policy_bank")
-        tf_saver.save(policy_bank.sess, policy_bank_prefix)
-
-    def save_training_data(self, task_aux):
+    def save_transfer_data(self, task_aux, id2ltls):
         """
         Save all data needed to learn classifiers in parallel
         """
@@ -212,7 +213,19 @@ class Saver:
                     state2id[(x, y)] = len(state2id)
         save_pkl(os.path.join(self.classifier_dpath, "states.pkl"), id2state)
         save_json(os.path.join(self.classifier_dpath, "states.json"), id2state)
+        # save map from subtask ltl_id to (subtask ltl, its corresponding full ltl)
+        save_pkl(os.path.join(self.classifier_dpath, "id2ltls.pkl"), id2ltls)
+        save_json(os.path.join(self.classifier_dpath, "id2ltls.json"), id2ltls)
         return state2id
+
+    def save_transfer_results(self):
+        results = {
+            'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
+            'task2run2sol': self.tester.task2run2sol,
+            'task2success': self.tester.task2success
+        }
+        transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
+        save_json(transfer_results_fpath, results)
 
     def save_worker_results(self, run_idx, ltl_id, state, edge2hits, n_rollouts):
         """
@@ -235,7 +248,7 @@ class Saver:
         """
         save_pkl(os.path.join(self.classifier_dpath, fname+".pkl"), policy2loc2edge2hits_pkl)
         save_json(os.path.join(self.classifier_dpath, fname+".json"), policy2loc2edge2hits_json)
-        
+
 
 class Loader:
     def __init__(self, saver):
@@ -255,12 +268,12 @@ def get_precentiles_str(a):
     return p25, p50, p75
 
 
-def export_results(algorithm, task, task_id):
+def export_results(algorithm, task_type):
     for map_type, maps in [("random", range(0, 5)), ("adversarial", range(5, 10))]:
         # Computing the summary of the results
         normalized_rewards = None
         for map_id in maps:
-            result = "../tmp/task_%d/map_%d/%s.json" % (task_id, map_id, algorithm)
+            result = "../tmp/%s/map_%d/%s.json" % (task_type, map_id, algorithm)
             tester = Tester(None, None, None, None, None, None, None, result)
             ret = tester.export_results()
             if normalized_rewards is None:
@@ -269,7 +282,7 @@ def export_results(algorithm, task, task_id):
                 for j in range(len(normalized_rewards)):
                     normalized_rewards[j][1] = np.append(normalized_rewards[j][1], ret[j][1])
         # Saving the results
-        folders_out = "../tmp/%s/%s" % (task, map_type)
+        folders_out = "../results/%s/%s" % (task_type, map_type)
         if not os.path.exists(folders_out): os.makedirs(folders_out)
         file_out = "%s/%s.txt" % (folders_out, algorithm)
         f_out = open(file_out, "w")
@@ -303,14 +316,14 @@ def read_json(fpath):
 
 
 if __name__ == "__main__":
-    # EXAMPLE: python3 test_utils.py --algorithm="lpopl" --tasks="sequence"
+    # EXAMPLE: python test_utils.py --algorithm=lpopl --tasks=sequence
 
     # Getting params
     algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
     tasks = ["sequence", "interleaving", "safety"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description="Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.")
-    parser.add_argument("--algorithm", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algorithms))
+    parser.add_argument("--algo", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algorithms))
     parser.add_argument("--tasks", default="sequence", type=str, help="This parameter indicated which tasks to solve. The options are: " + str(tasks))
 
     args = parser.parse_args()
@@ -319,4 +332,4 @@ if __name__ == "__main__":
     if args.tasks not in tasks:
         raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
 
-    export_results(args.algorithm, args.tasks, tasks.index(args.tasks))
+    export_results(args.algorithm, args.tasks)

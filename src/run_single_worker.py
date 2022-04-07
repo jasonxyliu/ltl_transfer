@@ -1,4 +1,5 @@
 import os
+import time
 import dill
 import argparse
 from collections import defaultdict
@@ -8,15 +9,17 @@ from game import *
 from policy_bank import *
 
 
-def initialize_policy_bank(sess, task_aux, tester):
+def initialize_policy_bank(sess, task_aux, tester, ltl, f_task):
     num_actions = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
     policy_bank = PolicyBank(sess, num_actions, num_features, tester.learning_params)
-    for f_task in tester.get_LTL_tasks():
-        dfa = DFA(f_task)
-        for ltl in dfa.ltl2state:
-            # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
-            policy_bank.add_LTL_policy(ltl, f_task, dfa)
+
+    policy_bank.add_LTL_policy(ltl, f_task, DFA(f_task))
+    # for f_task in tester.get_LTL_tasks():
+    #     dfa = DFA(f_task)
+    #     for ltl in dfa.ltl2state:
+    #         # this method already checks that the policy is not in the bank and it is not 'True' or 'False'
+    #         policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
     # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
@@ -40,6 +43,13 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
     init_state = id2state[state_id]
     # print("init_state: ", init_state, state_id)
 
+    # load subtask LTL and its corresponding full LTL
+    with open(os.path.join(classifier_dpath, "id2ltls.pkl"), "rb") as file:
+        id2ltls = dill.load(file)
+    ltl, f_task = id2ltls[ltl_id]
+    # print("policy for ltl %d: %s" % (ltl_id, str(ltl)))
+    # print("full ltl: ", f_task)
+
     # create task_aux
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
 
@@ -49,11 +59,12 @@ def single_worker_rollouts(alg_name, classifier_dpath, run_id, ltl_id, state_id,
 
     with tf.Session(config=config) as sess:
         # load policy_bank
-        policy_bank = initialize_policy_bank(sess, task_aux, tester)
+        # start_time = time.time()
+        policy_bank = initialize_policy_bank(sess, task_aux, tester, ltl, f_task)
         loader.load_policy_bank(run_id, sess)
+        # print("took %0.2f mins to load policy: %s" % ((time.time() - start_time) / 60, str(ltl)))
 
-        id2ltl = {pid: policy for policy, pid in policy_bank.policy2id.items()}
-        ltl = id2ltl[ltl_id]
+        # ltl = policy_bank.policies[ltl_id]
         # print("policy for ltl: ", ltl)
 
         # run rollouts
@@ -106,18 +117,23 @@ def rollout(tester, policy_bank, ltl, init_loc, n_rollouts, max_depth):
 
 
 if __name__ == "__main__":
-    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
+    algos = ["zero_shot_transfer"]
     id2tasks = {
         0: "sequence",
         1: "interleaving",
         2: "safety",
         3: "transfer_sequence",
         4: "transfer_interleaving",
+        5: "hard",
+        7: "mixed",
+        8: "soft_strict",
+        9: "soft",
+        10: "no_orders",
     }  # for reference
 
     parser = argparse.ArgumentParser(prog="run_single_rollout", description="Rollout a trained policy from a given state.")
-    parser.add_argument("--algo", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
-    parser.add_argument("--tasks_id", default=4, type=int, help="This parameter indicated which tasks to solve. The options are: " + str(id2tasks.keys()))
+    parser.add_argument("--algo", default="zero_shot_transfer", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
+    parser.add_argument("--train_type", default="soft", type=int, help="This parameter indicated which tasks to solve. The options are: " + str(id2tasks.values()))
     parser.add_argument("--map_id", default=0, type=int, help="This parameter indicated the ID of map to run rollouts")
     parser.add_argument("--run_id", default=0, type=int, help="This parameter indicated the ID of the training run when models are saved")
     parser.add_argument("--ltl_id", default=9, type=int, help="This parameter indicated the ID of trained policy to rollout")
@@ -126,8 +142,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_depth", default=100, type=int, help="This parameter indicated maximum depth of a rollout")
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
-    if args.tasks_id not in id2tasks: raise NotImplementedError("Tasks " + str(id2tasks[args.tasks_id]) + " hasn't been defined yet")
+    if args.train_type not in id2tasks.values: raise NotImplementedError("Tasks " + str(args.train_type) + " hasn't been defined yet")
     if not (-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (args.tasks_id, args.map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp", "%s/map_%d" % (args.train_type, args.map_id), "classifier")
     single_worker_rollouts(args.algo, classifier_dpath, args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)

@@ -3,7 +3,7 @@ import baseline_dqn
 import baseline_hrl
 import lpopl
 import zero_shot_transfer
-from test_utils import TestingParameters, Tester, Saver, Loader
+from test_utils import TestingParameters, Tester, Saver
 from curriculum import CurriculumLearner
 
 
@@ -52,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, tasks, train_size, test_tasks, num_times, r_good, run_id, relabel_method, show_print):
+def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, show_print):
     # configuration of testing params
     testing_params = TestingParameters()
 
@@ -60,14 +60,13 @@ def run_experiment(alg_name, map_id, tasks_id, tasks, train_size, test_tasks, nu
     learning_params = LearningParameters()
 
     # Setting the experiment
-    tester = Tester(learning_params, testing_params, map_id, tasks_id, tasks, train_size, test_tasks)
+    tester = Tester(learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type)
 
     # Setting the curriculum learner
     curriculum = CurriculumLearner(tester.tasks, r_good=r_good)
 
     # Setting up the saver
     saver = Saver(alg_name, tester)
-    loader = Loader(saver)
 
     # Baseline 1 (standard DQN with Michael Littman's approach)
     if alg_name == "dqn-l":
@@ -83,51 +82,51 @@ def run_experiment(alg_name, map_id, tasks_id, tasks, train_size, test_tasks, nu
 
     # LPOPL
     if alg_name == "lpopl":
-        lpopl.run_experiments(tester, curriculum, saver, num_times, show_print)
+        lpopl.run_experiments(tester, curriculum, saver, num_times, train_steps, show_print)
 
     # Relabel state-centric options learn by LPOPL then zero-shot transfer
     if alg_name == "zero_shot_transfer":
-        zero_shot_transfer.run_experiments(tester, curriculum, saver, loader, run_id, relabel_method)
+        zero_shot_transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method)
 
 
-def run_multiple_experiments(alg, tasks_id, tasks, train_size, test_tasks, run_id, relabel_method):
+def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, train_steps, run_id, relabel_method):
     num_times = 3
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
-        print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-        run_experiment(alg, map_id, tasks_id, tasks, train_size, test_tasks, num_times, r_good, run_id, relabel_method, show_print)
+        print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks:", train_type)
+        run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, show_print)
 
 
-def run_single_experiment(alg, tasks_id, tasks, train_size, test_tasks, map_id, run_id, relabel_method):
+def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_id, train_steps, run_id, relabel_method):
     num_times  = 1  # each algo was run 3 times per map in the paper
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
-    print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks_id:", tasks_id)
-    run_experiment(alg, map_id, tasks_id, tasks, train_size, test_tasks, num_times, r_good, run_id, relabel_method, show_print)
+    print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks:", train_type)
+    run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, show_print)
 
 
 if __name__ == "__main__":
-    # EXAMPLE: python3 run_experiments.py --algorithm="lpopl" --tasks="sequence" --map=0
+    # EXAMPLE: python run_experiments.py --algo=lpopl --train_type=sequence --map=0
 
     # Getting params
     algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
-    tasks      = [
+    train_types = [
         "sequence",
         "interleaving",
         "safety",
         "transfer_sequence",
         "transfer_interleaving",
-        "hard"
+        "hard",
         "mixed",
         "soft_strict",
         "soft",
         "no_orders",
     ]
-    test_tasks = [
-        "hard"
+    test_types = [
+        "hard",
         "mixed",
         "soft_strict",
         "soft",
@@ -138,35 +137,34 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
     parser.add_argument('--algo', default='lpopl', type=str,
                         help='This parameter indicated which RL algorithm to use. The options are: ' + str(algos))
-    parser.add_argument('--tasks', default='sequence', type=str,
-                        help='This parameter indicated which tasks to solve. The options are: ' + str(tasks))
+    parser.add_argument('--train_type', default='sequence', type=str,
+                        help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
     parser.add_argument('--train_size', default=10, type=int,
                         help='This parameter indicated the number of LTLs in the training set')
-    parser.add_argument('--test_tasks', default='sequence', type=str,
-                        help='This parameter indicated which test tasks to solve. The options are: ' + str(test_tasks))
+    parser.add_argument('--test_type', default='soft', type=str,
+                        help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
+    parser.add_argument('--train_steps', default=10000, type=int,
+                        help='This parameter indicated the total training steps')
     parser.add_argument('--run_id', default=0, type=int,
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
     # parser.add_argument('--load_trained', action="store_true",
     #                     help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
-    parser.add_argument('--relabel_method', default='', type=str,
+    parser.add_argument('--relabel_method', default='cluster', type=str,
                         help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
-    if args.tasks not in tasks: raise NotImplementedError("Training Tasks " + str(args.tasks) + " hasn't been defined yet")
-    if args.test_tasks not in test_tasks: raise NotImplementedError("Test Tasks " + str(args.test_tasks) + " hasn't been defined yet")
+    if args.train_type not in train_types: raise NotImplementedError("Training tasks " + str(args.train_type) + " hasn't been defined yet")
+    if args.test_type not in test_types: raise NotImplementedError("Test tasks " + str(args.test_type) + " hasn't been defined yet")
     if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
     # Running the experiment
-    alg        = args.algo
-    tasks_id   = tasks.index(args.tasks)
-    tasks      = args.tasks
-    train_size = args.train_size
-    test_tasks = args.test_tasks
-    map_id     = args.map
-
+    tasks_id   = train_types.index(args.train_type)
+    map_id = args.map
     if map_id > -1:
-        run_single_experiment(alg, tasks_id, tasks, train_size, test_tasks, map_id, args.run_id, args.relabel_method)
+        run_single_experiment(args.algo, tasks_id, args.train_type, args.train_size, args.test_type,
+                              map_id, args.train_steps, args.run_id, args.relabel_method)
     else:
-        run_multiple_experiments(alg, tasks_id, tasks, train_size, test_tasks, args.run_id, args.relabel_method)
+        run_multiple_experiments(args.algo, tasks_id, args.train_type, args.train_size, args.test_type,
+                                 args.train_steps, args.run_id, args.relabel_method)

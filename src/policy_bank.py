@@ -16,8 +16,8 @@ class PolicyBank:
         self.a = tf.placeholder(tf.int32)
         self.s2 = tf.placeholder(tf.float64, [None, num_features])
         # List of policies
-        self.policies = []
-        self.policy2id = {}
+        self.policies = []  # neural networks
+        self.policy2id = {}  # ltl to ltl id
         # adding 'False' and 'True' policies
         self._add_constant_policy("False", 0.0)
         self._add_constant_policy("True", 1/learning_params.gamma)  # this ensures that reaching 'True' gives reward of 1
@@ -26,10 +26,17 @@ class PolicyBank:
         policy = ConstantPolicy(ltl, value, self.s2, self.num_features)
         self._add_policy(ltl, policy)
 
-    def add_LTL_policy(self, ltl, f_task, dfa):
+    def add_LTL_policy(self, ltl, f_task, dfa, load_tf=True):
         if ltl not in self.policy2id:
-            policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr)
+            policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr, load_tf=load_tf)
             self._add_policy(ltl, policy)
+
+    def replace_policy(self, ltl, f_task, dfa):
+        """
+        Replace an empty policy without TF model by a policy with TF model
+        """
+        policy = Policy(ltl, f_task, dfa, self.sess, self.s1, self.a, self.s2, self.num_features, self.num_actions, self.learning_params.gamma, self.learning_params.lr, load_tf=True)
+        self.policies[self.policy2id[ltl]] = policy
 
     def _add_policy(self, ltl, policy):
         self.policy2id[ltl] = len(self.policies)
@@ -116,13 +123,15 @@ class ConstantPolicy:
 
 
 class Policy:
-    def __init__(self, ltl, f_task, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr):
+    def __init__(self, ltl, f_task, dfa, sess, s1, a, s2, num_features, num_actions, gamma, lr, load_tf=True):
         self.ltl = ltl  # ltl subtask this policy is trained to solve
         self.f_task = f_task  # the full ltl task which self.ltl is a part of
         self.dfa = dfa  # the dfa for the full ltl task
         self.sess = sess
         self.ltl_scope_name = str(ltl).replace("&", "AND").replace("|", "OR").replace("!", "NOT").replace("(", "P1_").replace(")", "_P2").replace("'", "").replace(" ", "").replace(",", "_")
-        self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
+        if load_tf:
+            self._initialize_model(s1, a, s2, num_features, num_actions, gamma, lr)
+        self.load_tf = load_tf
         self.edge2classifier = {}
 
     def _initialize_model(self, s1, a, s2, num_features, num_actions, gamma, lr):
@@ -148,6 +157,7 @@ class Policy:
             # Initializing the network values
             self.sess.run(tf.variables_initializer(self._get_network_variables()))
             self.update_target_network()  # copying weights to target net
+        self.load_tf = True
 
     def _get_network_variables(self):
         return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.ltl_scope_name)

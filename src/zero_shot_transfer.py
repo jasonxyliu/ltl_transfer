@@ -17,13 +17,15 @@ from lpopl import _initialize_policy_bank, _test_LPOPL
 from policy_bank import *
 from dfa import *
 from game import *
-from test_utils import save_pkl, load_pkl, save_json
+from test_utils import Loader, save_pkl, load_pkl, save_json
 from run_single_worker import single_worker_rollouts
 
-CHUNK_SIZE = 94
+CHUNK_SIZE = 441
 
 
-def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method):
+def run_experiments(tester, curriculum, saver, run_id, relabel_method):
+    loader = Loader(saver)
+
     time_init = time.time()
     learning_params = tester.learning_params
 
@@ -34,12 +36,12 @@ def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method):
     curriculum.restart()
 
     # Initializing policies per each subtask
-    policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester)
-    loader.load_policy_bank(run_id, sess)
-    
-    task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
-    num_features = task_aux.get_num_features()
-    tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
+    policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=False)
+    # loader.load_policy_bank(run_id, sess)
+
+    # task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
+    # num_features = task_aux.get_num_features()
+    # tester.run_test(-1, sess, _test_LPOPL, policy_bank, num_features)  # -1 to signal test after restore models
     # print(tester.results)
 
     # Relabel state-centric options to transition-centric options if not already done
@@ -50,13 +52,14 @@ def run_experiments(tester, curriculum, saver, loader, run_id, relabel_method):
             relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
 
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
-    zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, 1, curriculum.num_steps)
+    zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, 1, curriculum.num_steps)
 
     tf.reset_default_graph()
     sess.close()
 
     # Log transfer results
     tester.log_results("Time: %0.2f mins\n" % ((time.time() - time_init)/60))
+    print("Time: %0.2f mins\n\n" % ((time.time() - time_init) / 60))
     saver.save_transfer_results()
 
     # Save LTL formula to ID mapping
@@ -77,7 +80,11 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     """
     print('RELABELING STATE CENTRIC OPTIONS')
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
-    state2id = saver.save_training_data(task_aux)
+    id2ltls = {}
+    for ltl in policy_bank.get_LTL_policies():
+        ltl_id = policy_bank.get_id(ltl)
+        id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
+    state2id = saver.save_transfer_data(task_aux, id2ltls)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
     loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
     completed_ltls = []
@@ -99,7 +106,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
             for x, y in locs:
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    arg = (saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+                    arg = (saver.alg_name, tester.train_type, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     args.append(arg)
             args2 = deepcopy(args)
 
@@ -111,19 +118,16 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                     if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, arg)
                         retval = run_single_worker_cluster(*arg)
-                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
-        print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time() - start_time_ltl) / 60))
+                print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
+        print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
-        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {"completed_ltl": completed_ltls})
+        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), completed_ltls)
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 
-def run_single_worker_cluster(algo, task_id, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
-    # import os
-    # from run_single_worker import single_worker_rollouts
-
-    classifier_dpath = os.path.join("../tmp/", "task_%d/map_%d" % (task_id, map_id), "classifier")
+def run_single_worker_cluster(algo, train_type, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
+    classifier_dpath = os.path.join("../tmp/", "%s/map_%d" % (train_type, map_id), "classifier")
     rank = MPI.COMM_WORLD.Get_rank()
     name = MPI.Get_processor_name()
     # print(f"Running state {state_id} through process {rank} on {name}")
@@ -136,7 +140,11 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
     A worker runs n_rollouts from a specific location for each LTL formula in policy_bank
     """
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
-    state2id = saver.save_training_data(task_aux)
+    id2ltls = {}
+    for ltl in policy_bank.get_LTL_policies():
+        ltl_id = policy_bank.get_id(ltl)
+        id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
+    state2id = saver.save_transfer_data(task_aux, id2ltls)
     all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
     loc_chunks = [all_locs[chunk_id: chunk_id + CHUNK_SIZE] for chunk_id in range(0, len(all_locs), CHUNK_SIZE)]
     completed_ltls = []
@@ -168,8 +176,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    args = ("--algo=%s --tasks_id=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
-                            saver.alg_name, tester.tasks_id, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps))
+                    args = ("--algo=%s --train_type=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
+                            saver.alg_name, tester.train_type, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps))
                     worker_commands.append("python3 run_single_worker.py %s" % args)
             if worker_commands:
                 start_time_chunk = time.time()
@@ -179,10 +187,10 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                     if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, worker_command)
                         retval = os.system(worker_command)
-                print("chunk %s took: %0.2f, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
-        print("Completed LTL %s took: %0.2f" % (ltl_id, (time.time() - start_time_ltl) / 60))
+                print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(retvals)))
+        print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
-        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), {'completed_ltl': completed_ltls})
+        save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), completed_ltls)
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
@@ -229,7 +237,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
     Classifier (policy2edge2loc2prob) contain only outgoing edges that state-centric policies achieved during training,
     possibly not all outgoing edges.
     """
-    policy2loc2edge2hits = load_pkl(os.path.join(classifier_dpath, "rollout_results_parallel.pkl"))
+    policy2loc2edge2hits = load_pkl(os.path.join(classifier_dpath, "aggregated_rollout_results.pkl"))
     n_rollouts = policy2loc2edge2hits["n_rollouts"]
 
     policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
@@ -257,14 +265,15 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
     return policy2edge2loc2prob
 
 
-def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num_steps):
+def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, num_steps):
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    for transfer_task in transfer_tasks:
+    for task_idx, transfer_task in enumerate(transfer_tasks):
         # print("transfer_task: ", transfer_task)
         for num_time in range(num_times):
             tester.log_results("* Run %d Transfer Task: %s" % (num_time, str(transfer_task)))
+            print("* Run %d Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
             # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
@@ -282,16 +291,20 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
             simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
             simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
             tester.log_results("dfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            tester.log_results("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
+            print("dfa start: %d; goal: %s\n" % (task.dfa.state, str(task.dfa.terminal)))
+            # tester.log_results("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
+            # print("simple paths: %d, %s\n" % (len(simple_paths_node), str(simple_paths_node)))
 
             # Find all paths consists of only edges matching training edges
             feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, train_edges)
-            tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
+            # tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
+            # print("feasible paths: %s\n\n" % str(feasible_paths_node))
 
             total_reward = 0
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
                 tester.log_results("current node: %d" % cur_node)
+                print("current node: %d\n" % cur_node)
 
                 # Find all feasible paths the current node is on then candidate option edges to target
                 option_edges = []
@@ -305,7 +318,8 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
                         for train_edge_pair in train_edges:
                             if train_edge_pair not in option_edges and match_edges(test_edge_pair, [train_edge_pair]):
                                 option_edges.append(train_edge_pair)
-                tester.log_results("candidate edges: %s" % str(option_edges))
+                # tester.log_results("candidate edges: %s" % str(option_edges))
+                # print("candidate edges: %s\n" % str(option_edges))
 
                 # Find best edge to target based on rollout success probability from current location
                 option2prob = {}
@@ -317,23 +331,37 @@ def zero_shot_transfer(tester, policy_bank, policy2edge2loc2prob, num_times, num
                 if not option2prob:
                     tester.log_results("option2prob: %s" % str(option2prob))
                     tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    print("option2prob: %s\n" % str(option2prob))
+                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
                 while option2prob and cur_loc == next_loc:
                     best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
+                    # Overwrite empty policy by policy with tf model then load its weights when need to execute it
+                    policy = policy_bank.policies[policy_bank.policy2id[best_policy]]
+                    if not policy.load_tf:
+                        policy_bank.replace_policy(policy.ltl, policy.f_task, policy.dfa)
+                        loader.load_policy_bank(run_id, sess)
                     # Execute option
+                    tester.log_results("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
+                    tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
+                    print("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
+                    print("from policy %d: %s\n" % (policy_bank.get_id(best_policy), str(best_policy)))
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     if cur_loc != next_loc:
                         tester.task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
                         total_reward += option_reward
                         tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
+                        print("option changed loc: %s; option_reward: %d\n\n" % (str(cur_loc != next_loc), option_reward))
                     else:  # if best option did not change agent location, try second best option
                         print(option2prob)
                         print(cur_loc, next_loc)
                         del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc:
                     tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
             tester.log_results("current node: %d\n\n" % task.dfa.state)
+            print("current node: %d\n\n\n" % task.dfa.state)
             if task.ltl_game_over:
                 tester.task2success[str(transfer_task)] += 1
     tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
@@ -435,12 +463,11 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     'option_edge' is 1 outgoing edge associated with edge-centric option
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
     """
-    tester.log_results("target option edge: %s" % str(option_edge))
-    tester.log_results("from policy %d: %s" % (policy_bank.get_id(ltl_policy), str(ltl_policy)))
     num_features = task.get_num_features()
     option_reward, step = 0, 0
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
     tester.log_results("cur_loc: %s" % str(cur_loc))
+    print("cur_loc: %s" % str(cur_loc))
     # tester.log_results("initiation_set: %s" % str(edge2loc2prob[option_edge].keys()))
     # while not exceed max steps AND no DFA transition occurs AND option policy is still defined in current MDP state
     while step < num_steps and cur_node == task.dfa.state and cur_loc in edge2loc2prob[option_edge]:
@@ -451,6 +478,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
             break
         option_reward += task.execute_action(a)
         tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward
