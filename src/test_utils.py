@@ -46,14 +46,14 @@ class Tester:
             self.experiment = "%s/map_%d" % (train_type, map_id)
             self.map = "../experiments/maps/map_%d.txt" % map_id
             self.consider_night = False
-            if tasks_id == 0:
+            if train_type == "sequence":
                 self.tasks = tasks.get_sequence_of_subtasks()
-            elif tasks_id == 1:
+            elif train_type == "interleaving":
                 self.tasks = tasks.get_interleaving_subtasks()
-            elif tasks_id == 2:
+            elif train_type == "safety":
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
-            else:
+            else:  # transfer tasks
                 if train_type == 'transfer_sequence':
                     self.tasks = tasks.get_sequence_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
@@ -61,6 +61,7 @@ class Tester:
                     self.tasks = tasks.get_interleaving_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
                 else:
+                    self.experiment = "%s_%d/map_%d" % (train_type, train_size, map_id)
                     self.tasks, self.transfer_tasks = read_test_train_formulas(train_type, test_type, train_size)
                 self.transfer_results_dpath = os.path.join("../results", self.experiment)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
