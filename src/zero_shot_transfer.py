@@ -278,7 +278,7 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
             # Wrapper: DFA -> NetworkX graph
             dfa_graph = dfa2graph(task.dfa)
             for line in nx.generate_edgelist(dfa_graph):
-                tester.log_results("%s" % str(line))
+                # tester.log_results("%s" % str(line))
                 print(line)
             # pos = nx.circular_layout(dfa_graph)
             # nx.draw_networkx(dfa_graph, pos, with_labels=True)
@@ -289,13 +289,13 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
             # plt.show()
 
             print("\ntraining edges: ", train_edges)
-            tester.log_results("\ntraining edges: %s" % str(train_edges))
+            # tester.log_results("\ntraining edges: %s" % str(train_edges))
             # Remove edges in DFA that do not have a matching train edge
             test2trains = remove_infeasible_edges(dfa_graph, train_edges)
-            tester.log_results("\nNew DFA graph")
+            # tester.log_results("\nNew DFA graph")
             print("\nNew DFA graph")
             for line in nx.generate_edgelist(dfa_graph):
-                tester.log_results("%s" % str(line))
+                # tester.log_results("%s" % str(line))
                 print(line)
 
             # Graph search to find all simple/feasible paths from initial state to goal state
@@ -303,7 +303,7 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
             feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
             tester.log_results("\ndfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
             print("\ndfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
+            # tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
             print("feasible paths: %s\n" % str(feasible_paths_node))
             # feasible_edges = feasible_paths_edge
 
@@ -317,7 +317,7 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                 # Find all feasible paths the current node is on then candidate option edges to target
                 candidate_edges = set()
                 for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
-                    tester.log_results("checking feasible paths: %s" % str(feasible_path_node))
+                    # tester.log_results("checking feasible paths: %s" % str(feasible_path_node))
                     print("checking feasible path: ", feasible_path_node)
                     if cur_node in feasible_path_node:
                         pos = feasible_path_node.index(cur_node)  # current position on this path
@@ -329,7 +329,7 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                             if train_edge_pair in candidate_edges:
                                 print(train_edge_pair, "already in candidate set: ", candidate_edges)
                         candidate_edges.update(test2trains[test_edge_pair])
-                tester.log_results("candidate edges: %s\n" % str(candidate_edges))
+                # tester.log_results("candidate edges: %s\n" % str(candidate_edges))
                 print("candidate edges: %s\n" % str(candidate_edges))
 
                 # Find best edge to target based on rollout success probability from current location
