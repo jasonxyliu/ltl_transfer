@@ -87,9 +87,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=T
     task_aux = Game(tester.get_task_params(curriculum.get_current_task()))
     num_actions = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
-    # start_time = time.time()
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
-    # print("policy bank initialization took %0.2f mins" % ((time.time() - start_time)/60))
     for idx, f_task in enumerate(tester.get_LTL_tasks()):
         # start_time = time.time()
         dfa = DFA(f_task)
@@ -102,7 +100,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=T
         # print("took %0.2f mins to add policy" % ((time.time() - start_time)/60))
     if load_tf:
         policy_bank.reconnect()  # -> creating the connections between the neural nets
-    # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
+    print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
     return policy_bank
 
 
