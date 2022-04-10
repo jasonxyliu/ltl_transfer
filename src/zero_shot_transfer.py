@@ -291,7 +291,10 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
             print("\ntraining edges: ", train_edges)
             # tester.log_results("\ntraining edges: %s" % str(train_edges))
             # Remove edges in DFA that do not have a matching train edge
+            start_time = time.time()
             test2trains = remove_infeasible_edges(dfa_graph, train_edges)
+            tester.log_results("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
+            print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
             # tester.log_results("\nNew DFA graph")
             print("\nNew DFA graph")
             for line in nx.generate_edgelist(dfa_graph):
@@ -314,6 +317,7 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                 print("\ncurrent node: %d" % cur_node)
                 # out_edges = [(cur_node, next_node) for next_node in dfa_graph.successors(cur_node)]
 
+                start_time = time.time()
                 # Find all feasible paths the current node is on then candidate option edges to target
                 candidate_edges = set()
                 for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
@@ -331,7 +335,10 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                         candidate_edges.update(test2trains[test_edge_pair])
                 # tester.log_results("candidate edges: %s\n" % str(candidate_edges))
                 print("candidate edges: %s\n" % str(candidate_edges))
+                tester.log_results("took %0.2f mins to find all candidate edges" % ((time.time() - start_time) / 60))
+                print("took %0.2f mins to find all candidate edges" % ((time.time() - start_time) / 60))
 
+                start_time = time.time()
                 # Find best edge to target based on rollout success probability from current location
                 option2prob = {}
                 cur_loc = (task.agent.i, task.agent.j)
@@ -339,12 +346,15 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                 for self_edge, out_edge in candidate_edges:
                     for ltl in edge2ltls[(self_edge, out_edge)]:
                         option2prob[(ltl, self_edge, out_edge)] = policy2edge2loc2prob[ltl][out_edge][cur_loc]
+                tester.log_results("took %0.2f mins to collect success probs" % ((time.time() - start_time) / 60))
+                print("took %0.2f mins to collect success probs" % ((time.time() - start_time) / 60))
                 if not option2prob:
                     tester.log_results("option2prob: %s" % str(option2prob))
                     print("option2prob: %s" % str(option2prob))
                     tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     print("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
+                start_time = time.time()
                 while option2prob and cur_loc == next_loc:
                     best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
                     # Overwrite empty policy by policy with tf model then load its weights when need to execute it
@@ -368,9 +378,11 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                         print(cur_loc, next_loc)
                         del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc:
-                    tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
-                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    tester.log_results("No options found to achieve task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    print("No options found to achieve task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
                     break
+                tester.log_results("took %0.2f mins to execute option" % ((time.time() - start_time) / 60))
+                print("took %0.2f mins to execute option" % ((time.time() - start_time) / 60))
             tester.log_results("current node: %d\n\n" % task.dfa.state)
             print("current node: %d\n\n" % task.dfa.state)
             if task.ltl_game_over:
