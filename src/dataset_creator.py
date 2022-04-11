@@ -131,5 +131,5 @@ def count_unique_formulas(tasks, print_prompt):
 
 
 if __name__ == '__main__':
-    # create_datasets(set_types=["no_orders"], duplicate_ok=False)
+    create_datasets(set_types=["no_orders"], duplicate_ok=False)
     examine_train_test_sets(train_type='no_orders', test_type='no_orders')  # examine train and test sets
