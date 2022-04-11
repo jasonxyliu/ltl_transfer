@@ -7,7 +7,7 @@ from collections import defaultdict
 import numpy as np
 import tensorflow as tf
 from game import GameParams, Game
-from dataset_creator import read_test_train_formulas
+from dataset_creator import read_train_test_formulas
 import tasks
 
 
@@ -62,7 +62,7 @@ class Tester:
                     self.transfer_tasks = tasks.get_transfer_tasks()
                 else:
                     self.experiment = "%s_%d/map_%d" % (train_type, train_size, map_id)
-                    self.tasks, self.transfer_tasks = read_test_train_formulas(train_type, test_type, train_size)
+                    self.tasks, self.transfer_tasks = read_train_test_formulas(train_type, test_type, train_size)
                 self.transfer_results_dpath = os.path.join("../results", self.experiment)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
