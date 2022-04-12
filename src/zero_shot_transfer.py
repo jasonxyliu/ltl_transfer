@@ -265,7 +265,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
                     wf.write("\n")
     return policy2edge2loc2prob
 
-def zero_shot_transfer_cluster(tester, loader, run_id, policy2edge2loc2prob, num_times, num_steps, num_steps, learning_params, curriculum):
+def zero_shot_transfer_cluster(tester, loader, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum):
     # Precompute common computations
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
