@@ -68,12 +68,12 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
             task_params = tester.get_task_params(task)
             _run_LPOPL(sess, policy_bank, task_params, tester, curriculum, replay_buffer, show_print)
             num_tasks += 1
-        # Save 'policy_bank' for incremental training and transferring
-        saver.save_policy_bank(policy_bank, run_id)
-        # Backing up the results
-        saver.save_results()
-        # Save 'tester' and 'curriculum' for incremental training
-        saver.save_train_data(curriculum, run_id)
+            # Save 'policy_bank' for incremental training and transfer
+            saver.save_policy_bank(policy_bank, run_id)
+            # Backing up the results
+            saver.save_results()
+            # Save 'tester' and 'curriculum' for incremental training
+            saver.save_train_data(curriculum, run_id)
 
         tf.reset_default_graph()
         sess.close()
