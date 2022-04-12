@@ -66,7 +66,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
     start_time = time.time()
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
     print("took %0.2f mins to construct inititation set classifier" % ((time.time() - start_time)/60))
-    zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum)
+    zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2loc2prob, num_times, curriculum.num_steps, learning_params, curriculum)
 
     tf.reset_default_graph()
     sess.close()
