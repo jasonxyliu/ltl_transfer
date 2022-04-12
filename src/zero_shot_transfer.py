@@ -347,7 +347,7 @@ def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_ti
                 success += 1
         success = success/num_times
         print('Option execution complete')
-        print('Success: ', Success)
+        print('Success: ', success)
     return success, run2sol
 
 
