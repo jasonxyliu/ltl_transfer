@@ -66,7 +66,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
     start_time = time.time()
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
     print("took %0.2f mins to construct inititation set classifier" % ((time.time() - start_time)/60))
-    zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
+    zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
 
     tf.reset_default_graph()
     sess.close()
@@ -110,7 +110,8 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                     # create command to run a single worker
                     arg = (saver.alg_name, tester.train_type, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     args.append(arg)
-            args2 = deepcopy(args)
+            args_len = len(args)
+            # args2 = deepcopy(args)
 
             if args:
                 start_time_chunk = time.time()
@@ -120,7 +121,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                     if retval:  # os.system exit code 0 means correct execution
                         print("Command failed: ", retval, arg)
                         retval = run_single_worker_cluster(*arg)
-                print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, len(args2)))
+                print("chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, args_len))
         print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
         save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), completed_ltls)
@@ -266,79 +267,88 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
     return policy2edge2loc2prob
 
 
-def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, num_steps):
+def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, num_steps):
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
     for task_idx, transfer_task in enumerate(transfer_tasks):
+        tester.log_results("== Transfer Task %d: %s" % (task_idx, str(transfer_task)))
+        print("== Transfer Task %d: %s\n" % (task_idx, str(transfer_task)))
+
+        task_aux = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
+        # Wrapper: DFA -> NetworkX graph
+        dfa_graph = dfa2graph(task_aux.dfa)
+        for line in nx.generate_edgelist(dfa_graph):
+            print(line)
+
+        print("\ntraining edges: ", train_edges)
+        # Remove edges in DFA that do not have a matching train edge
+        start_time = time.time()
+        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
+
+        if not test2trains:
+            tester.log_results("DFA graph disconnected after removing infeasible edges\n")
+            print("DFA graph disconnected after removing infeasible edges\n")
+            pos = nx.circular_layout(dfa_graph)
+            nx.draw_networkx(dfa_graph, pos, with_labels=True)
+            nx.draw_networkx_edges(dfa_graph, pos)
+            ax = plt.gca()
+            ax.margins(0.20)
+            plt.axis("off")
+            plt.savefig(os.path.join(tester.experiment, "transfer_task_%d" % task_idx))
+            plt.show()
+            continue
+        tester.log_results("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
+        print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
+        print("\nNew DFA graph")
+        for line in nx.generate_edgelist(dfa_graph):
+            print(line)
+
+        # Graph search to find all simple/feasible paths from initial state to goal state
+        feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
+        feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
+        tester.log_results("\ndfa start: %d; goal: %s" % (task_aux.dfa.state, str(task_aux.dfa.terminal)))
+        print("\ndfa start: %d; goal: %s" % (task_aux.dfa.state, str(task_aux.dfa.terminal)))
+        print("feasible paths: %s\n" % str(feasible_paths_node))
+
+        if not feasible_paths_node:
+            tester.log_results("No feasible DFA paths found to achieve this transfer task\n")
+            print("No feasible DFA paths found to achieve this transfer task\n")
+            pos = nx.circular_layout(dfa_graph)
+            nx.draw_networkx(dfa_graph, pos, with_labels=True)
+            nx.draw_networkx_edges(dfa_graph, pos)
+            ax = plt.gca()
+            ax.margins(0.20)
+            plt.axis("off")
+            plt.savefig(os.path.join(tester.experiment, "transfer_task_%d" % task_idx))
+            plt.show()
+            continue
+
         for num_time in range(num_times):
-            tester.log_results("* Run %d Transfer Task %d: %s" % (num_time, task_idx, str(transfer_task)))
-            print("* Run %d Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
+            tester.log_results("** Run %d. Transfer Task %d: %s" % (num_time, task_idx, str(transfer_task)))
+            print("** Run %d. Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
+
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
-            # Wrapper: DFA -> NetworkX graph
-            dfa_graph = dfa2graph(task.dfa)
-            for line in nx.generate_edgelist(dfa_graph):
-                # tester.log_results("%s" % str(line))
-                print(line)
-            # pos = nx.circular_layout(dfa_graph)
-            # nx.draw_networkx(dfa_graph, pos, with_labels=True)
-            # nx.draw_networkx_edges(dfa_graph, pos)
-            # ax = plt.gca()
-            # ax.margins(0.20)
-            # plt.axis("off")
-            # plt.show()
-
-            print("\ntraining edges: ", train_edges)
-            # tester.log_results("\ntraining edges: %s" % str(train_edges))
-            # Remove edges in DFA that do not have a matching train edge
-            start_time = time.time()
-            test2trains = remove_infeasible_edges(dfa_graph, train_edges)
-            tester.log_results("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
-            print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
-            # tester.log_results("\nNew DFA graph")
-            print("\nNew DFA graph")
-            for line in nx.generate_edgelist(dfa_graph):
-                # tester.log_results("%s" % str(line))
-                print(line)
-
-            # Graph search to find all simple/feasible paths from initial state to goal state
-            feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
-            feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
-            tester.log_results("\ndfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            print("\ndfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            # tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
-            print("feasible paths: %s\n" % str(feasible_paths_node))
-            # feasible_edges = feasible_paths_edge
-
             total_reward = 0
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
                 tester.log_results("\ncurrent node: %d" % cur_node)
                 print("\ncurrent node: %d" % cur_node)
+                # optimization: check what outgoing edges are on a feasible path
                 # out_edges = [(cur_node, next_node) for next_node in dfa_graph.successors(cur_node)]
 
-                start_time = time.time()
                 # Find all feasible paths the current node is on then candidate option edges to target
                 candidate_edges = set()
                 for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
-                    # tester.log_results("checking feasible paths: %s" % str(feasible_path_node))
-                    print("checking feasible path: ", feasible_path_node)
                     if cur_node in feasible_path_node:
                         pos = feasible_path_node.index(cur_node)  # current position on this path
                         test_edge = feasible_path_edge[pos]
                         self_edge = dfa_graph.edges[test_edge[0], test_edge[0]]["edge_label"]  # self_edge label
                         out_edge = dfa_graph.edges[test_edge]["edge_label"]  # get boolean formula for outgoing edge
                         test_edge_pair = (self_edge, out_edge)
-                        for train_edge_pair in test2trains[test_edge_pair]:
-                            if train_edge_pair in candidate_edges:
-                                print(train_edge_pair, "already in candidate set: ", candidate_edges)
                         candidate_edges.update(test2trains[test_edge_pair])
-                # tester.log_results("candidate edges: %s\n" % str(candidate_edges))
                 print("candidate edges: %s\n" % str(candidate_edges))
-                tester.log_results("took %0.2f mins to find all candidate edges" % ((time.time() - start_time) / 60))
-                print("took %0.2f mins to find all candidate edges" % ((time.time() - start_time) / 60))
 
-                start_time = time.time()
                 # Find best edge to target based on rollout success probability from current location
                 option2prob = {}
                 cur_loc = (task.agent.i, task.agent.j)
@@ -346,15 +356,10 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                 for self_edge, out_edge in candidate_edges:
                     for ltl in edge2ltls[(self_edge, out_edge)]:
                         option2prob[(ltl, self_edge, out_edge)] = policy2edge2loc2prob[ltl][out_edge][cur_loc]
-                tester.log_results("took %0.2f mins to collect success probs" % ((time.time() - start_time) / 60))
-                print("took %0.2f mins to collect success probs" % ((time.time() - start_time) / 60))
                 if not option2prob:
-                    tester.log_results("option2prob: %s" % str(option2prob))
-                    print("option2prob: %s" % str(option2prob))
-                    tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
-                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    tester.log_results("No options found at DFA state %d, location %s\n" % (cur_node, str(cur_loc)))
+                    print("No options found at DFA state %d, location %s\n" % (cur_node, str(cur_loc)))
                     break
-                start_time = time.time()
                 while option2prob and cur_loc == next_loc:
                     best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
                     # Overwrite empty policy by policy with tf model then load its weights when need to execute it
@@ -378,114 +383,11 @@ def zero_shot_transfer_optimized(tester, policy_bank, loader, run_id, sess, poli
                         print(cur_loc, next_loc)
                         del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc:
-                    tester.log_results("No options found to achieve task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
-                    print("No options found to achieve task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
+                    tester.log_results("No options progress LTL from DFA state %d, location %s\n" % (cur_node, str(cur_loc)))
+                    print("No options progress LTL from DFA state %d, location %s\n" % (cur_node, str(cur_loc)))
                     break
-                tester.log_results("took %0.2f mins to execute option" % ((time.time() - start_time) / 60))
-                print("took %0.2f mins to execute option" % ((time.time() - start_time) / 60))
             tester.log_results("current node: %d\n\n" % task.dfa.state)
             print("current node: %d\n\n" % task.dfa.state)
-            if task.ltl_game_over:
-                tester.task2success[str(transfer_task)] += 1
-    tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
-
-
-def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, num_steps):
-    transfer_tasks = tester.get_transfer_tasks()
-    train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
-
-    for task_idx, transfer_task in enumerate(transfer_tasks):
-        for num_time in range(num_times):
-            # tester.log_results("* Run %d Transfer Task %d: %s" % (num_time, task_idx, str(transfer_task)))
-            print("* Run %d Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
-            task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
-            # Wrapper: DFA -> NetworkX graph
-            dfa_graph = dfa2graph(task.dfa)
-            # for edge, edge_data in dfa_graph.edges.items():
-            #     print(edge, edge_data)
-            # pos = nx.circular_layout(dfa_graph)
-            # nx.draw_networkx(dfa_graph, pos, with_labels=True)
-            # nx.draw_networkx_edges(dfa_graph, pos)
-            # ax = plt.gca()
-            # ax.margins(0.20)
-            # plt.axis("off")
-            # plt.show()
-
-            # Graph search to find all simple paths from initial state to goal state
-            simple_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
-            simple_paths_edge = [list(path) for path in map(nx.utils.pairwise, simple_paths_node)]
-            # tester.log_results("dfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            print("dfa start: %d; goal: %s\n" % (task.dfa.state, str(task.dfa.terminal)))
-            # tester.log_results("simple paths: %d, %s" % (len(simple_paths_node), str(simple_paths_node)))
-            # print("simple paths: %d, %s\n" % (len(simple_paths_node), str(simple_paths_node)))
-
-            # Find all paths consists of only edges matching training edges
-            feasible_paths_node, feasible_paths_edge = feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, train_edges)
-            # tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
-            # print("feasible paths: %s\n\n" % str(feasible_paths_node))
-
-            total_reward = 0
-            while not task.ltl_game_over and not task.env_game_over:
-                cur_node = task.dfa.state
-                # tester.log_results("current node: %d" % cur_node)
-                print("current node: %d\n" % cur_node)
-
-                # Find all feasible paths the current node is on then candidate option edges to target
-                candidate_edges = []
-                for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
-                    if cur_node in feasible_path_node:
-                        pos = feasible_path_node.index(cur_node)  # current position on this path
-                        test_edge = feasible_path_edge[pos]
-                        self_edge = dfa_graph.edges[test_edge[0], test_edge[0]]["edge_label"]  # self_edge label
-                        test_edge = dfa_graph.edges[test_edge]["edge_label"]  # get boolean formula for outgoing edge
-                        test_edge_pair = (self_edge, test_edge)
-                        for train_edge_pair in train_edges:
-                            if train_edge_pair not in candidate_edges and match_edges(test_edge_pair, [train_edge_pair]):
-                                candidate_edges.append(train_edge_pair)
-                # tester.log_results("candidate edges: %s" % str(candidate_edges))
-                # print("candidate edges: %s\n" % str(candidate_edges))
-
-                # Find best edge to target based on rollout success probability from current location
-                option2prob = {}
-                cur_loc = (task.agent.i, task.agent.j)
-                next_loc = cur_loc
-                for self_edge, out_edge in candidate_edges:
-                    for ltl in edge2ltls[(self_edge, out_edge)]:
-                        option2prob[(ltl, self_edge, out_edge)] = policy2edge2loc2prob[ltl][out_edge][cur_loc]
-                if not option2prob:
-                    # tester.log_results("option2prob: %s" % str(option2prob))
-                    print("option2prob: %s\n" % str(option2prob))
-                    # tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
-                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n\n" % (str(transfer_task), cur_node, str(cur_loc)))
-                    break
-                while option2prob and cur_loc == next_loc:
-                    best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
-                    # Overwrite empty policy by policy with tf model then load its weights when need to execute it
-                    policy = policy_bank.policies[policy_bank.policy2id[best_policy]]
-                    if not policy.load_tf:
-                        policy_bank.replace_policy(policy.ltl, policy.f_task, policy.dfa)
-                        loader.load_policy_bank(run_id, sess)
-                    # Execute option
-                    # tester.log_results("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
-                    print("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
-                    # tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
-                    print("from policy %d: %s\n" % (policy_bank.get_id(best_policy), str(best_policy)))
-                    next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
-                    if cur_loc != next_loc:
-                        tester.task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
-                        total_reward += option_reward
-                        # tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
-                        print("option changed loc: %s; option_reward: %d\n\n" % (str(cur_loc != next_loc), option_reward))
-                    else:  # if best option did not change agent location, try second best option
-                        print(option2prob)
-                        print(cur_loc, next_loc)
-                        del option2prob[(best_policy, best_self_edge, best_out_edge)]
-                if cur_loc == next_loc:
-                    # tester.log_results("No options found to achieve for task %s\n from DFA state %d, location %s\n" % (str(transfer_task), cur_node, str(cur_loc)))
-                    print("No options found to achieve for task %s\n from DFA state %d, location %s\n\n" % (str(transfer_task), cur_node, str(cur_loc)))
-                    break
-            # tester.log_results("current node: %d\n\n" % task.dfa.state)
-            print("current node: %d\n\n\n" % task.dfa.state)
             if task.ltl_game_over:
                 tester.task2success[str(transfer_task)] += 1
     tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
@@ -518,7 +420,7 @@ def dfa2graph(dfa):
     return nx.DiGraph(nodelist)
 
 
-def remove_infeasible_edges(dfa, train_edges):
+def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
     """
     Remove infeasible edges from DFA graph, and
     construct a mapping from test_edge_pair to a set of matching train_edge_pairs
@@ -537,27 +439,10 @@ def remove_infeasible_edges(dfa, train_edges):
                     is_matched = True
             if not is_matched:
                 dfa.remove_edge(edge[0], edge[1])
+                # optimization: return as soon as start and goal are not in the same connected component
+                if goal_state not in nx.node_connected_component(dfa.to_undirected(as_view=True), start_state):
+                    return None
     return test2trains
-
-
-def feasible_paths(dfa_graph, simple_paths_node, simple_paths_edge, training_edges):
-    """
-    A feasible path consists of only DFA edges seen in training
-    """
-    feasible_paths_node = []
-    feasible_paths_edge = []
-    for simple_path_node, simple_path_edge in zip(simple_paths_node, simple_paths_edge):
-        is_feasible_path = True
-        for edge in simple_path_edge:
-            self_edge = dfa_graph.edges[edge[0], edge[0]]["edge_label"]  # self_edge label
-            out_edge = dfa_graph.edges[edge]["edge_label"]  # get boolean formula for outgoing edge
-            if not match_edges((self_edge, out_edge), training_edges):
-                is_feasible_path = False
-                break
-        if is_feasible_path:
-            feasible_paths_node.append(simple_path_node)
-            feasible_paths_edge.append(simple_path_edge)
-    return feasible_paths_node, feasible_paths_edge
 
 
 def match_edges(test_edge_pair, train_edges):
