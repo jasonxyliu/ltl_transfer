@@ -291,8 +291,8 @@ def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_ti
     with tf.Session(config=config) as sess:
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=False)
 
-    success = 0
-    run2sol = defaultdict(list)
+        success = 0
+        run2sol = defaultdict(list)
 
         for num_time in range(num_times):
             task = Game(tester.get_task_params(transfer_tasks))
@@ -348,7 +348,7 @@ def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_ti
         success = success/num_times
         print('Option execution complete')
         print('Success: ', Success)
-        return success, run2sol
+    return success, run2sol
 
 
 
