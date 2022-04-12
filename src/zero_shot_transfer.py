@@ -21,6 +21,7 @@ from test_utils import Loader, save_pkl, load_pkl, save_json
 from run_single_worker import single_worker_rollouts
 
 CHUNK_SIZE = 441
+TRANSFER_CHUNK = 100
 
 
 def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times):
@@ -270,19 +271,27 @@ def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    transfer_task = transfer_tasks[0]
-    success, run2sol = zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_times, num_steps, learning_params, curriculum, tester)
+    task_chunks = [transfer_tasks[chunk_id: chunk_id + TRANSFER_CHUNK] for chunk_id in range(0, len(transfer_tasks), TRANSFER_CHUNK)]
 
-
-    '''
     # Define task parameters and arguments
-    args = []
-
+    retvals = []
+    for (i,task_chunk) in enumerate(task_chunks):
+        args = []
+        for transfer_task in transfer_tasks:
+            args.append((transfer_task, train_edges, edge2ltls, num_times, num_steps, learning_params, curriculum, tester))
     # Send tasks to parallel workers
-    with MPIPoolExecutor(max_workers=CHUNK_SIZE) as pool:  # parallelize over all locs in a chunk
-        retvals = pool.starmap(zero_shot_transfer_single_task, args)
+        print(f'Starting chunk {i} of {len(task_chunks)}')
+        start = time.time()
+        with MPIPoolExecutor(max_workers=TRANSFER_CHUNK) as pool:  # parallelize over all locs in a chunk
+            retvals_chunk = pool.starmap(zero_shot_transfer_single_task, args)
+        retvals.extend(retvals_chunk)
+        print(f'Completed chunk {i} of {len(task_chunks)} in {(time.time() - start)/60} minutes')
+
     # Accumulate results
-    '''
+        for (transfer_task, retval) in retvals:
+            tester.task2success[str(transfer_task)] = retval[0]
+            tester.task2run2sol[str(transfer_task)] = retval[1]
+
 
 def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_times, num_steps, learning_params, curriculum, tester):
     # Load the policy bank without loading the policies
@@ -298,14 +307,14 @@ def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_ti
             task = Game(tester.get_task_params(transfer_task))
             dfa_graph = dfa2graph(task.dfa)
 
-            print('Removing infeasible edges')
+            #print('Removing infeasible edges')
             test2trains = remove_infeasible_edges(dfa_graph, train_edges)
-            print('Enumerating feasible paths')
+            #print('Enumerating feasible paths')
             feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
             feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
 
             total_reward = 0
-            print('Testing on task')
+            #print('Testing on task')
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
                 candidate_edges = set()
@@ -346,8 +355,8 @@ def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_ti
             if task.ltl_game_over:
                 success += 1
         success = success/num_times
-        print('Option execution complete')
-        print('Success: ', success)
+        #print('Option execution complete')
+        #print('Success: ', success)
     return success, run2sol
 
 
