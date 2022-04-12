@@ -278,7 +278,7 @@ def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2
     for (i,task_chunk) in enumerate(task_chunks):
         args = []
         for transfer_task in transfer_tasks:
-            args.append((transfer_task, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum, tester))
+            args.append((transfer_task, list(train_edges), edge2ltls, num_times, num_steps, learning_params, curriculum, tester))
     # Send tasks to parallel workers
         print(f'Starting chunk {i} of {len(task_chunks)}')
         start = time.time()
@@ -293,7 +293,7 @@ def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2
             tester.task2run2sol[str(transfer_task)] = retval[1]
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
-def zero_shot_transfer_single_task(transfer_task, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum, tester):
+def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_times, num_steps, learning_params, curriculum, tester):
     # Load the policy bank without loading the policies
     print('Starting single worker')
     config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
