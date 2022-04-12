@@ -271,7 +271,7 @@ def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
     transfer_task = transfer_tasks[0]
-    success, run2sol = zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltl2, num_times, num_steps, learning_params, curriculum, tester)
+    success, run2sol = zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_times, num_steps, learning_params, curriculum, tester)
 
 
     '''
