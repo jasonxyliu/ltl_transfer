@@ -295,7 +295,7 @@ def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_ti
         run2sol = defaultdict(list)
 
         for num_time in range(num_times):
-            task = Game(tester.get_task_params(transfer_tasks))
+            task = Game(tester.get_task_params(transfer_task))
             dfa_graph = dfa2graph(task.dfa)
 
             print('Removing infeasible edges')
