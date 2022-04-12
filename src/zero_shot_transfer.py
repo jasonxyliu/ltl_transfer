@@ -66,7 +66,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
     start_time = time.time()
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
     print("took %0.2f mins to construct inititation set classifier" % ((time.time() - start_time)/60))
-    zero_shot_transfer_cluster(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
+    zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum)
 
     tf.reset_default_graph()
     sess.close()
@@ -265,7 +265,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
                     wf.write("\n")
     return policy2edge2loc2prob
 
-def zero_shot_transfer_cluster(tester, loader, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum):
+def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum):
     # Precompute common computations
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
