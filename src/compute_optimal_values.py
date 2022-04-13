@@ -1,7 +1,7 @@
 import time
 import argparse
 from game import GameParams, Game
-from dataset_creator import read_test_train_formulas
+from dataset_creator import read_train_test_formulas
 from value_iteration import evaluate_optimal_policy
 
 if __name__ == "__main__":
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         for task_id in task_ids:
             # Retrieve tasks for a LTL type
             task_type = train_types[task_id]
-            train_tasks, _ = read_test_train_formulas(task_type, test_type, train_size)
+            train_tasks, _ = read_train_test_formulas(task_type, test_type, train_size)
             task_aux = Game(GameParams(map_fpath, train_tasks[0], consider_night, init_dfa_state=None, init_loc=None))
             time_init = time.time()
             # Compute optimal steps for tasks of this LTL type in this map
