@@ -109,7 +109,7 @@ def examine_train_test_sets(train_type, test_type, train_sizes=TRAIN_SIZES):
         for train_task in train_tasks:
             if train_task in test_tasks:
                 train2occurs[train_task] += 1
-        print("%d tasks from train_%d occurred in test_%d more than once\n" % (len(train2occurs), train_size, TEST_SIZE))
+        print("%d tasks from %s_train_%d occurred in %s_test_%d more than once\n" % (len(train2occurs), train_type, train_size, test_type, TEST_SIZE))
         # for train_task, occurs in train2occurs.items():
         #     print("train_task occurs in test set %d times\n%s\n" % (occurs, str(train_task)))
     # Unique formulas in test set
