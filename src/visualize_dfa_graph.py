@@ -39,7 +39,7 @@ for task_idx, transfer_task in enumerate(tester.transfer_tasks):
         print(line)
 
     # Remove edges in DFA that do not have a matching train edge
-    test2trains = remove_infeasible_edges(dfa_graph, train_edges)
+    test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
     print("\nNew DFA graph")
     for line in nx.generate_edgelist(dfa_graph):
         print(line)
