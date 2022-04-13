@@ -289,14 +289,6 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
         if not test2trains:
             tester.log_results("DFA graph disconnected after removing infeasible edges\n")
             print("DFA graph disconnected after removing infeasible edges\n")
-            pos = nx.circular_layout(dfa_graph)
-            nx.draw_networkx(dfa_graph, pos, with_labels=True)
-            nx.draw_networkx_edges(dfa_graph, pos)
-            ax = plt.gca()
-            ax.margins(0.20)
-            plt.axis("off")
-            plt.savefig(os.path.join(tester.experiment, "transfer_task_%d" % task_idx))
-            plt.show()
             continue
         tester.log_results("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
         print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
@@ -314,14 +306,6 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
         if not feasible_paths_node:
             tester.log_results("No feasible DFA paths found to achieve this transfer task\n")
             print("No feasible DFA paths found to achieve this transfer task\n")
-            pos = nx.circular_layout(dfa_graph)
-            nx.draw_networkx(dfa_graph, pos, with_labels=True)
-            nx.draw_networkx_edges(dfa_graph, pos)
-            ax = plt.gca()
-            ax.margins(0.20)
-            plt.axis("off")
-            plt.savefig(os.path.join(tester.experiment, "transfer_task_%d" % task_idx))
-            plt.show()
             continue
 
         for num_time in range(num_times):
@@ -439,8 +423,10 @@ def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
                     is_matched = True
             if not is_matched:
                 dfa.remove_edge(edge[0], edge[1])
-                # optimization: return as soon as start and goal are not in the same connected component
-                if goal_state not in nx.node_connected_component(dfa.to_undirected(as_view=True), start_state):
+                # optimization: return as soon as start and goal are not connected
+                feasible_paths_node = list(nx.all_simple_paths(dfa, source=start_state, target=goal_state))
+                if not feasible_paths_node:
+                    print("short circuit remove_infeasible_edges")
                     return None
     return test2trains
 
