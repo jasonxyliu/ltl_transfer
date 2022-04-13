@@ -43,6 +43,7 @@ class Tester:
             self.map_id = map_id
             self.tasks_id = tasks_id
             self.train_type = train_type
+            self.train_size = train_size
             self.experiment = "%s/map_%d" % (train_type, map_id)
             self.map = "../experiments/maps/map_%d.txt" % map_id
             self.consider_night = False

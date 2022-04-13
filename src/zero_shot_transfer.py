@@ -45,7 +45,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
     # print(tester.results)
 
     # Save LTL formula to ID mapping
-    ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id.pkl")
+    ltl2id_pkl_fpath = os.path.join(saver.classifier_dpath, "ltl2id_%d.pkl" % tester.train_size)
     if not os.path.exists(ltl2id_pkl_fpath):
         ltl2id_pkl = {}
         ltl2id_json = {}
@@ -54,7 +54,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
             ltl2id_pkl[ltl] = ltl_id
             ltl2id_json[str(ltl)] = ltl_id
         save_pkl(ltl2id_pkl_fpath, ltl2id_pkl)
-        save_json(os.path.join(saver.classifier_dpath, "ltl2id.json"), ltl2id_json)
+        save_json(os.path.join(saver.classifier_dpath, "ltl2id_%d.json" % tester.train_size), ltl2id_json)
 
     # Relabel state-centric options to transition-centric options if not already done it
     if not os.path.exists(os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl")):
@@ -64,7 +64,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
             relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
 
     start_time = time.time()
-    policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
+    policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
     print("took %0.2f mins to construct inititation set classifier" % ((time.time() - start_time)/60))
     zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
 
@@ -229,13 +229,13 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
             os.remove(os.path.join(saver.classifier_dpath, fname))
 
 
-def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
+def construct_initiation_set_classifiers(classifier_dpath, policy_bank, train_size):
     """
     Map edge-centric option policy to its initiation set classifier.
     Classifier (policy2edge2loc2prob) contain only outgoing edges that state-centric policies achieved during training,
     possibly not all outgoing edges.
     """
-    classifier_pkl_fpath = os.path.join(classifier_dpath, "classifier.pkl")
+    classifier_pkl_fpath = os.path.join(classifier_dpath, "classifier_%d.pkl" % train_size)
     if os.path.exists(classifier_pkl_fpath):
         policy2edge2loc2prob = load_pkl(classifier_pkl_fpath)
     else:
@@ -245,17 +245,17 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
         policy2edge2loc2prob = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
         policy2edge2loc2prob_json = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
         for key, val in policy2loc2edge2hits.items():
-            if key not in ["n_rollouts", "ltls"]:
+            if key not in ["n_rollouts", "ltls"] and key in policy_bank.get_LTL_policies():  # only extract classifiers of the 'train_size' training policies
                 ltl, loc2edge2hits = key, val
                 for loc, edge2hits in loc2edge2hits.items():
                     for edge, hits in edge2hits.items():
                         prob = hits / n_rollouts
                         policy2edge2loc2prob[ltl][edge][loc] = prob
                         policy2edge2loc2prob_json[str(ltl)][str(edge)][str(loc)] = prob
-        save_json(os.path.join(classifier_dpath, "classifier.json"), policy2edge2loc2prob_json)
+        save_json(os.path.join(classifier_dpath, "classifier_%d.json" % train_size), policy2edge2loc2prob_json)
         save_pkl(classifier_pkl_fpath, policy2edge2loc2prob)
 
-        edges2ltls_fpath = os.path.join(classifier_dpath, "edges2ltls.txt")
+        edges2ltls_fpath = os.path.join(classifier_dpath, "edges2ltls_%d.txt" % train_size)
         if not os.path.exists(edges2ltls_fpath):
             _, edges2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
             with open(edges2ltls_fpath, "w") as wf:

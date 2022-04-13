@@ -88,7 +88,7 @@ def _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=T
     num_actions = len(task_aux.get_actions())
     num_features = task_aux.get_num_features()
     policy_bank = PolicyBank(sess, num_actions, num_features, learning_params)
-    for idx, f_task in enumerate(tester.get_LTL_tasks()):
+    for idx, f_task in enumerate(tester.get_LTL_tasks()[:tester.train_size]):  # only load first 'train_size' policies
         # start_time = time.time()
         dfa = DFA(f_task)
         # print("%d processing LTL: %s" % (idx, str(f_task)))
