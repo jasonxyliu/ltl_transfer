@@ -67,7 +67,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
     start_time = time.time()
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
     print("took %0.2f mins to construct inititation set classifier" % ((time.time() - start_time)/60))
-    zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2loc2prob, num_times, curriculum.num_steps, learning_params, curriculum)
+    zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, policy2edge2loc2prob, num_times, curriculum.num_steps, learning_params, curriculum)
 
     tf.reset_default_graph()
     sess.close()
@@ -266,7 +266,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank):
                     wf.write("\n")
     return policy2edge2loc2prob
 
-def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum):
+def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum):
     # Precompute common computations
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
@@ -278,7 +278,7 @@ def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2
     for (i,task_chunk) in enumerate(task_chunks):
         args = []
         for transfer_task in transfer_tasks:
-            args.append((transfer_task, list(train_edges), edge2ltls, num_times, num_steps, learning_params, curriculum, tester))
+            args.append((transfer_task, num_times, num_steps, learning_params, curriculum, tester, loader, saver))
     # Send tasks to parallel workers
         print(f'Starting chunk {i} of {len(task_chunks)}')
         start = time.time()
@@ -293,7 +293,7 @@ def zero_shot_transfer_cluster(tester, loader, policy_bank, run_id, policy2edge2
             tester.task2run2sol[str(transfer_task)] = retval[1]
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
-def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_times, num_steps, learning_params, curriculum, tester):
+def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, learning_params, curriculum, tester, loader, saver):
     # Load the policy bank without loading the policies
     print('Starting single worker')
     config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
@@ -301,6 +301,9 @@ def zero_shot_transfer_single_task(transfer_task, train_edges, edge2ltls, num_ti
     with tf.Session(config=config) as sess:
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=False)
         train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
+
+    policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
+    train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
         success = 0
         run2sol = defaultdict(list)
