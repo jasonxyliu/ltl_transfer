@@ -300,7 +300,7 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, learning
     tf.reset_default_graph()
     with tf.Session(config=config) as sess:
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=False)
-        train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
+        #train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
         policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank)
         train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
