@@ -278,7 +278,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
     for (i,task_chunk) in enumerate(task_chunks):
         args = []
         for transfer_task in transfer_tasks:
-            args.append((transfer_task, num_times, num_steps, learning_params, curriculum, tester, loader, saver))
+            args.append((transfer_task, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver))
     # Send tasks to parallel workers
         print(f'Starting chunk {i} of {len(task_chunks)}')
         start = time.time()
@@ -293,7 +293,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
             tester.task2run2sol[str(transfer_task)] = retval[1]
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
-def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, learning_params, curriculum, tester, loader, saver):
+def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
     # Load the policy bank without loading the policies
     print('Starting single worker')
     config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
@@ -332,7 +332,7 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, learning
                         test_edge_pair = (self_edge, out_edge)
                         for train_edge_pair in test2trains[test_edge_pair]:
                             if train_edge_pair in candidate_edges:
-                                print(train_edge_pair, "already in candidate set: ", candidate_edges)
+                                #print(train_edge_pair, "already in candidate set: ", candidate_edges)
                         candidate_edges.update(test2trains[test_edge_pair])
                 #Find the best edge to target based on rollout success probs
                 option2prob = {}
