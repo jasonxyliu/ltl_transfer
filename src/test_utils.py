@@ -85,6 +85,7 @@ class Tester:
             # save results for transfer learning
             if tasks_id > 2:
                 self.task2run2sol = {str(transfer_task): defaultdict(list) for transfer_task in self.transfer_tasks}
+                self.task2run2trajs = {str(transfer_task): defaultdict(list) for transfer_task in self.transfer_tasks}
                 self.task2success = {str(transfer_task): 0.0 for transfer_task in self.transfer_tasks}
         else:
             # Loading precomputed results
@@ -227,7 +228,8 @@ class Saver:
         results = {
             'transfer_tasks': [str(t) for t in self.tester.transfer_tasks],
             'task2run2sol': self.tester.task2run2sol,
-            'task2success': self.tester.task2success
+            'task2success': self.tester.task2success,
+            'task2run2trajs': self.tester.task2run2trajs
         }
         transfer_results_fpath = os.path.join(self.tester.transfer_results_dpath, "zero_shot_transfer_results.json")
         save_json(transfer_results_fpath, results)

@@ -291,6 +291,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
         for (transfer_task, retval) in retvals:
             tester.task2success[str(transfer_task)] = retval[0]
             tester.task2run2sol[str(transfer_task)] = retval[1]
+            tester.task2run2trajs[str(transfer_task)] = retval[2]
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
 def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
@@ -307,10 +308,12 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
 
         success = 0
         run2sol = defaultdict(list)
+        trajs = defaultdict(list)
 
         for num_time in range(num_times):
             task = Game(tester.get_task_params(transfer_task))
             dfa_graph = dfa2graph(task.dfa)
+            run_trajs = []
 
             #print('Removing infeasible edges')
             test2trains = remove_infeasible_edges(dfa_graph, train_edges)
@@ -350,7 +353,8 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                         policy_bank.replace_policy(policy.ltl, policy.f_task, policy.dfa)
                         loader.load_policy_bank(run_id, sess)
                     # Execute the selected option
-                    next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
+                    next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
+                    run_trajs.append(option_traj)
                     if cur_loc != next_loc:
                         total_reward += option_reward
                         run2sol[num_time].append(str(best_policy), best_self_edge, best_out_edge)
@@ -359,10 +363,11 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                 if cur_loc == next_loc: break # All matched options tried and failed to progress the state
             if task.ltl_game_over:
                 success += 1
+            trajs[num_time] = run_trajs
         success = success/num_times
         #print('Option execution complete')
         #print('Success: ', success)
-    return success, run2sol
+    return success, run2sol, trajs
 
 
 
@@ -579,6 +584,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     'option_edge' is 1 outgoing edge associated with edge-centric option
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
     """
+    traj = []
     num_features = task.get_num_features()
     option_reward, step = 0, 0
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
@@ -591,9 +597,12 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         a = Actions(policy_bank.get_best_action(ltl_policy, s1.reshape((1, num_features))))
         if task._get_next_position(a) not in edge2loc2prob[option_edge]:  # check if possible next loc in initiation set
             break
-        option_reward += task.execute_action(a)
+        r = task.execute_action(a)
+        option_reward += r
+        transition = ((cur_loc, cur_node), a, r, ((task.agent.i, task.agent.j), task.dfa.state))
+        traj.append(transition)
         #tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         #print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
-    return cur_loc, option_reward
+    return cur_loc, option_reward, traj
