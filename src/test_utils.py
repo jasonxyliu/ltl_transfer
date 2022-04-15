@@ -38,6 +38,9 @@ class Tester:
     def __init__(self, learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, file_results=None):
         if file_results is None:
             # setting the test attributes
+            self.train_type = train_type
+            self.test_type = test_type
+            self.train_size = train_size
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.map_id = map_id
