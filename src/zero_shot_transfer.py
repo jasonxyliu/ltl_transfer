@@ -353,7 +353,7 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     if cur_loc != next_loc:
                         total_reward += option_reward
-                        run2sol[num_time].append(str(best_policy), best_self_edge, best_out_edge)
+                        run2sol[num_time].append((str(best_policy), best_self_edge, best_out_edge))
                     else:
                         del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc: break # All matched options tried and failed to progress the state
