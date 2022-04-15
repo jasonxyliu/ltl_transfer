@@ -330,8 +330,8 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                         self_edge = dfa_graph.edges[test_edge[0], test_edge[0]]["edge_label"]  # self_edge label
                         out_edge = dfa_graph.edges[test_edge]["edge_label"]  # get boolean formula for outgoing edge
                         test_edge_pair = (self_edge, out_edge)
-                        for train_edge_pair in test2trains[test_edge_pair]:
-                            if train_edge_pair in candidate_edges:
+                        #for train_edge_pair in test2trains[test_edge_pair]:
+                            #if train_edge_pair in candidate_edges:
                                 #print(train_edge_pair, "already in candidate set: ", candidate_edges)
                         candidate_edges.update(test2trains[test_edge_pair])
                 #Find the best edge to target based on rollout success probs
