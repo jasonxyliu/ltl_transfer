@@ -288,7 +288,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
         print(f'Completed chunk {i} of {len(task_chunks)} in {(time.time() - start)/60} minutes')
 
     # Accumulate results
-        for (transfer_task, retval) in retvals:
+        for (transfer_task, retval) in zip(transfer_tasks, retvals):
             tester.task2success[str(transfer_task)] = retval[0]
             tester.task2run2sol[str(transfer_task)] = retval[1]
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
