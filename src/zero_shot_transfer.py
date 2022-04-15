@@ -67,11 +67,7 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
     start_time = time.time()
     policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
     print("took %0.2f mins to construct inititation set classifier" % ((time.time() - start_time)/60))
-<<<<<<< HEAD
-    zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
-=======
     zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, policy2edge2loc2prob, num_times, curriculum.num_steps, learning_params, curriculum)
->>>>>>> dev_ankit
 
     tf.reset_default_graph()
     sess.close()
@@ -113,7 +109,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
             for x, y in locs:
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    arg = (saver.alg_name, tester.train_type, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
+                    arg = (saver.alg_name, saver.classifier_dpath, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps)
                     args.append(arg)
             args_len = len(args)
             # args2 = deepcopy(args)
@@ -134,8 +130,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 
-def run_single_worker_cluster(algo, train_type, map_id, run_id, ltl_id, state_id, n_rollouts, max_depth):
-    classifier_dpath = os.path.join("../tmp/", "%s/map_%d" % (train_type, map_id), "classifier")
+def run_single_worker_cluster(algo, classifier_dpath, run_id, ltl_id, state_id, n_rollouts, max_depth):
     rank = MPI.COMM_WORLD.Get_rank()
     name = MPI.Get_processor_name()
     # print(f"Running state {state_id} through process {rank} on {name}")
@@ -293,7 +288,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
         print(f'Completed chunk {i} of {len(task_chunks)} in {(time.time() - start)/60} minutes')
 
     # Accumulate results
-        for (transfer_task, retval) in zip(transfer_tasks, retvals):
+        for (transfer_task, retval) in retvals:
             tester.task2success[str(transfer_task)] = retval[0]
             tester.task2run2sol[str(transfer_task)] = retval[1]
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
@@ -358,7 +353,7 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                     next_loc, option_reward = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     if cur_loc != next_loc:
                         total_reward += option_reward
-                        run2sol[num_time].append((str(best_policy), best_self_edge, best_out_edge))
+                        run2sol[num_time].append(str(best_policy), best_self_edge, best_out_edge)
                     else:
                         del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc: break # All matched options tried and failed to progress the state
@@ -413,41 +408,8 @@ def zero_shot_transfer(tester, policy_bank, loader, run_id, sess, policy2edge2lo
             continue
 
         for num_time in range(num_times):
-<<<<<<< HEAD
             tester.log_results("** Run %d. Transfer Task %d: %s" % (num_time, task_idx, str(transfer_task)))
             print("** Run %d. Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
-=======
-            tester.log_results("* Run %d Transfer Task %d: %s" % (num_time, task_idx, str(transfer_task)))
-            print("* Run %d Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
-            task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
-            # Wrapper: DFA -> NetworkX graph
-            dfa_graph = dfa2graph(task.dfa)
-            for line in nx.generate_edgelist(dfa_graph):
-                # tester.log_results("%s" % str(line))
-                print(line)
-
-            print("\ntraining edges: ", train_edges)
-            # tester.log_results("\ntraining edges: %s" % str(train_edges))
-            # Remove edges in DFA that do not have a matching train edge
-            start_time = time.time()
-            test2trains = remove_infeasible_edges(dfa_graph, train_edges)
-            tester.log_results("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
-            print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
-            # tester.log_results("\nNew DFA graph")
-            print("\nNew DFA graph")
-            for line in nx.generate_edgelist(dfa_graph):
-                # tester.log_results("%s" % str(line))
-                print(line)
-
-            # Graph search to find all simple/feasible paths from initial state to goal state
-            feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task.dfa.state, target=task.dfa.terminal))
-            feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
-            tester.log_results("\ndfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            print("\ndfa start: %d; goal: %s" % (task.dfa.state, str(task.dfa.terminal)))
-            # tester.log_results("feasible paths: %s\n" % str(feasible_paths_node))
-            print("feasible paths: %s\n" % str(feasible_paths_node))
-            # feasible_edges = feasible_paths_edge
->>>>>>> dev_ankit
 
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
             total_reward = 0
