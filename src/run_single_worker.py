@@ -22,7 +22,7 @@ def initialize_policy_bank(sess, task_aux, tester, ltl, f_task):
     #         policy_bank.add_LTL_policy(ltl, f_task, dfa)
     policy_bank.reconnect()  # -> creating the connections between the neural nets
 
-    print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
+    # print("\n", policy_bank.get_number_LTL_policies(), "sub-tasks were extracted!\n")
     return policy_bank
 
 
