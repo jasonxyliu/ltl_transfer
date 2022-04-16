@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -n 370
-#SBATCH --mem=256G
-#SBATCH -t 48:00:00
+#SBATCH -n 369
+#SBATCH --mem=199G
+#SBATCH -t 2:00:00
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
 #SBATCH -e sbatch_out/job-%j.err
@@ -12,7 +12,7 @@ export PYTHONUNBUFFERED=TRUE
 algo="zero_shot_transfer"
 train_type="no_orders"
 train_size=50
-test_type="no_orders"
+test_type="hard"
 map=0
 run_id=0
 relabel_method="cluster"
