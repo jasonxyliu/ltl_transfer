@@ -289,7 +289,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
         args = []
         for transfer_task in transfer_tasks:
             args.append((transfer_task, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver))
-    # Send tasks to parallel workers
+        # Send tasks to parallel workers
         print(f'Starting transfer chunk {chunk_id} of {len(task_chunks)}')
         start = time.time()
         with MPIPoolExecutor(max_workers=TRANSFER_CHUNK_SIZE) as pool:  # parallelize over all locs in a chunk
@@ -298,7 +298,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
         print(f'Completed transfer chunk {chunk_id} of {len(task_chunks)} in {(time.time() - start)/60} minutes')
         print(retvals)
 
-    # Accumulate results
+        # Accumulate results
         for (transfer_task, retval) in zip(transfer_tasks, retvals):
             tester.task2success[str(transfer_task)] = retval[0]
             tester.task2run2sol[str(transfer_task)] = retval[1]
@@ -321,20 +321,20 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
 
         success = 0
         run2sol = defaultdict(list)
-        trajs = defaultdict(list)
+        run2traj = {}
 
         test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
         if not test2trains:
-            return success, run2sol, trajs
+            return success, run2sol, run2traj
 
         feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
         feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
         if not feasible_paths_node:
-            return success, run2sol, trajs
+            return success, run2sol, run2traj
 
         for num_time in range(num_times):
             task = Game(tester.get_task_params(transfer_task))
-            run_trajs = []
+            run_traj = []
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
                 candidate_edges = set()
@@ -365,7 +365,7 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                         loader.load_policy_bank(run_id, sess)
                     # Execute the selected option
                     next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
-                    run_trajs.append(option_traj)
+                    run_traj.append(option_traj)
                     if cur_loc != next_loc:
                         run2sol[num_time].append((str(best_policy), best_self_edge, best_out_edge))
                     else:
@@ -374,10 +374,10 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                     break  # All matched options tried and failed to progress the state
             if task.ltl_game_over:
                 success += 1
-            trajs[num_time] = run_trajs
+            run2traj[num_time] = run_traj
         success = success/num_times
     print('Finished single worker transfer to task: %s' % str(transfer_task))
-    return success, run2sol, trajs
+    return success, run2sol, run2traj
 
 
 def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, num_steps):
@@ -426,7 +426,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
             print("** Run %d. Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
 
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
-            run_trajs = []
+            run_traj = []
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
                 tester.log_results("\ncurrent node: %d" % cur_node)
@@ -470,7 +470,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                     tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                     print("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                     next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
-                    run_trajs.append(option_traj)
+                    run_traj.append(option_traj)
                     if cur_loc != next_loc:
                         tester.task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
                         tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
@@ -487,7 +487,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
             print("current node: %d\n\n" % task.dfa.state)
             if task.ltl_game_over:
                 tester.task2success[str(transfer_task)] += 1
-            tester.task2run2trajs[str(transfer_task)][num_time] = run_trajs
+            tester.task2run2trajs[str(transfer_task)][num_time] = run_traj
     tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
 
 
@@ -501,6 +501,10 @@ def get_training_edges(policy_bank, policy2edge2loc2prob):
     for ltl, edge2loc2prob in policy2edge2loc2prob.items():
         dfa = policy_bank.policies[policy_bank.get_id(ltl)].dfa
         node = dfa.ltl2state[ltl]
+        if node not in dfa.nodelist or node not in dfa.nodelist[node]:
+            print("in get_training_edges")
+            print(node)
+            print(dfa.nodelist)
         self_edge = dfa.nodelist[node][node]
         for out_edge in edge2loc2prob.keys():
             edges2ltls[(self_edge, out_edge)].append(ltl)
