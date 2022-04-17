@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -n 369
 #SBATCH --mem=199G
-#SBATCH -t 2:00:00
+#SBATCH -t 1:00:00
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
 #SBATCH -e sbatch_out/job-%j.err
@@ -10,7 +10,7 @@
 export PYTHONUNBUFFERED=TRUE
 
 algo="zero_shot_transfer"
-train_type="no_orders"
+train_type="transfer_interleaving"
 train_size=50
 test_type="hard"
 map=0
@@ -24,5 +24,5 @@ module load mpi/openmpi_4.0.5_gcc_10.2_slurm20 gcc/10.2 cuda/11.1.1
 
 #python run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --test_type=$test_type --map=$map --run_id=$run_id --relabel_method=$relabel_method
 srun --mpi=pmix python -m mpi4py.futures run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --test_type=$test_type --map=$map --run_id=$run_id --relabel_method=$relabel_method
-cp -r ../tmp/* ~/data_gdk/shared/ltl-transfer/tmp/
-cp -r ../results/* ~/data_gdk/shared/ltl-transfer/results/
+#cp -r ../tmp/* ~/data_gdk/shared/ltl-transfer/tmp/
+#cp -r ../results/* ~/data_gdk/shared/ltl-transfer/results/
