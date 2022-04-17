@@ -91,20 +91,20 @@ def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type
 
 def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, train_steps, run_id, relabel_method, transfer_num_times):
     num_times = 3
-    r_good     = 0.5 if tasks_id == 2 else 0.9
+    r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
-        print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "train type:", train_type, "train size:", train_size, "test type:", test_type)
+        print("Running r_good: %f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
         run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
 
 
 def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_id, train_steps, run_id, relabel_method, transfer_num_times):
-    num_times  = 1  # each algo was run 3 times per map in the paper
-    r_good     = 0.5 if tasks_id == 2 else 0.9
+    num_times = 1  # each algo was run 3 times per map in the paper
+    r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
-    print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "train type:", train_type, "train size:", train_size, "test type:", test_type)
+    print("Running r_good: %f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
     run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
 
 
