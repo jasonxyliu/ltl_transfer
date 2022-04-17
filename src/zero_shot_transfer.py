@@ -375,6 +375,7 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                 success += 1
             trajs[num_time] = run_trajs
         success = success/num_times
+    print('Finished single worker transfer to task: %s' % str(transfer_task))
     return success, run2sol, trajs
 
 
