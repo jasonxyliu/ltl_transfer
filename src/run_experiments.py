@@ -95,7 +95,7 @@ def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, t
     show_print = True
 
     for map_id in range(10):
-        print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks:", train_type)
+        print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "train type:", train_type, "train size:", train_size, "test type:", test_type)
         run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
 
 
@@ -104,7 +104,7 @@ def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_
     r_good     = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
-    print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "tasks:", train_type)
+    print("Running", "r_good:", r_good, "alg:", alg, "map_id:", map_id, "train type:", train_type, "train size:", train_size, "test type:", test_type)
     run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
 
 
