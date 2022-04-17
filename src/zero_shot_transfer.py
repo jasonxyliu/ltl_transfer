@@ -59,6 +59,8 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
 
     # Relabel state-centric options to transition-centric options if not already done it
     if not os.path.exists(os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl")):
+        print("RELABEL")
+        print(os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl"))
         if relabel_method == 'cluster':  # use mpi
             relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
         if relabel_method == 'parallel':  # use Python multiprocessing
@@ -243,6 +245,8 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank, train_si
     if os.path.exists(classifier_pkl_fpath):
         policy2edge2loc2prob = load_pkl(classifier_pkl_fpath)
     else:
+        print("constructing init set classifier")
+        print(classifier_pkl_fpath)
         policy2loc2edge2hits = load_pkl(os.path.join(classifier_dpath, "aggregated_rollout_results.pkl"))
         n_rollouts = policy2loc2edge2hits["n_rollouts"]
 
@@ -291,6 +295,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
             retvals_chunk = pool.starmap(zero_shot_transfer_single_task, args)
         retvals.extend(retvals_chunk)
         print(f'Completed transfer chunk {chunk_id} of {len(task_chunks)} in {(time.time() - start)/60} minutes')
+        print(retvals)
 
     # Accumulate results
         for (transfer_task, retval) in zip(transfer_tasks, retvals):
@@ -601,7 +606,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
             break
         r = task.execute_action(a)
         option_reward += r
-        transition = ((cur_loc, cur_node), a, r, ((task.agent.i, task.agent.j), task.dfa.state))
+        transition = ((cur_loc, cur_node), a.name, r, ((task.agent.i, task.agent.j), task.dfa.state))
         traj.append(transition)
         # tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         # print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
