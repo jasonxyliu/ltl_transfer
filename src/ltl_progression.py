@@ -22,7 +22,7 @@ def get_dfa(ltl_formula):
 
     # Creating DFA using progression
     ltl2states = {'False': -1, ltl_formula: 0}
-    edges = {}
+    edge2assignments = {}
 
     visited, queue = set([ltl_formula]), collections.deque([ltl_formula])
     while queue:
@@ -37,9 +37,13 @@ def get_dfa(ltl_formula):
                 ltl2states[f_progressed] = new_node
             # adding edge
             edge = (ltl2states[formula], ltl2states[f_progressed])
-            if edge not in edges:
-                edges[edge] = []
-            edges[edge].append(truth_assignment)
+            # if edge == (0, 1):
+            #     print(truth_assignment)
+            #     print(formula)
+            #     print(f_progressed)
+            if edge not in edge2assignments:
+                edge2assignments[edge] = []
+            edge2assignments[edge].append(truth_assignment)
 
             if f_progressed not in visited:
                 visited.add(f_progressed)
@@ -53,9 +57,9 @@ def get_dfa(ltl_formula):
     # NOTE: this might take a while since we are using a very
     #       inefficient python library for logic manipulations
     edges_tuple = []
-    for e in edges:
-        f  = _get_formula(edges[e], propositions)
-        edges_tuple.append((e[0], e[1], f))
+    for edge, truth_assignments in edge2assignments.items():
+        f = _get_formula(truth_assignments, propositions)
+        edges_tuple.append((edge[0], edge[1], f))
     # Adding self-loops for 'True' and 'False'
     edges_tuple.append((ltl2states['True'], ltl2states['True'], 'True'))
     edges_tuple.append((ltl2states['False'], ltl2states['False'], 'True'))
@@ -68,7 +72,6 @@ def extract_propositions(ltl_formula):
 
 
 def _get_propositions(ltl_formula):
-    #print(type(ltl_formula))
     if type(ltl_formula) == str:
         if ltl_formula in ['True', 'False']:
             return []
@@ -212,3 +215,16 @@ def _get_formula(truth_assignments, propositions):
     formula = simplify_logic(formula, form='dnf')
     formula = str(formula).replace('(', '').replace(')', '').replace('~', '!').replace(' ', '')
     return formula
+
+
+if __name__ == "__main__":
+    # bug: DFA does not have self-edge (0, 0)
+    # cause: DFA state and progressed state should be equal if simplify logic, but simplify logic is not implemented
+    ltl_formula = ('and', ('until', 'True', 'a'), ('and', ('until', 'True', 'c'), ('and', ('until', 'True', 'd'), ('and', ('until', 'True', 's'), ('until', 'True', ('and', 'c', ('until', 'True', 's')))))))
+    initial_state, accepting_states, ltl2state, edges = get_dfa(ltl_formula)
+    print(initial_state)
+    print(accepting_states)
+    for ltl, state in ltl2state.items():
+        print(state, ltl)
+    for edge in edges:
+        print(edge)
