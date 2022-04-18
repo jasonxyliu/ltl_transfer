@@ -109,7 +109,7 @@ def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_
 
 
 if __name__ == "__main__":
-    # EXAMPLE: python run_experiments.py --algo=zero_shot_transfer --train_type=transfer_interleaving --train_size=50 --test_type=hard --map=0 --run_id=0 --relabel_method=cluster
+    # EXAMPLE: python run_experiments.py --algo=zero_shot_transfer --train_type=transfer_interleaving --train_size=50 --test_type=hard --map=0 --run_id=0 --relabel_method=cluster --transfer_num_times=1
 
     # Getting params
     algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]

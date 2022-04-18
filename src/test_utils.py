@@ -275,6 +275,31 @@ def get_precentiles_str(a):
     return p25, p50, p75
 
 
+def transfer_metrics(train_type, train_size, test_type, map_id, num_times=1):
+    """
+    Compute evaluation metrics for zero-shot transfer
+    """
+    results_dpath = os.path.join("../results", "%s_%d_%s" % (train_type, train_size, test_type), "map_%d" % map_id)
+    results = read_json(os.path.join(results_dpath, "zero_shot_transfer_results.json"))
+    task2success = results["task2success"]
+    success_rates = []
+    num_success = 0
+
+    for task, success_rate in task2success.items():
+        success_rates.append(success_rate)
+        num_success += success_rate * num_times
+
+    p25, p50, p75 = get_precentiles_str(success_rates)
+    mean, std = np.mean(success_rates), np.std(success_rates)
+
+    metrics_fpath = os.path.join(results_dpath, "zero_shot_transfer_metrics.txt")
+    with open(metrics_fpath, "w") as wfile:
+        wfile.write("%s_%d_%s\n" % (train_type, train_size, test_type))
+        wfile.write("%0.2f += %0.2f\n" % (mean, std))
+        wfile.write(p25 + "\t" + p50 + "\t" + p75 + "\n")
+        wfile.write("total number of successes in %d runs: %d\n" % (num_times, num_success))
+
+
 def export_results(algorithm, task_type):
     for map_type, maps in [("random", range(0, 5)), ("adversarial", range(5, 10))]:
         # Computing the summary of the results
@@ -323,20 +348,51 @@ def read_json(fpath):
 
 
 if __name__ == "__main__":
-    # EXAMPLE: python test_utils.py --algorithm=lpopl --tasks=sequence
+    # EXAMPLE for export training results: python test_utils.py --algo=lpopl --train_type=sequence
+    # EXAMPLE for export transfer results: python test_utils.py --train_type=no_orders --train_size=50 --test_type=hard --map=0 --transfer_num_times=1
 
     # Getting params
-    algorithms = ["dqn-l", "hrl-e", "hrl-l", "lpopl"]
-    tasks = ["sequence", "interleaving", "safety"]
+    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
+    train_types = [
+        "sequence",
+        "interleaving",
+        "safety",
+        "transfer_sequence",
+        "transfer_interleaving",
+        "hard",
+        "mixed",
+        "soft_strict",
+        "soft",
+        "no_orders",
+    ]
+    test_types = [
+        "hard",
+        "mixed",
+        "soft_strict",
+        "soft",
+        "no_orders",
+    ]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description="Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.")
-    parser.add_argument("--algo", default="lpopl", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algorithms))
-    parser.add_argument("--tasks", default="sequence", type=str, help="This parameter indicated which tasks to solve. The options are: " + str(tasks))
-
+    parser.add_argument("--algo", default="lpopl", type=str,
+                        help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
+    parser.add_argument('--train_type', default='no_orders', type=str,
+                        help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
+    parser.add_argument('--train_size', default=50, type=int,
+                        help='This parameter indicated the number of LTLs in the training set')
+    parser.add_argument('--test_type', default='hard', type=str,
+                        help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
+    parser.add_argument('--map', default=0, type=int,
+                        help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
+    parser.add_argument('--transfer_num_times', default=1, type=int,
+                        help='This parameter indicated the number of times to run a transfer experiment')
     args = parser.parse_args()
-    if args.algorithm not in algorithms:
-        raise NotImplementedError("Algorithm " + str(args.algorithm) + " hasn't been implemented yet")
-    if args.tasks not in tasks:
-        raise NotImplementedError("Tasks " + str(args.tasks) + " hasn't been defined yet")
+    if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
+    if args.train_type not in train_types: raise NotImplementedError(
+        "Training tasks " + str(args.train_type) + " hasn't been defined yet")
+    if args.test_type not in test_types: raise NotImplementedError(
+        "Test tasks " + str(args.test_type) + " hasn't been defined yet")
+    if not (-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    export_results(args.algorithm, args.tasks)
+    # export_results(args.algo, args.train_type)
+    transfer_metrics(args.train_type, args.train_size, args.test_type, args.map, args.transfer_num_times)
