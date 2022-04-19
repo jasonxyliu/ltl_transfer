@@ -20,6 +20,9 @@ def get_dfa(ltl_formula):
     propositions.sort()
     truth_assignments = _get_truth_assignments(propositions)
 
+    # simplify 'ltl_formula' by removing no_orders clause repeated as inner most clause in soft if any
+    ltl_formula = _progress(ltl_formula, '')
+
     # Creating DFA using progression
     ltl2states = {'False': -1, ltl_formula: 0}
     edge2assignments = {}
@@ -37,10 +40,6 @@ def get_dfa(ltl_formula):
                 ltl2states[f_progressed] = new_node
             # adding edge
             edge = (ltl2states[formula], ltl2states[f_progressed])
-            # if edge == (0, 1):
-            #     print(truth_assignment)
-            #     print(formula)
-            #     print(f_progressed)
             if edge not in edge2assignments:
                 edge2assignments[edge] = []
             edge2assignments[edge].append(truth_assignment)
@@ -103,31 +102,6 @@ def _get_truth_assignments(propositions):
     return truth_assignments
 
 
-def _is_prop_formula(f):
-    # returns True if the formula does not contains temporal operators
-    return 'next' not in str(f) and 'until' not in str(f)
-
-
-def _subsume_until(f1, f2):
-    if str(f1) not in str(f2):
-        return False
-    while type(f2) != str:
-        if f1 == f2:
-            return True
-        if f2[0] == 'until':
-            f2 = f2[2]
-        elif f2[0] == 'and':
-            if _is_prop_formula(f2[1]) and not _is_prop_formula(f2[2]):
-                f2 = f2[2]
-            elif not _is_prop_formula(f2[1]) and _is_prop_formula(f2[2]):
-                f2 = f2[1]
-            else:
-                return False
-        else:
-            return False
-    return False
-
-
 def _progress(ltl_formula, truth_assignment):
     """
     Implement LTL progression rules
@@ -140,6 +114,7 @@ def _progress(ltl_formula, truth_assignment):
                 return 'True'
             else:
                 return 'False'
+        # ltl_formula is True or False
         return ltl_formula
 
     if ltl_formula[0] == 'not':
@@ -197,6 +172,31 @@ def _progress(ltl_formula, truth_assignment):
         return res2  # ('or', res2, f1)
 
 
+def _subsume_until(f1, f2):
+    if str(f1) not in str(f2):
+        return False
+    while type(f2) != str:
+        if f1 == f2:
+            return True
+        if f2[0] == 'until':
+            f2 = f2[2]
+        elif f2[0] == 'and':
+            if _is_prop_formula(f2[1]) and not _is_prop_formula(f2[2]):
+                f2 = f2[2]
+            elif not _is_prop_formula(f2[1]) and _is_prop_formula(f2[2]):
+                f2 = f2[1]
+            else:
+                return False
+        else:
+            return False
+    return False
+
+
+def _is_prop_formula(f):
+    # returns True if the formula does not contains temporal operators
+    return 'next' not in str(f) and 'until' not in str(f)
+
+
 def _get_formula(truth_assignments, propositions):
     """
     e.g. ['ab', 'abc'], 'abc' -> (a & b & ~c) | (a & b & c) -> a & b
@@ -218,9 +218,12 @@ def _get_formula(truth_assignments, propositions):
 
 
 if __name__ == "__main__":
-    # bug: DFA does not have self-edge (0, 0)
-    # cause: DFA state and progressed state should be equal if simplify logic, but simplify logic is not implemented
+    # test if output DFA has self-edge (0, 0)
+    # DFA state and progressed state should be equal if LTLs are simplified, but complete simplify_logic not implemented
+    # ltl_formula = ('and', ('until','True', 'a'), ('and', ('until', 'True', 'b'), ('and', ('until', 'True', 'c'), ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', 'c'))))))))
     ltl_formula = ('and', ('until', 'True', 'a'), ('and', ('until', 'True', 'c'), ('and', ('until', 'True', 'd'), ('and', ('until', 'True', 's'), ('until', 'True', ('and', 'c', ('until', 'True', 's')))))))
+    # ltl_formula = ('and', ('until', 'True', 's'), ('until', 'True', ('and', 'c', ('until', 'True', 's'))))
+
     initial_state, accepting_states, ltl2state, edges = get_dfa(ltl_formula)
     print(initial_state)
     print(accepting_states)
