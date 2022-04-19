@@ -327,11 +327,17 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
 
         test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
         if not test2trains:
+            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
+            with open(logfilename, 'w') as file:
+                file.write('Completed')
             return success, run2sol, run2traj
 
         feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
         feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
         if not feasible_paths_node:
+            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
+            with open(logfilename, 'w') as file:
+                file.write('Completed')
             return success, run2sol, run2traj
 
         for num_time in range(num_times):
@@ -378,14 +384,14 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
                 success += 1
             run2traj[num_time] = run_traj
         success = success/num_times
-    
+
     #ltl_idx = tester.transfer_tasks.index(transfer_task)
-    
+
     #Debug logging individual file
     logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
     with open(logfilename, 'w') as file:
         file.write('Completed')
-    
+
     print('Finished single worker transfer to task: %s' % str(transfer_task))
     return success, run2sol, run2traj
 
