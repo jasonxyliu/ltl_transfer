@@ -95,7 +95,7 @@ def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, t
     show_print = True
 
     for map_id in range(10):
-        print("Running r_good: %f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
+        print("Running r_good: %0.2f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
         run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
 
 
@@ -104,7 +104,7 @@ def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
-    print("Running r_good: %f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
+    print("Running r_good: %0.2f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
     run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
 
 

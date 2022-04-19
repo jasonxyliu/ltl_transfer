@@ -8,7 +8,6 @@ Created on Tue Mar 22 12:29:47 2022
 import dill
 import os
 import json
-from collections import defaultdict
 import numpy as np
 from formula_sampler import sample_formula
 
@@ -97,39 +96,5 @@ def read_train_test_formulas(train_set_type='mixed', test_set_type='mixed', trai
     return train_formulas, test_formulas
 
 
-def examine_train_test_sets(train_type, test_type, train_sizes=TRAIN_SIZES):
-    test_tasks = None
-    for train_size in train_sizes:
-        # Unique formulas in training set
-        train_tasks, test_tasks = read_train_test_formulas(train_type, test_type, train_size)
-        print_prompt = "%s_train_%d contains" % (train_type, train_size)
-        count_unique_formulas(train_tasks, print_prompt)
-        # Duplicated training formulas in both train and test sets
-        train2occurs = defaultdict(int)
-        for train_task in train_tasks:
-            if train_task in test_tasks:
-                train2occurs[train_task] += 1
-        print("%d tasks from %s_train_%d occurred in %s_test_%d more than once\n" % (len(train2occurs), train_type, train_size, test_type, TEST_SIZE))
-        # for train_task, occurs in train2occurs.items():
-        #     print("train_task occurs in test set %d times\n%s\n" % (occurs, str(train_task)))
-    # Unique formulas in test set
-    print_prompt = "%s_test_%d contains" % (test_type, TEST_SIZE)
-    count_unique_formulas(test_tasks, print_prompt)
-
-
-def count_unique_formulas(tasks, print_prompt):
-    task2occurs = defaultdict(int)
-    for task in tasks:
-        task2occurs[task] += 1
-
-    unique_tasks = 0
-    for task, occurs in task2occurs.items():
-        if occurs > 1:
-            print("task: %s\noccurances %d" % (str(task), occurs))
-        unique_tasks += 1
-    print(print_prompt + ": %d unique tasks" % unique_tasks)
-
-
 if __name__ == '__main__':
     create_datasets(set_types=["no_orders"], duplicate_ok=False)
-    examine_train_test_sets(train_type='no_orders', test_type='no_orders')  # examine train and test sets
