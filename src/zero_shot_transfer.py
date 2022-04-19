@@ -376,6 +376,13 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                 success += 1
             run2traj[num_time] = run_traj
         success = success/num_times
+    ltl_idx = tester.transfer_tasks.index(transfer_task)
+    
+    #Debug logging individual file
+    logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
+    with open(logfilename, 'r') as file:
+        file.write('Completed')
+    
     print('Finished single worker transfer to task: %s' % str(transfer_task))
     return success, run2sol, run2traj
 
