@@ -279,16 +279,18 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank, train_si
 def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum):
     # Precompute common computations
     transfer_tasks = tester.get_transfer_tasks()
+    ltl_ids = list(range(len(transfer_tasks)))
     # train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
     task_chunks = [transfer_tasks[chunk_id: chunk_id + TRANSFER_CHUNK_SIZE] for chunk_id in range(0, len(transfer_tasks), TRANSFER_CHUNK_SIZE)]
+    ltl_id_chunks = [ltl_ids[chunk_id: chunk_id + TRANSFER_CHUNK_SIZE] for chunk_id in range(0, len(ltl_ids), TRANSFER_CHUNK_SIZE)]
 
     # Define task parameters and arguments
     retvals = []
-    for (chunk_id, task_chunk) in enumerate(task_chunks):
+    for (chunk_id, (task_chunk, id_chunk)) in enumerate(zip(task_chunks, ltl_id_chunks)):
         args = []
-        for transfer_task in transfer_tasks:
-            args.append((transfer_task, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver))
+        for (transfer_task, ltl_id) in zip(task_chunk, id_chunk):
+            args.append((transfer_task, ltl_id, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver))
         # Send tasks to parallel workers
         print(f'Starting transfer chunk {chunk_id} of {len(task_chunks)}')
         start = time.time()
@@ -306,7 +308,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
 
-def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
+def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
     # Load the policy bank without loading the policies
     print('Starting single worker transfer to task: %s' % str(transfer_task))
     config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
@@ -376,7 +378,8 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
                 success += 1
             run2traj[num_time] = run_traj
         success = success/num_times
-    ltl_idx = tester.transfer_tasks.index(transfer_task)
+    
+    #ltl_idx = tester.transfer_tasks.index(transfer_task)
     
     #Debug logging individual file
     logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
