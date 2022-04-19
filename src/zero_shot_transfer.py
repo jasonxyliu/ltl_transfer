@@ -380,7 +380,7 @@ def zero_shot_transfer_single_task(transfer_task, num_times, num_steps, run_id, 
     
     #Debug logging individual file
     logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
-    with open(logfilename, 'r') as file:
+    with open(logfilename, 'w') as file:
         file.write('Completed')
     
     print('Finished single worker transfer to task: %s' % str(transfer_task))
