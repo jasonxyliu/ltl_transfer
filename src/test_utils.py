@@ -290,7 +290,6 @@ def transfer_metrics(train_type, train_size, test_type, map_id, num_times=1):
         success_rates.append(success_rate)
         num_success += success_rate * num_times
         num_tasks += 1
-    print("num unique test tasks in test type %s: %d" % (test_type, num_tasks))
 
     p25, p50, p75 = get_precentiles_str(success_rates)
     mean, std = np.mean(success_rates), np.std(success_rates)
@@ -301,6 +300,7 @@ def transfer_metrics(train_type, train_size, test_type, map_id, num_times=1):
         wfile.write("%0.2f += %0.2f\n" % (mean, std))
         wfile.write(p25 + "\t" + p50 + "\t" + p75 + "\n")
         wfile.write("total number of successes in %d runs: %d\n" % (num_times, num_success))  # some test types may not have 100 unique tasks
+        wfile.write("number of unique test tasks in test type %s: %d" % (test_type, num_tasks))
 
 
 def export_results(algorithm, task_type):
