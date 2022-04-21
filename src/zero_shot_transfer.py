@@ -564,6 +564,37 @@ def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
                     return None
     return test2trains
 
+def match_single_edge(test_edge_pair, fail_edge, train_edge_pair):
+    test_self_edge, test_out_edge = test_edge_pair
+    train_self_edge, train_out_edge = train_edge_pair
+
+    #Non empty intersection of test_out_edge and train_out_edge
+    c1 = is_model_match(test_out_edge, train_out_edge)
+
+    #Non empty intersection of test_self_edge and train_self_edge
+    c2 = is_model_match(test_self_edge, train_self_edge)
+
+    # Empty intersection of train_out_edge with fail_edge
+    c3 = not is_model_match(train_out_edge, fail_edge)
+
+    # Empty intersection of test_out_edge with fail_edge
+    c4 = not is_model_match(train_self_edge, fail_edge)
+
+    #Empty intersection of train_out_edge with test_self_edge
+    c5 = not is_model_match(train_out_edge, test_self_edge)
+
+    #All these conditions must be satisfied
+    return np.all([c1,c2,c3,c4,c5])
+
+def match_edges_v2(test_edge_pair, fail_edge, train_edges):
+    """
+    Determine if the test_edge can be mathched with any training edge
+    match includes exact match of test edge is less constrained than a training edge
+    OR training edge is guaranteed to not fail, and has an intersecting satisfaction with the target test edge
+    """
+    match_bools = [match_single_edge(test_edge_pair, fail_edge, train_edge) for train_edge in train_edges]
+    return np.any(match_bools)
+
 
 def match_edges(test_edge_pair, train_edges):
     """
@@ -635,3 +666,16 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward, traj
+
+
+'''Logic Tools for model counting '''
+
+def is_model_match(formula1, formula2):
+    formula1 = sympy.sympify(formula1.replace('!','~'))
+    formula2 = sympy.sympify(formula2.replace('!','~'))
+
+    sat = sympy.logic.inference.satisfiable(formula1 & formula2)
+    if sat:
+        return True
+    else:
+        return False
