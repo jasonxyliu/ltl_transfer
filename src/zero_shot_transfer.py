@@ -2,6 +2,7 @@ import os
 import re
 import time
 import random
+import dill
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from copy import deepcopy
@@ -305,6 +306,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
             tester.task2success[str(transfer_task)] = retval[0]
             tester.task2run2sol[str(transfer_task)] = retval[1]
             tester.task2run2trajs[str(transfer_task)] = retval[2]
+            #tester.task
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
 
@@ -328,12 +330,12 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         runtime = 0
 
         start = time.time()
-        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
+        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
         precomputation_time = time.time() - start
         if not test2trains:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
-            data = {'success': success, 'run2sol': run2sol, 'run2traj': run2traj:, 'run2exitcode': run2exitcode, 'runtime': runtime}
+            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
             logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
             with open(logfilename, 'wb') as file:
                 dill.dump(data, file)
@@ -344,7 +346,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         if not feasible_paths_node:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
-            data = {'success': success, 'run2sol': run2sol, 'run2traj': run2traj:, 'run2exitcode': run2exitcode, 'runtime': runtime}
+            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
             logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
             with open(logfilename, 'wb') as file:
                 dill.dump(data, file)
@@ -394,7 +396,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
                     run2exitcode[num_time] = 'options_exhausted'
                     break  # All matched options tried and failed to progress the state
             if task.ltl_game_over:
-                if task.dfa.state == -1:
+                if task.dfa.state != -1:
                     success += 1
                     run2exitcode[num_time] = 0
                 else:
@@ -403,11 +405,11 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
             run2traj[num_time] = run_traj
 
     success = success/num_times
-    mean_run_time = time.time() - start
+    mean_run_time = (time.time() - start)/num_times
     runtime = mean_run_time + precomputation_time
 
     #Debug logging individual file
-    data = {'success': success, 'run2sol': run2sol, 'run2traj': run2traj:, 'run2exitcode': run2exitcode, 'runtime': runtime}
+    data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
     logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
     with open(logfilename, 'wb') as file:
         dill.dump(data, file)
@@ -433,7 +435,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
         # print("\ntraining edges: ", train_edges)
         # Remove edges in DFA that do not have a matching train edge
         start_time = time.time()
-        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
+        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
 
         if not test2trains:
             tester.log_results("DFA graph disconnected after removing infeasible edges\n")
@@ -557,8 +559,15 @@ def dfa2graph(dfa):
             nodelist[u][v] = {"edge_label": label}
     return nx.DiGraph(nodelist)
 
+def get_fail_edge(dfa, node):
+    #check if the fail edge exists
+    if bool(dfa.get_edge_data(node, -1)):
+        return dfa.get_edge_data(node, -1)['edge_label']
+    else:
+        return 'False'
 
-def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
+
+def remove_infeasible_edges(dfa, train_edges, start_state, goal_state, edge_matcher):
     """
     Remove infeasible edges from DFA graph, and
     construct a mapping from test_edge_pair to a set of matching train_edge_pairs
@@ -570,9 +579,14 @@ def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
             self_edge_label = dfa.edges[edge[0], edge[0]]["edge_label"]
             out_edge_label = dfa.edges[edge]["edge_label"]
             test_edge_pair = (self_edge_label, out_edge_label)
+            fail_edge = get_fail_edge(dfa, edge[0])
             is_matched = False
             for train_edge in train_edges:
-                if match_edges(test_edge_pair, [train_edge]):
+                if edge_matcher == 'strict':
+                    match = match_edges(test_edge_pair, [train_edge])
+                elif edge_matcher == 'relaxed':
+                    match = match_edges_v2(test_edge_pair, fail_edge, [train_edge])
+                if match:
                     test2trains[test_edge_pair].add(train_edge)
                     is_matched = True
             if not is_matched:

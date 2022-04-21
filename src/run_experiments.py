@@ -52,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print):
+def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print):
     # configuration of testing params
     testing_params = TestingParameters()
 
@@ -60,7 +60,7 @@ def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type
     learning_params = LearningParameters()
 
     # Setting the experiment
-    tester = Tester(learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type)
+    tester = Tester(learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, edge_matcher)
 
     # Setting the curriculum learner
     curriculum = CurriculumLearner(tester.tasks, r_good=r_good)
@@ -99,13 +99,13 @@ def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, t
         run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
 
 
-def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_id, train_steps, run_id, relabel_method, transfer_num_times):
+def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_id, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
     num_times = 1  # each algo was run 3 times per map in the paper
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     print("Running r_good: %0.2f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
-    run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
+    run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
 
 
 if __name__ == "__main__":
@@ -155,6 +155,8 @@ if __name__ == "__main__":
                         help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
+    parser.add_argument('--edge_matcher', default='strict', type=str, choices = ['strict', 'relaxed'],
+                        help='This parameter indicated the number of times to run a transfer experiment')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.train_type not in train_types: raise NotImplementedError("Training tasks " + str(args.train_type) + " hasn't been defined yet")
@@ -166,7 +168,7 @@ if __name__ == "__main__":
     map_id = args.map
     if map_id > -1:
         run_single_experiment(args.algo, tasks_id, args.train_type, args.train_size, args.test_type,
-                              map_id, args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times)
+                              map_id, args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times, args.edge_matcher)
     else:
         run_multiple_experiments(args.algo, tasks_id, args.train_type, args.train_size, args.test_type,
                                  args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times)
