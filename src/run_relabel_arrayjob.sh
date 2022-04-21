@@ -19,7 +19,7 @@ k=`expr $j % 1`
 
 algo="zero_shot_transfer"
 
-train_type="no_orders"
+train_type="hard"
 
 test_types=( "hard" "mixed" "soft_strict" "soft" "no_orders" )
 test_type=${test_types[$i]}
