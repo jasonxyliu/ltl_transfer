@@ -620,6 +620,7 @@ def match_edges_v2(test_edge_pair, fail_edge, train_edges):
     match includes exact match of test edge is less constrained than a training edge
     OR training edge is guaranteed to not fail, and has an intersecting satisfaction with the target test edge
     """
+    print('using relaxed match_edge_v2')
     match_bools = [match_single_edge(test_edge_pair, fail_edge, train_edge) for train_edge in train_edges]
     return np.any(match_bools)
 
@@ -630,6 +631,7 @@ def match_edges(test_edge_pair, train_edges):
     match := exact match (aka. eq) or test_edge is less constrained than a training_edge (aka. subset)
     Note: more efficient to convert 'training_edges' before calling this function
     """
+
     test_self_edge, test_out_edge = test_edge_pair
     test_self_edge = sympy.simplify_logic(test_self_edge.replace('!', '~'), form='dnf')
     test_out_edge = sympy.simplify_logic(test_out_edge.replace('!', '~'), form='dnf')
