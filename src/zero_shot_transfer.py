@@ -395,7 +395,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
                     run2exitcode[num_time] = 'options_exhausted'
                     break  # All matched options tried and failed to progress the state
             if task.ltl_game_over:
-                if task.dfa.state == -1:
+                if task.dfa.state != -1:
                     success += 1
                     run2exitcode[num_time] = 0
                 else:
