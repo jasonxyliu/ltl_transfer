@@ -35,7 +35,7 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, edge_matcher file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, edge_matcher, file_results=None):
         if file_results is None:
             # setting the test attributes
             self.edge_matcher = edge_matcher
