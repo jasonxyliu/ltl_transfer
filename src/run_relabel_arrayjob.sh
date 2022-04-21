@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -n 369
+#SBATCH -n 100
 #SBATCH --mem=99G
-#SBATCH -t 3:00:00
+#SBATCH -t 2:00:00
 #SBATCH --array=0-4
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
