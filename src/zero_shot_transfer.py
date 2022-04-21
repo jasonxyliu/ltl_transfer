@@ -324,22 +324,34 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         success = 0
         run2sol = defaultdict(list)
         run2traj = {}
+        run2exitcode = {}
+        runtime = 0
 
+        start = time.time()
         test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
+        precomputation_time = time.time() - start
         if not test2trains:
-            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
-            with open(logfilename, 'w') as file:
-                file.write('Completed')
-            return success, run2sol, run2traj
+            run2exitcode = 'disconnected_graph'
+            runtime = precomputation_time
+            data = {'success': success, 'run2sol': run2sol, 'run2traj': run2traj: 'run2exitcode': run2exitcode, 'runtime': runtime}
+            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
+            with open(logfilename, 'wb') as file:
+                dill.dump(data, file)
+            return success, run2sol, run2traj, run2exitcode, runtime
 
         feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
         feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
         if not feasible_paths_node:
-            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
-            with open(logfilename, 'w') as file:
-                file.write('Completed')
-            return success, run2sol, run2traj
+            run2exitcode = 'disconnected_graph'
+            runtime = precomputation_time
+            data = {'success': success, 'run2sol': run2sol, 'run2traj': run2traj: 'run2exitcode': run2exitcode, 'runtime': runtime}
+            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
+            with open(logfilename, 'wb') as file:
+                dill.dump(data, file)
+            return success, run2sol, run2traj, run2exitcode, runtime
 
+
+        start = time.time()
         for num_time in range(num_times):
             task = Game(tester.get_task_params(transfer_task))
             run_traj = []
@@ -379,21 +391,29 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
                     else:
                         del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc:
+                    run2exitcode[num_time] = 'options_exhausted'
                     break  # All matched options tried and failed to progress the state
             if task.ltl_game_over:
-                success += 1
-            run2traj[num_time] = run_traj
-        success = success/num_times
+                if task.dfa.state == -1:
+                    success += 1
+                    run2exitcode[num_time] = 0
+                else:
+                    run2exitcode[num_time] = 'specification_fail'
 
-    #ltl_idx = tester.transfer_tasks.index(transfer_task)
+            run2traj[num_time] = run_traj
+
+    success = success/num_times
+    mean_run_time = time.time() - start
+    runtime = mean_run_time + precomputation_time
 
     #Debug logging individual file
-    logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.txt')
-    with open(logfilename, 'w') as file:
-        file.write('Completed')
+    data = {'success': success, 'run2sol': run2sol, 'run2traj': run2traj: 'run2exitcode': run2exitcode, 'runtime': runtime}
+    logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
+    with open(logfilename, 'wb') as file:
+        dill.dump(data, file)
 
     print('Finished single worker transfer to task: %s' % str(transfer_task))
-    return success, run2sol, run2traj
+    return success, run2sol, run2traj, run2exitcode, runtime
 
 
 def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, num_steps):
@@ -567,22 +587,16 @@ def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
 def match_single_edge(test_edge_pair, fail_edge, train_edge_pair):
     test_self_edge, test_out_edge = test_edge_pair
     train_self_edge, train_out_edge = train_edge_pair
-
     #Non empty intersection of test_out_edge and train_out_edge
     c1 = is_model_match(test_out_edge, train_out_edge)
-
     #Non empty intersection of test_self_edge and train_self_edge
     c2 = is_model_match(test_self_edge, train_self_edge)
-
     # Empty intersection of train_out_edge with fail_edge
     c3 = not is_model_match(train_out_edge, fail_edge)
-
-    # Empty intersection of test_out_edge with fail_edge
+    # Empty intersection of train_self_edge with fail_edge
     c4 = not is_model_match(train_self_edge, fail_edge)
-
     #Empty intersection of train_out_edge with test_self_edge
     c5 = not is_model_match(train_out_edge, test_self_edge)
-
     #All these conditions must be satisfied
     return np.all([c1,c2,c3,c4,c5])
 
