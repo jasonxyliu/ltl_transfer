@@ -2,6 +2,7 @@ import os
 import re
 import time
 import random
+import dill
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from copy import deepcopy
