@@ -510,7 +510,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                     print("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                     next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     run_traj.append(option_traj)
-                    if cur_loc == next_loc:
+                    if cur_loc != next_loc:
                         tester.task2run2sol[str(transfer_task)][num_time].append((str(best_policy), best_self_edge, best_out_edge))
                         tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
                         print("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
