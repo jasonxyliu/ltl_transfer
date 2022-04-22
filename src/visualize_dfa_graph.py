@@ -51,6 +51,7 @@ for task_idx, transfer_task in enumerate(tester.transfer_tasks):
     print("feasible paths: %s\n" % str(feasible_paths_node))
 
     if not feasible_paths_node:
+        plt.figure(figsize=(12, 12))
         pos = nx.circular_layout(dfa_graph)
         nx.draw_networkx(dfa_graph, pos, with_labels=True)
         nx.draw_networkx_edges(dfa_graph, pos)
@@ -58,4 +59,5 @@ for task_idx, transfer_task in enumerate(tester.transfer_tasks):
         ax.margins(0.20)
         plt.axis("off")
         plt.savefig(os.path.join(debug_dpath, "transfer_task_%d" % task_idx))
+        plt.close()
         # plt.show()

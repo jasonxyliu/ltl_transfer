@@ -276,11 +276,11 @@ def get_precentiles_str(a):
     return p25, p50, p75
 
 
-def transfer_metrics(train_type, train_size, test_type, map_id, num_times=1):
+def transfer_metrics(train_type, train_size, test_type, map_id, num_times, edge_matcher):
     """
     Compute evaluation metrics for zero-shot transfer
     """
-    results_dpath = os.path.join("../results", "%s_%d_%s" % (train_type, train_size, test_type), "map_%d" % map_id)
+    results_dpath = os.path.join("../results", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
     results = read_json(os.path.join(results_dpath, "zero_shot_transfer_results.json"))
     task2success = results["task2success"]
     success_rates = []
@@ -351,6 +351,14 @@ def read_json(fpath):
     return data
 
 
+def aggregate_transfer_results(results_dpath, num_tasks):
+    fnames = os.listdir(results_dpath)
+
+    for task_id in range(num_tasks):
+        if "test_ltl_%d.txt" % task_id not in fnames:
+            print(task_id)
+
+
 if __name__ == "__main__":
     # EXAMPLE for export training results: python test_utils.py --algo=lpopl --train_type=sequence
     # EXAMPLE for export transfer results: python test_utils.py --train_type=no_orders --train_size=50 --test_type=hard --map=0 --transfer_num_times=1
@@ -390,6 +398,8 @@ if __name__ == "__main__":
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
+    parser.add_argument('--edge_matcher', default='rigid', type=str, choices=['rigid', 'relaxed'],
+                        help='This parameter indicated the number of times to run a transfer experiment')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.train_type not in train_types: raise NotImplementedError(
@@ -399,4 +409,4 @@ if __name__ == "__main__":
     if not (-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
     # export_results(args.algo, args.train_type)
-    transfer_metrics(args.train_type, args.train_size, args.test_type, args.map, args.transfer_num_times)
+    transfer_metrics(args.train_type, args.train_size, args.test_type, args.map, args.transfer_num_times, args.edge_matcher)

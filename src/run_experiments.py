@@ -89,14 +89,14 @@ def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type
         zero_shot_transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
 
-def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, train_steps, run_id, relabel_method, transfer_num_times):
+def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
     num_times = 3
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
-        print("Running r_good: %0.2f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
-        run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, show_print)
+        print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
+        run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
 
 
 def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_id, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
@@ -104,12 +104,12 @@ def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
-    print("Running r_good: %0.2f, alg: %s, map_id: %d, train_type: %s, train_size: %d, test_type: %s" % (r_good, alg, map_id, train_type, train_size, test_type))
+    print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
     run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
 
 
 if __name__ == "__main__":
-    # EXAMPLE: python run_experiments.py --algo=zero_shot_transfer --train_type=transfer_interleaving --train_size=50 --test_type=hard --map=0 --run_id=0 --relabel_method=cluster --transfer_num_times=1
+    # EXAMPLE: python run_experiments.py --algo=zero_shot_transfer --train_type=no_orders --train_size=50 --test_type=soft --map=0 --run_id=0 --relabel_method=cluster --transfer_num_times=1
 
     # Getting params
     algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
@@ -155,7 +155,7 @@ if __name__ == "__main__":
                         help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
-    parser.add_argument('--edge_matcher', default='rigid', type=str, choices = ['rigid', 'relaxed'],
+    parser.add_argument('--edge_matcher', default='rigid', type=str, choices=['rigid', 'relaxed'],
                         help='This parameter indicated the number of times to run a transfer experiment')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
@@ -171,4 +171,4 @@ if __name__ == "__main__":
                               map_id, args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times, args.edge_matcher)
     else:
         run_multiple_experiments(args.algo, tasks_id, args.train_type, args.train_size, args.test_type,
-                                 args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times)
+                                 args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times, args.edge_matcher)

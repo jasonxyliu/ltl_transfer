@@ -7,6 +7,8 @@
 #SBATCH -e sbatch_out/job-%j.err
 #SBATCH -o sbatch_out/job-%j.out
 
+export PYTHONUNBUFFERED=TRUE
+
 module load anaconda/2020.02
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
