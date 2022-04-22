@@ -64,7 +64,21 @@ def specification_failure_rate(self):
             inc = len([k for k in r['run2exitcodes'] if r['run2exitcodes'][k] == 'specification_fail'])
             spec_fails += inc
 
-        
+def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, map_id = 0):
+    if not test_type:
+        test_types = ['hard','soft','soft_strict','mixed','no_orders']
+    results = {}
+    for test_type in test_types:
+        results[(train_type, train_size, test_type, edge_matcher)] = Record(train_type, train_size, test_type, edge_matcher, map_id = 0)
+    return results
+    
+
+if name == '__main__':
+
+    #TODO: Make this commandline argparse
+    results = get_results('hard','relaxed')
+
+
 
 
 
