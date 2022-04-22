@@ -74,7 +74,7 @@ def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, 
     return results
     
 
-if name == '__main__':
+if __name__ == '__main__':
 
     #TODO: Make this commandline argparse
     results = get_results('hard','relaxed')
