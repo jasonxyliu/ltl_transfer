@@ -422,8 +422,6 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
     for task_idx, transfer_task in enumerate(transfer_tasks):
-        if task_idx != 88:
-            continue
         tester.log_results("== Transfer Task %d: %s" % (task_idx, str(transfer_task)))
         print("== Transfer Task %d: %s\n" % (task_idx, str(transfer_task)))
 
