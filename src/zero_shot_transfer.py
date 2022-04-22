@@ -5,8 +5,12 @@ import random
 import dill
 import matplotlib.pyplot as plt
 from collections import defaultdict
-from mpi4py import MPI
-from mpi4py.futures import MPIPoolExecutor
+from copy import deepcopy
+try:
+    from mpi4py import MPI
+    from mpi4py.futures import MPIPoolExecutor
+except:
+    print('MPI installation not found. Please do not use cluster computing options')
 from multiprocessing import Pool
 import numpy as np
 import sympy
@@ -329,7 +333,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         runtime = 0
 
         start = time.time()
-        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
+        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
         precomputation_time = time.time() - start
         if not test2trains:
             run2exitcode = 'disconnected_graph'
@@ -404,7 +408,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
             run2traj[num_time] = run_traj
 
     success = success/num_times
-    mean_run_time = time.time() - start
+    mean_run_time = (time.time() - start)/num_times
     runtime = mean_run_time + precomputation_time
 
     #Debug logging individual file
@@ -434,7 +438,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
         print("\ntraining edges: ", train_edges)
         # Remove edges in DFA that do not have a matching train edge
         start_time = time.time()
-        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0])
+        test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
 
         if not test2trains:
             tester.log_results("DFA graph disconnected after removing infeasible edges\n")
@@ -518,7 +522,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                         print("loc did not change after option execution")
                         print(cur_loc, next_loc)
                         # reduce its success probability because option did not succeed, but not discard it completely
-                        node2option2prob[cur_node][(best_policy, best_self_edge, best_out_edge)] /= 2
+                        del node2option2prob[cur_node][(best_policy, best_self_edge, best_out_edge)]
                         # print(len(option2prob), option2prob)
                         # del option2prob[(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc:
@@ -563,12 +567,20 @@ def dfa2graph(dfa):
             nodelist[u][v] = {"edge_label": label}
     return nx.DiGraph(nodelist)
 
+def get_fail_edge(dfa, node):
+    #check if the fail edge exists
+    if bool(dfa.get_edge_data(node, -1)):
+        return dfa.get_edge_data(node, -1)['edge_label']
+    else:
+        return 'False'
 
-def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
+
+def remove_infeasible_edges(dfa, train_edges, start_state, goal_state, edge_matcher):
     """
     Remove infeasible edges from DFA graph, and
     construct a mapping from test_edge_pair to a set of matching train_edge_pairs
     """
+    dfa_copy = deepcopy(dfa)
     test2trains = defaultdict(set)
     edges = list(dfa.edges.keys())  # make a copy of edges because nx graph dict changes
     for edge in edges:
@@ -576,9 +588,14 @@ def remove_infeasible_edges(dfa, train_edges, start_state, goal_state):
             self_edge_label = dfa.edges[edge[0], edge[0]]["edge_label"]
             out_edge_label = dfa.edges[edge]["edge_label"]
             test_edge_pair = (self_edge_label, out_edge_label)
+            fail_edge = get_fail_edge(dfa_copy, edge[0])
             is_matched = False
             for train_edge in train_edges:
-                if match_edges(test_edge_pair, [train_edge]):
+                if edge_matcher == 'rigid':
+                    match = match_edges(test_edge_pair, [train_edge])
+                elif edge_matcher == 'relaxed':
+                    match = match_edges_v2(test_edge_pair, fail_edge, [train_edge])
+                if match:
                     test2trains[test_edge_pair].add(train_edge)
                     is_matched = True
             if not is_matched:
@@ -613,6 +630,7 @@ def match_edges_v2(test_edge_pair, fail_edge, train_edges):
     match includes exact match of test edge is less constrained than a training edge
     OR training edge is guaranteed to not fail, and has an intersecting satisfaction with the target test edge
     """
+    #print('using relaxed match_edge_v2')
     match_bools = [match_single_edge(test_edge_pair, fail_edge, train_edge) for train_edge in train_edges]
     return np.any(match_bools)
 
@@ -623,6 +641,7 @@ def match_edges(test_edge_pair, train_edges):
     match := exact match (aka. eq) or test_edge is less constrained than a training_edge (aka. subset)
     Note: more efficient to convert 'training_edges' before calling this function
     """
+
     test_self_edge, test_out_edge = test_edge_pair
     test_self_edge = sympy.simplify_logic(test_self_edge.replace('!', '~'), form='dnf')
     test_out_edge = sympy.simplify_logic(test_out_edge.replace('!', '~'), form='dnf')
@@ -700,3 +719,41 @@ def is_model_match(formula1, formula2):
         return True
     else:
         return False
+
+if __name__ == '__main__':
+
+    formula = ('and',
+               ('until', 'True', 'a'),
+                ('and',
+                 ('until', 'True', 'c'),
+                 ('and',
+                  ('until', 'True', 'e'),
+                  ('and',
+                   ('until', 'True', 'f'),
+                   ('and',
+                    ('until', 'True', 's'),
+                    ('and',
+                     ('until', ('not', 'c'), 'f'),
+                     ('and',
+                      ('until', ('not', 'c'), 's'),
+                      ('and',
+                       ('until', ('not', 'c'), 'a'),
+                       ('and',
+                        ('until', ('not', 'c'), 'e'),
+                        ('and',
+                         ('until', ('not', 'f'), 's'),
+                         ('and',
+                          ('until', ('not', 'f'), 'a'),
+                          ('and',
+                           ('until', ('not', 'f'), 'e'),
+                           ('and',
+                            ('until', ('not', 's'), 'a'),
+                            ('and',
+                             ('until', ('not', 's'), 'e'),
+                             ('until', ('not', 'a'), 'e')))))))))))))))
+    train_self_edge = '!a&!g'
+    train_out_edge = 'a&!g'
+    train_edges = [(train_self_edge, train_out_edge)]
+    dfa = DFA(formula)
+    dfa_graph = dfa2graph(dfa)
+    test2train = remove_infeasible_edges(dfa_graph, train_edges, 0, 5, 'relaxed')
