@@ -624,7 +624,7 @@ def match_edges_v2(test_edge_pair, fail_edge, train_edges):
     match includes exact match of test edge is less constrained than a training edge
     OR training edge is guaranteed to not fail, and has an intersecting satisfaction with the target test edge
     """
-    print('using relaxed match_edge_v2')
+    #print('using relaxed match_edge_v2')
     match_bools = [match_single_edge(test_edge_pair, fail_edge, train_edge) for train_edge in train_edges]
     return np.any(match_bools)
 
