@@ -2,7 +2,6 @@ import os
 import re
 import time
 import random
-import dill
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from copy import deepcopy
@@ -70,9 +69,9 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
         if relabel_method == 'parallel':  # use Python multiprocessing
             relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
 
-    policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
-    zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
-    # zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
+    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
+    # zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
+    zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
 
     tf.reset_default_graph()
     sess.close()
@@ -280,11 +279,10 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank, train_si
     return policy2edge2loc2prob
 
 
-def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, policy2edge2loc2prob, num_times, num_steps, learning_params, curriculum):
+def zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, num_steps, learning_params, curriculum):
     # Precompute common computations
     transfer_tasks = tester.get_transfer_tasks()
     ltl_ids = list(range(len(transfer_tasks)))
-    # train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
     task_chunks = [transfer_tasks[chunk_id: chunk_id + TRANSFER_CHUNK_SIZE] for chunk_id in range(0, len(transfer_tasks), TRANSFER_CHUNK_SIZE)]
     ltl_id_chunks = [ltl_ids[chunk_id: chunk_id + TRANSFER_CHUNK_SIZE] for chunk_id in range(0, len(ltl_ids), TRANSFER_CHUNK_SIZE)]
@@ -309,13 +307,14 @@ def zero_shot_transfer_cluster(tester, loader, saver, policy_bank, run_id, polic
             tester.task2success[str(transfer_task)] = retval[0]
             tester.task2run2sol[str(transfer_task)] = retval[1]
             tester.task2run2trajs[str(transfer_task)] = retval[2]
-            #tester.task
+            # tester.task
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
 
 def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
     # Load the policy bank without loading the policies
     print('Starting single worker transfer to task: %s' % str(transfer_task))
+    logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
     config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
     tf.reset_default_graph()
     with tf.Session(config=config) as sess:
@@ -339,9 +338,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
             data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
-            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
-            with open(logfilename, 'wb') as file:
-                dill.dump(data, file)
+            save_pkl(logfilename, data)
             return success, run2sol, run2traj, run2exitcode, runtime
 
         feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
@@ -350,11 +347,8 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
             data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
-            logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
-            with open(logfilename, 'wb') as file:
-                dill.dump(data, file)
+            save_pkl(logfilename, data)
             return success, run2sol, run2traj, run2exitcode, runtime
-
 
         start = time.time()
         for num_time in range(num_times):
@@ -407,15 +401,13 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
 
             run2traj[num_time] = run_traj
 
-    success = success/num_times
-    mean_run_time = (time.time() - start)/num_times
+    success = success / num_times
+    mean_run_time = (time.time() - start) / num_times
     runtime = mean_run_time + precomputation_time
 
-    #Debug logging individual file
+    # log single task result
     data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
-    logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
-    with open(logfilename, 'wb') as file:
-        dill.dump(data, file)
+    save_pkl(logfilename, data)
 
     print('Finished single worker transfer to task: %s' % str(transfer_task))
     return success, run2sol, run2traj, run2exitcode, runtime
@@ -567,28 +559,21 @@ def dfa2graph(dfa):
             nodelist[u][v] = {"edge_label": label}
     return nx.DiGraph(nodelist)
 
-def get_fail_edge(dfa, node):
-    #check if the fail edge exists
-    if bool(dfa.get_edge_data(node, -1)):
-        return dfa.get_edge_data(node, -1)['edge_label']
-    else:
-        return 'False'
 
-
-def remove_infeasible_edges(dfa, train_edges, start_state, goal_state, edge_matcher):
+def remove_infeasible_edges(test_dfa, train_edges, start_state, goal_state, edge_matcher):
     """
-    Remove infeasible edges from DFA graph, and
-    construct a mapping from test_edge_pair to a set of matching train_edge_pairs
+    Remove infeasible edges from DFA graph
+    Optimization: construct a mapping from test_edge_pair to a set of matching train_edge_pairs
     """
-    dfa_copy = deepcopy(dfa)
+    test_dfa_copy = deepcopy(test_dfa)
     test2trains = defaultdict(set)
-    edges = list(dfa.edges.keys())  # make a copy of edges because nx graph dict changes
-    for edge in edges:
-        if edge[0] != edge[1]:  # ignore self-edge
-            self_edge_label = dfa.edges[edge[0], edge[0]]["edge_label"]
-            out_edge_label = dfa.edges[edge]["edge_label"]
+    test_edges = list(test_dfa.edges.keys())  # make a copy of edges because nx graph dict mutated in-place
+    for test_edge in test_edges:
+        if test_edge[0] != test_edge[1]:  # ignore self-edge
+            self_edge_label = test_dfa.edges[test_edge[0], test_edge[0]]["edge_label"]
+            out_edge_label = test_dfa.edges[test_edge]["edge_label"]
             test_edge_pair = (self_edge_label, out_edge_label)
-            fail_edge = get_fail_edge(dfa_copy, edge[0])
+            fail_edge = get_fail_edge(test_dfa_copy, test_edge[0])
             is_matched = False
             for train_edge in train_edges:
                 if edge_matcher == 'rigid':
@@ -599,49 +584,73 @@ def remove_infeasible_edges(dfa, train_edges, start_state, goal_state, edge_matc
                     test2trains[test_edge_pair].add(train_edge)
                     is_matched = True
             if not is_matched:
-                dfa.remove_edge(edge[0], edge[1])
+                test_dfa.remove_edge(test_edge[0], test_edge[1])
                 # optimization: return as soon as start and goal are not connected
-                feasible_paths_node = list(nx.all_simple_paths(dfa, source=start_state, target=goal_state))
+                feasible_paths_node = list(nx.all_simple_paths(test_dfa, source=start_state, target=goal_state))
                 if not feasible_paths_node:
                     # print("short circuit remove_infeasible_edges")
                     return None
     return test2trains
 
 
+def get_fail_edge(dfa, node):
+    # check if the direct edge exists from 'node' to fail_state
+    if bool(dfa.get_edge_data(node, -1)):
+        return dfa.get_edge_data(node, -1)['edge_label']
+    else:
+        return 'False'
+
+
+def match_edges_v2(test_edge_pair, fail_edge, train_edges):
+    """
+    Determine if the test_edge can be matched with any training edge
+    match includes test edge is the same as or less constrained than a training edge
+    OR training edge is guaranteed to not fail, and has an intersecting satisfaction with the target test edge
+    """
+    # print('using relaxed match_edge_v2')
+    match_bools = [match_single_edge(test_edge_pair, fail_edge, train_edge) for train_edge in train_edges]
+    return np.any(match_bools)
+
+
 def match_single_edge(test_edge_pair, fail_edge, train_edge_pair):
     test_self_edge, test_out_edge = test_edge_pair
     train_self_edge, train_out_edge = train_edge_pair
-    #Non empty intersection of test_out_edge and train_out_edge
+
+    # Non empty intersection of test_out_edge and train_out_edge
     c1 = is_model_match(test_out_edge, train_out_edge)
-    #Non empty intersection of test_self_edge and train_self_edge
+    # Non empty intersection of test_self_edge and train_self_edge
     c2 = is_model_match(test_self_edge, train_self_edge)
     # Empty intersection of train_out_edge with fail_edge
     c3 = not is_model_match(train_out_edge, fail_edge)
     # Empty intersection of train_self_edge with fail_edge
     c4 = not is_model_match(train_self_edge, fail_edge)
-    #Empty intersection of train_out_edge with test_self_edge
+    # Empty intersection of train_out_edge with test_self_edge
     c5 = not is_model_match(train_out_edge, test_self_edge)
-    #All these conditions must be satisfied
-    return np.all([c1,c2,c3,c4,c5])
 
-def match_edges_v2(test_edge_pair, fail_edge, train_edges):
+    # All these conditions must be satisfied
+    return np.all([c1, c2, c3, c4, c5])
+
+
+def is_model_match(formula1, formula2):
     """
-    Determine if the test_edge can be mathched with any training edge
-    match includes exact match of test edge is less constrained than a training edge
-    OR training edge is guaranteed to not fail, and has an intersecting satisfaction with the target test edge
+    Logic Tools for model counting
     """
-    #print('using relaxed match_edge_v2')
-    match_bools = [match_single_edge(test_edge_pair, fail_edge, train_edge) for train_edge in train_edges]
-    return np.any(match_bools)
+    formula1 = sympy.sympify(formula1.replace('!', '~'))
+    formula2 = sympy.sympify(formula2.replace('!', '~'))
+
+    sat = sympy.logic.inference.satisfiable(formula1 & formula2)
+    if sat:
+        return True
+    else:
+        return False
 
 
 def match_edges(test_edge_pair, train_edges):
     """
     Determine if test_edge can be matched with any training_edge
-    match := exact match (aka. eq) or test_edge is less constrained than a training_edge (aka. subset)
+    match includes exact match (aka. eq) OR test_edge is less constrained than a training_edge (aka. subset)
     Note: more efficient to convert 'training_edges' before calling this function
     """
-
     test_self_edge, test_out_edge = test_edge_pair
     test_self_edge = sympy.simplify_logic(test_self_edge.replace('!', '~'), form='dnf')
     test_out_edge = sympy.simplify_logic(test_out_edge.replace('!', '~'), form='dnf')
@@ -708,20 +717,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     return cur_loc, option_reward, traj
 
 
-'''Logic Tools for model counting '''
-
-def is_model_match(formula1, formula2):
-    formula1 = sympy.sympify(formula1.replace('!', '~'))
-    formula2 = sympy.sympify(formula2.replace('!', '~'))
-
-    sat = sympy.logic.inference.satisfiable(formula1 & formula2)
-    if sat:
-        return True
-    else:
-        return False
-
 if __name__ == '__main__':
-
     formula = ('and',
                ('until', 'True', 'a'),
                 ('and',
