@@ -2,7 +2,6 @@ import os
 import re
 import time
 import random
-import matplotlib.pyplot as plt
 from collections import defaultdict
 from copy import deepcopy
 try:
@@ -69,8 +68,8 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
         if relabel_method == 'parallel':  # use Python multiprocessing
             relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
 
-    #policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
-    #zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
+    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
+    # zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
     zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
 
     tf.reset_default_graph()
@@ -563,7 +562,7 @@ def dfa2graph(dfa):
 def remove_infeasible_edges(test_dfa, train_edges, start_state, goal_state, edge_matcher):
     """
     Remove infeasible edges from DFA graph
-    Optimization: construct a mapping from test_edge_pair to a set of matching train_edge_pairs
+    Optimization: construct a mapping 'test2trains' from test_edge_pair to a set of matching train_edge_pairs
     """
     test_dfa_copy = deepcopy(test_dfa)
     test2trains = defaultdict(set)
@@ -697,8 +696,8 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     num_features = task.get_num_features()
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
     option_reward, step, traj = 0, 0, []
-    tester.log_results("cur_loc: %s" % str(cur_loc))
-    print("cur_loc: %s" % str(cur_loc))
+    # tester.log_results("cur_loc: %s" % str(cur_loc))
+    # print("cur_loc: %s" % str(cur_loc))
     # while not exceed max steps AND no DFA transition occurs AND option policy is still defined in current MDP state
     while step < num_steps and cur_node == task.dfa.state and cur_loc in edge2loc2prob[option_edge]:
         cur_node = task.dfa.state
@@ -710,8 +709,8 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         option_reward += r
         transition = ((cur_loc, cur_node), a.name, r, ((task.agent.i, task.agent.j), task.dfa.state))
         traj.append(transition)
-        tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
-        print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        # tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        # print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward, traj
