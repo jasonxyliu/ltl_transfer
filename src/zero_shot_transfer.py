@@ -338,7 +338,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         if not test2trains:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
-            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
+            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': runtime}
             logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
             with open(logfilename, 'wb') as file:
                 dill.dump(data, file)
@@ -349,7 +349,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         if not feasible_paths_node:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
-            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
+            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': runtime}
             logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
             with open(logfilename, 'wb') as file:
                 dill.dump(data, file)
@@ -412,7 +412,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
     runtime = mean_run_time + precomputation_time
 
     #Debug logging individual file
-    data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
+    data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': precomputation_time}
     logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
     with open(logfilename, 'wb') as file:
         dill.dump(data, file)
