@@ -139,13 +139,13 @@ if __name__ == "__main__":
                         help='This parameter indicated which RL algorithm to use. The options are: ' + str(algos))
     parser.add_argument('--train_type', default='sequence', type=str,
                         help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
-    parser.add_argument('--train_size', default=10, type=int,
+    parser.add_argument('--train_size', default=50, type=int,
                         help='This parameter indicated the number of LTLs in the training set')
     parser.add_argument('--test_type', default='soft', type=str,
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--train_steps', default=10000, type=int,
+    parser.add_argument('--train_steps', default=50000, type=int,
                         help='This parameter indicated the total training steps')
     parser.add_argument('--run_id', default=0, type=int,
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
