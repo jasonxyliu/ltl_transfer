@@ -54,7 +54,7 @@ class Transition:
         return float(self.T[s_next])
 
 
-def evaluate_optimal_policy(map_array, agent_i, agent_j, consider_night, tasks, task_id):
+def evaluate_optimal_policy(map_array, agent_i, agent_j, consider_night, tasks, task_id, task_type=None):
     map_height, map_width = len(map_array), len(map_array)
     sunrise, hour_init, sunset = 5, 12, 21
     actions = [Actions.up, Actions.down, Actions.left, Actions.right]
@@ -137,6 +137,9 @@ def evaluate_optimal_policy(map_array, agent_i, agent_j, consider_night, tasks, 
 
         summary.append(int(-V[s]))
 
-    out_str = "%s # Value optimal policy for solution experiment %d\n" % (str(summary), task_id)
+    if task_type:
+        out_str = "%s # Value optimal policy for solution experiment %d: %s\n" % (str(summary), task_id, task_type)
+    else:
+        out_str = "%s # Value optimal policy for solution experiment %d\n" % (str(summary), task_id)
     print(out_str)
     return out_str

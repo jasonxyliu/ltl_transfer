@@ -5,7 +5,7 @@ from dataset_creator import read_train_test_formulas
 from value_iteration import evaluate_optimal_policy
 
 if __name__ == "__main__":
-    # EXAMPLE: python compute_optimal_values.py --map=0 --train_type=soft_strict --train_size=50 --test_type=soft_strict
+    # EXAMPLE: python compute_optimal_values.py --map=0 --train_type=soft_strict --train_size=50
 
     # Getting params
     train_types = [
@@ -20,32 +20,21 @@ if __name__ == "__main__":
         "soft",
         "no_orders",
     ]
-    test_types = [
-        "hard",
-        "mixed",
-        "soft_strict",
-        "soft",
-        "no_orders",
-    ]
 
-    parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
+    parser = argparse.ArgumentParser(prog="compute_optimal_steps", description='Run value iteration to find optimal steps.')
     parser.add_argument('--map', default=-1, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
     parser.add_argument('--train_type', default='all', type=str,
                         help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
     parser.add_argument('--train_size', default=50, type=int,
                         help='This parameter indicated the number of LTLs in the training set')
-    parser.add_argument('--test_type', default='soft_strict', type=str,
-                        help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     args = parser.parse_args()
     if args.train_type not in train_types+['all']: raise NotImplementedError("Training Tasks " + str(args.train_type) + " hasn't been defined yet")
-    if args.test_type not in test_types: raise NotImplementedError("Test Tasks " + str(args.test_type) + " hasn't been defined yet")
     if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
     map_ids = range(10) if args.map == -1 else [args.map]
-    task_ids = [train_types.index(train_type) for train_type in test_types] if args.train_type == 'all' else [train_types.index(args.train_type)]
+    task_ids = [train_types.index(train_type) for train_type in train_types[5:]] if args.train_type == 'all' else [train_types.index(args.train_type)]
     train_size = args.train_size
-    test_type = args.test_type
     consider_night = False
 
     for map_id in map_ids:
@@ -54,12 +43,12 @@ if __name__ == "__main__":
         for task_id in task_ids:
             # Retrieve tasks for a LTL type
             task_type = train_types[task_id]
-            train_tasks, _ = read_train_test_formulas(task_type, test_type, train_size)
+            train_tasks, _ = read_train_test_formulas(train_set_type=task_type, train_size=train_size)
             task_aux = Game(GameParams(map_fpath, train_tasks[0], consider_night, init_dfa_state=None, init_loc=None))
             time_init = time.time()
             # Compute optimal steps for tasks of this LTL type in this map
-            out_str = evaluate_optimal_policy(task_aux.map_array, task_aux.agent.i, task_aux.agent.j, consider_night, train_tasks, task_id+1)
-            # Update the optimal policy file corresponding the map_id with computed optimal steps
+            out_str = evaluate_optimal_policy(task_aux.map_array, task_aux.agent.i, task_aux.agent.j, consider_night, train_tasks, task_id+1, task_type)
+            # Update the optimal policy file corresponding to the map_id with computed optimal steps
             with open(policy_fpath, "r") as rfile:
                 lines = rfile.readlines()  # readlines reads the newline character at the end of a line
             while task_id >= len(lines):  # equal in case optimal policy file does not have newline EOF
