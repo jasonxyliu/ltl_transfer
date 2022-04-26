@@ -336,7 +336,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         if not test2trains:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
-            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
+            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': precomputation_time}
             save_pkl(logfilename, data)
             return success, run2sol, run2traj, run2exitcode, runtime
 
@@ -345,7 +345,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         if not feasible_paths_node:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
-            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
+            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': precomputation_time}
             save_pkl(logfilename, data)
             return success, run2sol, run2traj, run2exitcode, runtime
 
@@ -405,7 +405,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
     runtime = mean_run_time + precomputation_time
 
     # log single task result
-    data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
+    data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': precomputation_time}
     save_pkl(logfilename, data)
 
     print('Finished single worker transfer to task: %s' % str(transfer_task))
