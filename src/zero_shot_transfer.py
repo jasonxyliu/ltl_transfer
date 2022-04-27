@@ -603,8 +603,10 @@ def get_fail_edge(dfa, node):
 def match_edges_v2(test_edge_pair, fail_edge, train_edges):
     """
     Determine if the test_edge can be matched with any training edge
-    match includes test edge is the same as or less constrained than a training edge
-    OR training edge is guaranteed to not fail, and has an intersecting satisfaction with the target test edge
+    match means training edge has an intersecting satisfaction with the target test edge,
+    AND is guaranteed to not fail,
+    AND does not have an intersecting satisfaction with the test self-edge
+    (i.e. test edge can be more constrained than train edge, and vice versa -> more relaxed than match_edges)
     """
     # print('using relaxed match_edge_v2')
     match_bools = [match_single_edge(test_edge_pair, fail_edge, train_edge) for train_edge in train_edges]
@@ -647,7 +649,7 @@ def is_model_match(formula1, formula2):
 def match_edges(test_edge_pair, train_edges):
     """
     Determine if test_edge can be matched with any training_edge
-    match includes exact match (aka. eq) OR test_edge is less constrained than a training_edge (aka. subset)
+    match means exact match (aka. eq) OR test_edge is less constrained than a training_edge (aka. subset)
     Note: more efficient to convert 'training_edges' before calling this function
     """
     test_self_edge, test_out_edge = test_edge_pair
@@ -656,6 +658,7 @@ def match_edges(test_edge_pair, train_edges):
     train_self_edges = [sympy.simplify_logic(pair[0].replace('!', '~'), form='dnf') for pair in train_edges]
     train_out_edges = [sympy.simplify_logic(pair[1].replace('!', '~'), form='dnf') for pair in train_edges]
 
+    # TODO: works correctly when 'train_edges' contains only 1 train edge
     is_subset_eq_self = np.any([bool(_is_subset_eq(test_self_edge, train_self_edge)) for train_self_edge in train_self_edges])
     is_subset_eq_out = np.any([bool(_is_subset_eq(test_out_edge, train_out_edge)) for train_out_edge in train_out_edges])
     return is_subset_eq_self and is_subset_eq_out
@@ -673,7 +676,7 @@ def _is_subset_eq(test_edge, train_edge):
     https://github.com/sympy/sympy/issues/23167
     """
     if test_edge.func == sympy.Or:
-        if train_edge.func == sympy.Or:  # len(train_edge.args) <= len(test_edge.args)
+        if train_edge.func == sympy.Or:  # train_edge must have equal or more args than test_edge
             return sympy.And(*[sympy.Or(*[_is_subset_eq(test_term, train_term) for test_term in test_edge.args])
                                for train_term in train_edge.args]) and \
                    sympy.And(*[sympy.Or(*[_is_subset_eq(test_term, train_term) for train_term in train_edge.args])
