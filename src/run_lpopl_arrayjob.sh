@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -n 16
-#SBATCH --mem=64G
+#SBATCH --mem=99G
 #SBATCH -t 99:00:00
 #SBATCH --array=0-14
 
