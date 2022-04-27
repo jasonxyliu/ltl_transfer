@@ -8,6 +8,8 @@
 #SBATCH -e sbatch_out/arrayjob-%A-%a.err
 #SBATCH -o sbatch_out/arrayjob-%A-%a.out
 
+export PYTHONUNBUFFERED=TRUE
+
 # Convert 1D indexing to 2D
 i=`expr $SLURM_ARRAY_TASK_ID % 5`
 j=`expr $SLURM_ARRAY_TASK_ID / 5`
