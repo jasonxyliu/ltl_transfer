@@ -168,19 +168,19 @@ class Saver:
         self.alg_name = alg_name
         self.tester = tester
 
-        exp_dir = os.path.join("../tmp", tester.experiment)
-        os.makedirs(exp_dir, exist_ok=True)
+        self.exp_dir = os.path.join("../tmp", tester.experiment)
+        os.makedirs(self.exp_dir, exist_ok=True)
 
-        self.train_dpath = os.path.join(exp_dir, "train_data")
+        self.train_dpath = os.path.join(self.exp_dir, "train_data")
         os.makedirs(self.train_dpath, exist_ok=True)
 
         self.policy_dpath = os.path.join(self.train_dpath, "policy_model")
         os.makedirs(self.policy_dpath, exist_ok=True)
 
-        self.classifier_dpath = os.path.join(exp_dir, "classifier")
+        self.classifier_dpath = os.path.join(self.exp_dir, "classifier")
         os.makedirs(self.classifier_dpath, exist_ok=True)
 
-        self.file_out = os.path.join(exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
+        self.file_out = os.path.join(self.exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
 
     def save_train_data(self, curriculum, run_id):
         run_dpath = os.path.join(self.train_dpath, "run_%d" % run_id)

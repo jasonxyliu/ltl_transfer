@@ -16,7 +16,7 @@ def run_experiments(tester, curriculum, saver, num_times, train_steps, show_prin
     tester_original = tester
     curriculum_original = curriculum
     loader = Loader(saver)
-    train_dpath = os.path.join("../tmp", tester.experiment, "train_data")
+    train_dpath = os.path.join(saver.exp_dir, "train_data")
 
     # Running the tasks 'num_times'
     for run_id in range(num_times):
