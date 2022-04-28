@@ -2,6 +2,7 @@ import os
 import re
 import time
 import random
+import matplotlib.pyplot as plt
 from collections import defaultdict
 from copy import deepcopy
 try:
@@ -294,11 +295,11 @@ def zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, num_ste
             args.append((transfer_task, ltl_id, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver))
         # Send tasks to parallel workers
         print(f'Starting transfer chunk {chunk_id} of {len(task_chunks)}')
-        start = time.time()
-        with MPIPoolExecutor(max_workers=TRANSFER_CHUNK_SIZE) as pool:  # parallelize over all locs in a chunk
+        start_time = time.time()
+        with MPIPoolExecutor(max_workers=TRANSFER_CHUNK_SIZE) as pool:  # parallelize over transfer tasks
             retvals_chunk = pool.starmap(zero_shot_transfer_single_task, args)
         retvals.extend(retvals_chunk)
-        print(f'Completed transfer chunk {chunk_id} of {len(task_chunks)} in {(time.time() - start)/60} minutes')
+        print(f'Completed transfer chunk {chunk_id} of {len(task_chunks)} in {(time.time() - start_time)/60} minutes')
         print(retvals)
 
         # Accumulate results
@@ -306,7 +307,6 @@ def zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, num_ste
             tester.task2success[str(transfer_task)] = retval[0]
             tester.task2run2sol[str(transfer_task)] = retval[1]
             tester.task2run2trajs[str(transfer_task)] = retval[2]
-            # tester.task
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
 
@@ -330,9 +330,9 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         run2exitcode = {}
         runtime = 0
 
-        start = time.time()
+        start_time = time.time()
         test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
-        precomputation_time = time.time() - start
+        precomputation_time = time.time() - start_time
         if not test2trains:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
@@ -349,7 +349,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
             save_pkl(logfilename, data)
             return success, run2sol, run2traj, run2exitcode, runtime
 
-        start = time.time()
+        start_time = time.time()
         for num_time in range(num_times):
             task = Game(tester.get_task_params(transfer_task))
             run_traj = []
@@ -401,7 +401,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
             run2traj[num_time] = run_traj
 
     success = success / num_times
-    mean_run_time = (time.time() - start) / num_times
+    mean_run_time = (time.time() - start_time) / num_times
     runtime = mean_run_time + precomputation_time
 
     # log single task result
@@ -425,6 +425,13 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
         dfa_graph = dfa2graph(task_aux.dfa)
         for line in nx.generate_edgelist(dfa_graph):
             print(line)
+        # pos = nx.circular_layout(dfa_graph)
+        # nx.draw_networkx(dfa_graph, pos, with_labels=True)
+        # nx.draw_networkx_edges(dfa_graph, pos)
+        # ax = plt.gca()
+        # ax.margins(0.20)
+        # plt.axis("off")
+        # plt.show()
 
         print("\ntraining edges: ", train_edges)
         # Remove edges in DFA that do not have a matching train edge
