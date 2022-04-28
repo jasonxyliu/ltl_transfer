@@ -530,7 +530,8 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
             tester.log_results("current node: %d\n\n" % task.dfa.state)
             print("current node: %d\n\n" % task.dfa.state)
             if task.ltl_game_over:
-                tester.task2success[str(transfer_task)] += 1
+                if task.dfa.state != -1:
+                    tester.task2success[str(transfer_task)] += 1
             tester.task2run2trajs[str(transfer_task)][num_time] = run_traj
     tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
 
