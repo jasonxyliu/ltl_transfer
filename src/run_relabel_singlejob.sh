@@ -10,13 +10,13 @@
 export PYTHONUNBUFFERED=TRUE
 
 algo="zero_shot_transfer"
-train_type="mixed"
+train_type="no_orders"
 train_size=50
-test_type="no_orders"
+test_type="soft"
 map=0
 run_id=0
 relabel_method="cluster"
-edge_matcher="strict"
+edge_matcher="rigid"
 
 module load anaconda/2020.02
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
