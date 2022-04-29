@@ -8,6 +8,7 @@ Created on Fri Apr 22 13:47:34 2022
 
 from dataset_creator import read_train_test_formulas
 from zero_shot_transfer import *
+import dill
 
 RESULT_DPATH = '../results'
 
@@ -53,7 +54,7 @@ class Record:
 
     @property
     def runtimes(self):
-        return [r['runtimes'] for r in self.data if r['run2exitcode'] != 'timeout']
+        return [r['runtime'] for r in self.data if r['run2exitcode'] != 'timeout']
 
     @property
     def specification_failure_rate(self):
@@ -66,7 +67,7 @@ class Record:
                 spec_fails += inc
 
 def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, map_id = 0, train_size = 50):
-    if not test_type:
+    if not test_types:
         test_types = ['hard','soft','soft_strict','mixed','no_orders']
     results = {}
     for test_type in test_types:
@@ -77,7 +78,7 @@ def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, 
 if __name__ == '__main__':
 
     #TODO: Make this commandline argparse
-    results = get_results('hard','relaxed')
+    results = get_results('mixed','rigid')
 
 
 
