@@ -8,6 +8,7 @@ Created on Fri Apr 22 13:47:34 2022
 
 from dataset_creator import read_train_test_formulas
 from zero_shot_transfer import *
+import dill
 
 RESULT_DPATH = '../results'
 
@@ -65,16 +66,21 @@ class Record:
                 inc = len([k for k in r['run2exitcodes'] if r['run2exitcodes'][k] == 'specification_fail'])
                 spec_fails += inc
 
-def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, map_id = 0, train_size = 50):
+def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, map_id = 0, train_sizes = [50]):
+    
     if not test_types:
         test_types = ['hard','soft','soft_strict','mixed','no_orders']
     results = {}
     for test_type in test_types:
-        results[(train_type, train_size, test_type, edge_matcher)] = Record(train_type, train_size, test_type, edge_matcher, map_id = 0)
+        for train_size in train_sizes:
+            results[(train_type, train_size, test_type, edge_matcher)] = Record(train_type, train_size, test_type, edge_matcher, map_id = 0)
     return results
+
 
 
 if __name__ == '__main__':
 
     #TODO: Make this commandline argparse
-    results = get_results('mixed','relaxed')
+    #results = get_results('mixed','relaxed')
+    results = get_results('mixed','relaxed',['mixed'], train_sizes = [10,20,30,40,50])
+    
