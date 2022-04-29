@@ -1,0 +1,5 @@
+results/
+tmp/*
+src/sbatch_out/*
+src/__pycache__
+src/run_transfer*
