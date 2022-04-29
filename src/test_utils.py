@@ -67,6 +67,7 @@ class Tester:
                     self.transfer_results_dpath = os.path.join("../results", train_type, "map_%d" % map_id)
                 else:
                     self.experiment = "%s_%d/map_%d" % (train_type, train_size, map_id)
+                    self.experiment_train = "%s_50/map_%d" % (train_type, map_id)
                     self.tasks, self.transfer_tasks = read_train_test_formulas(train_type, test_type, train_size)
                     self.transfer_results_dpath = os.path.join("../results", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
@@ -168,7 +169,7 @@ class Saver:
         self.alg_name = alg_name
         self.tester = tester
 
-        self.exp_dir = os.path.join("../tmp", tester.experiment)
+        self.exp_dir = os.path.join("../tmp", tester.experiment_train)
         os.makedirs(self.exp_dir, exist_ok=True)
 
         self.train_dpath = os.path.join(self.exp_dir, "train_data")
