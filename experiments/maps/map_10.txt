@@ -1,12 +1,8 @@
-XXXXXXXXXXXX
-X  b a b A X
-X  bb bb   X
-X          X
-X          X
-X          X
-X          X
-X          X
-X          X
-X          X
-X          X
-XXXXXXXXXXXX
+XXXXXXXX
+X      X
+X   b  X
+X a b AX
+X   b  X
+X      X
+XXXXXXXX
+

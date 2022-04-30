@@ -1,12 +1,6 @@
 XXXXXXXXXXXX
-X          X
-X          X
-X          X
-X   b      X
-X a b A    X
-X   b      X
-X          X
-X          X
-X          X
+X  b a b A X
+X  bb bb   X
 X          X
 XXXXXXXXXXXX
+
