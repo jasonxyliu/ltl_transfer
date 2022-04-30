@@ -347,8 +347,8 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps,
             node2option2prob = {}
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
+                next_node = cur_node
                 cur_loc = (task.agent.i, task.agent.j)
-                next_loc = cur_loc
 
                 if cur_node not in node2option2prob:
                     # Find all feasible paths current node is on then candidate options to target
@@ -363,11 +363,10 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps,
                             for train_self_edge, train_out_edge in test2trains[test_edge_pair]:
                                 for ltl in edge2ltls[(train_self_edge, train_out_edge)]:
                                     prob = policy2edge2loc2prob[ltl][train_out_edge][cur_loc]
-                                    if prob:
-                                        option2prob[(ltl, train_self_edge, train_out_edge)] = prob
+                                    option2prob[(ltl, train_self_edge, train_out_edge)] = prob
                     node2option2prob[cur_node] = option2prob
 
-                while node2option2prob[cur_node] and cur_loc == next_loc:
+                while node2option2prob[cur_node] and cur_node == next_node:
                     # Find best edge to target based on rollout success probability from current location
                     best_policy, best_self_edge, best_out_edge = sorted(node2option2prob[cur_node].items(), key=lambda kv: kv[1])[-1][0]
                     # Overwrite empty policy by policy with tf model then load its weights when need to execute it
@@ -376,13 +375,14 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps,
                         policy_bank.replace_policy(policy.ltl, policy.f_task, policy.dfa)
                         loader.load_policy_bank(run_id, sess)
                     # Execute the selected option
-                    next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
+                    _, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
                     run_traj.append(option_traj)
-                    if cur_loc != next_loc:
+                    next_node = task.dfa.state
+                    if cur_node != next_node:
                         run2sol[num_time].append((str(best_policy), best_self_edge, best_out_edge))
                     else:
                         del node2option2prob[cur_node][(best_policy, best_self_edge, best_out_edge)]
-                if cur_loc == next_loc:
+                if cur_node == next_node:
                     run2exitcode[num_time] = 'options_exhausted'
                     break  # All matched options tried and failed to progress the state
             if task.ltl_game_over:
