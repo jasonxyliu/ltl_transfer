@@ -52,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print):
+def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print):
     # configuration of testing params
     testing_params = TestingParameters()
 
@@ -63,7 +63,7 @@ def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type
     tester = Tester(learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, edge_matcher)
 
     # Setting the curriculum learner
-    curriculum = CurriculumLearner(tester.tasks, r_good=r_good)
+    curriculum = CurriculumLearner(tester.tasks, r_good=r_good, total_steps=total_steps)
 
     # Setting up the saver
     saver = Saver(alg_name, tester)
@@ -82,30 +82,30 @@ def run_experiment(alg_name, map_id, tasks_id, train_type, train_size, test_type
 
     # LPOPL
     if alg_name == "lpopl":
-        lpopl.run_experiments(tester, curriculum, saver, num_times, train_steps, show_print)
+        lpopl.run_experiments(tester, curriculum, saver, num_times, increment_steps, show_print)
 
     # Relabel state-centric options learn by LPOPL then zero-shot transfer
     if alg_name == "zero_shot_transfer":
         zero_shot_transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
 
-def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
+def run_multiple_experiments(alg, tasks_id, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
     num_times = 3
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
         print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-        run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
+        run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
 
 
-def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_id, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
+def run_single_experiment(alg, tasks_id, train_type, train_size, test_type, map_id, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
     num_times = 1  # each algo was run 3 times per map in the paper
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-    run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, train_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
+    run_experiment(alg, map_id, tasks_id, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
 
 
 if __name__ == "__main__":
@@ -145,8 +145,10 @@ if __name__ == "__main__":
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--train_steps', default=50000, type=int,
-                        help='This parameter indicated the total training steps')
+    parser.add_argument('--total_steps', default=500000, type=int,
+                        help='This parameter indicated the increment to the total training steps')
+    parser.add_argument('--incremental_steps', default=150000, type=int,
+                        help='This parameter indicated the increment to the total training steps')
     parser.add_argument('--run_id', default=0, type=int,
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
     # parser.add_argument('--load_trained', action="store_true",
@@ -167,8 +169,10 @@ if __name__ == "__main__":
     tasks_id = train_types.index(args.train_type)
     map_id = args.map
     if map_id > -1:
-        run_single_experiment(args.algo, tasks_id, args.train_type, args.train_size, args.test_type,
-                              map_id, args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times, args.edge_matcher)
+        run_single_experiment(args.algo, tasks_id, args.train_type, args.train_size, args.test_type, map_id,
+                              args.total_steps, args.incremental_steps, args.run_id,
+                              args.relabel_method, args.transfer_num_times, args.edge_matcher)
     else:
         run_multiple_experiments(args.algo, tasks_id, args.train_type, args.train_size, args.test_type,
-                                 args.train_steps, args.run_id, args.relabel_method, args.transfer_num_times, args.edge_matcher)
+                                 args.total_steps, args.incremental_steps, args.run_id,
+                                 args.relabel_method, args.transfer_num_times, args.edge_matcher)
