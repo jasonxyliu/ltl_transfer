@@ -27,8 +27,10 @@ train_size=50
 maps=(1 5 6)
 map=${maps[$k]}
 
+total_steps=800000
+
 module load anaconda/2020.02
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate lpopl
 
-python run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --map=$map
+python run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --map=$map --total_steps=$total_steps
