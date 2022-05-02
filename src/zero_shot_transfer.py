@@ -490,7 +490,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                     print("No options found at DFA state %d, location %s\n" % (cur_node, str(cur_loc)))
                     break
 
-                while cur_node == next_node:
+                while node2option2prob[cur_node] and cur_node == next_node:
                     # Find best edge to target based on rollout success probability from current location
                     best_policy, best_self_edge, best_out_edge = sorted(node2option2prob[cur_node].items(), key=lambda kv: kv[1])[-1][0]
                     # Overwrite empty policy by policy with tf model then load its weights when need to execute it
