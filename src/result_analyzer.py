@@ -9,6 +9,8 @@ Created on Fri Apr 22 13:47:34 2022
 from dataset_creator import read_train_test_formulas
 from zero_shot_transfer import *
 import dill
+import numpy as np
+from scipy.stats import beta
 
 RESULT_DPATH = '../results'
 
@@ -75,6 +77,21 @@ def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, 
         for train_size in train_sizes:
             results[(train_type, train_size, test_type, edge_matcher)] = Record(train_type, train_size, test_type, edge_matcher, map_id = 0)
     return results
+
+def get_success_CI(results, trials = 100, CI = 0.95):
+    
+    success = {k: np.mean(results[k].success) for k in results}
+    success_CI = {}
+    for k in success:
+        successful_tries = trials * success[k]
+        failed_tries = trials - successful_tries
+        lower_q = (1 - CI)/2
+        upper_q = 0.5 + CI/2
+        lower = beta.ppf(lower_q, successful_tries, failed_tries)
+        upper = beta.ppf(upper_q, successful_tries, failed_tries)
+        success_CI[k] =  (lower, upper)
+    return success_CI
+        
 
 
 
