@@ -310,7 +310,7 @@ def zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, num_ste
 # unpicklable objects: train_edges (dict_keys), learning_params, curriculum, tester
 
 
-def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
+def zero_shot_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
     print('Starting single worker transfer to task: %s' % str(transfer_task))
     logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
     config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
@@ -324,15 +324,12 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
         task_aux = Game(tester.get_task_params(transfer_task))
         dfa_graph = dfa2graph(task_aux.dfa)
 
-        success = 0
-        run2sol = defaultdict(list)
-        run2traj = {}
-        run2exitcode = {}
-        runtime = 0
+        success, run2sol, run2traj, run2exitcode = 0, defaultdict(list), {}, {}
 
         start_time = time.time()
         test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
         precomputation_time = time.time() - start_time
+
         if not test2trains:
             run2exitcode = 'disconnected_graph'
             runtime = precomputation_time
@@ -342,40 +339,37 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
 
         feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
         feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
-        if not feasible_paths_node:
-            run2exitcode = 'disconnected_graph'
-            runtime = precomputation_time
-            data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': precomputation_time}
-            save_pkl(logfilename, data)
-            return success, run2sol, run2traj, run2exitcode, runtime
 
         start_time = time.time()
         for num_time in range(num_times):
             task = Game(tester.get_task_params(transfer_task))
             run_traj = []
+            node2option2prob = {}
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
-                candidate_edges = set()
-                for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
-                    if cur_node in feasible_path_node:
-                        pos = feasible_path_node.index(cur_node)  # current position on this path
-                        test_edge = feasible_path_edge[pos]
-                        self_edge = dfa_graph.edges[test_edge[0], test_edge[0]]["edge_label"]  # self_edge label
-                        out_edge = dfa_graph.edges[test_edge]["edge_label"]  # get boolean formula for outgoing edge
-                        test_edge_pair = (self_edge, out_edge)
-                        candidate_edges.update(test2trains[test_edge_pair])
-
-                # Find best edge to target based on rollout success probability from current location
-                option2prob = {}
                 cur_loc = (task.agent.i, task.agent.j)
                 next_loc = cur_loc
-                for self_edge, out_edge in candidate_edges:
-                    for ltl in edge2ltls[(self_edge, out_edge)]:
-                        option2prob[(ltl, self_edge, out_edge)] = policy2edge2loc2prob[ltl][out_edge][cur_loc]
-                if not option2prob:
-                    break  # No matched options found break with failure
-                while option2prob and cur_loc == next_loc:
-                    best_policy, best_self_edge, best_out_edge = sorted(option2prob.items(), key=lambda kv: kv[1])[-1][0]
+
+                if cur_node not in node2option2prob:
+                    # Find all feasible paths current node is on then candidate options to target
+                    option2prob = {}
+                    for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
+                        if cur_node in feasible_path_node:
+                            pos = feasible_path_node.index(cur_node)  # current position on this path
+                            test_edge = feasible_path_edge[pos]
+                            test_self_edge = dfa_graph.edges[test_edge[0], test_edge[0]]["edge_label"]  # self_edge label
+                            test_out_edge = dfa_graph.edges[test_edge]["edge_label"]  # get boolean formula for out edge
+                            test_edge_pair = (test_self_edge, test_out_edge)
+                            for train_self_edge, train_out_edge in test2trains[test_edge_pair]:
+                                for ltl in edge2ltls[(train_self_edge, train_out_edge)]:
+                                    prob = policy2edge2loc2prob[ltl][train_out_edge][cur_loc]
+                                    if prob:
+                                        option2prob[(ltl, train_self_edge, train_out_edge)] = prob
+                    node2option2prob[cur_node] = option2prob
+
+                while node2option2prob[cur_node] and cur_loc == next_loc:
+                    # Find best edge to target based on rollout success probability from current location
+                    best_policy, best_self_edge, best_out_edge = sorted(node2option2prob[cur_node].items(), key=lambda kv: kv[1])[-1][0]
                     # Overwrite empty policy by policy with tf model then load its weights when need to execute it
                     policy = policy_bank.policies[policy_bank.policy2id[best_policy]]
                     if not policy.load_tf:
@@ -387,7 +381,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
                     if cur_loc != next_loc:
                         run2sol[num_time].append((str(best_policy), best_self_edge, best_out_edge))
                     else:
-                        del option2prob[(best_policy, best_self_edge, best_out_edge)]
+                        del node2option2prob[cur_node][(best_policy, best_self_edge, best_out_edge)]
                 if cur_loc == next_loc:
                     run2exitcode[num_time] = 'options_exhausted'
                     break  # All matched options tried and failed to progress the state
@@ -399,7 +393,6 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx,  num_times, num_steps
                     run2exitcode[num_time] = 'specification_fail'
 
             run2traj[num_time] = run_traj
-
     success = success / num_times
     mean_run_time = (time.time() - start_time) / num_times
     runtime = mean_run_time + precomputation_time
@@ -477,8 +470,8 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                 next_loc = cur_loc
 
                 if cur_node not in node2option2prob:
-                    option2prob = {}
                     # Find all feasible paths current node is on then candidate options to target
+                    option2prob = {}
                     for feasible_path_node, feasible_path_edge in zip(feasible_paths_node, feasible_paths_edge):
                         if cur_node in feasible_path_node:
                             pos = feasible_path_node.index(cur_node)  # current position on this path
