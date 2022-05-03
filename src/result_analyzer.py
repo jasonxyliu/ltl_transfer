@@ -89,7 +89,7 @@ def get_success_CI(results, trials = 100, CI = 0.95):
         upper_q = 0.5 + CI/2
         lower = beta.ppf(lower_q, successful_tries, failed_tries)
         upper = beta.ppf(upper_q, successful_tries, failed_tries)
-        success_CI[k] =  (lower, upper)
+        success_CI[k] =  (lower, success[k], upper)
     return success_CI
         
 
