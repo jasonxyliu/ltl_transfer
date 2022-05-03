@@ -311,12 +311,12 @@ def zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, num_ste
 
 
 def zero_shot_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps, run_id, learning_params, curriculum, tester, loader, saver):
-    # Load the policy bank without loading the policies
     print('Starting single worker transfer to task: %s' % str(transfer_task))
     logfilename = os.path.join(tester.transfer_results_dpath, f'test_ltl_{ltl_idx}.pkl')
     config = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1, allow_soft_placement=True)
     tf.reset_default_graph()
     with tf.Session(config=config) as sess:
+        # Load the policy bank without loading the policies
         policy_bank = _initialize_policy_bank(sess, learning_params, curriculum, tester, load_tf=False)
         policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
         train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
