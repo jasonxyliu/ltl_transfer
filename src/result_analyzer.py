@@ -56,7 +56,7 @@ class Record:
 
     @property
     def runtimes(self):
-        return [r['runtimes'] for r in self.data if r['run2exitcode'] != 'timeout']
+        return [r['runtime'] for r in self.data if r['run2exitcode'] != 'timeout']
 
     @property
     def specification_failure_rate(self):
