@@ -69,7 +69,7 @@ class Record:
                 spec_fails += inc
 
 def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, map_id = 0, train_sizes = [50]):
-    
+
     if not test_types:
         test_types = ['hard','soft','soft_strict','mixed','no_orders']
     results = {}
@@ -79,7 +79,7 @@ def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, 
     return results
 
 def get_success_CI(results, trials = 100, CI = 0.95):
-    
+
     success = {k: np.mean(results[k].success) for k in results}
     success_CI = {}
     for k in success:
@@ -91,7 +91,7 @@ def get_success_CI(results, trials = 100, CI = 0.95):
         upper = beta.ppf(upper_q, successful_tries, failed_tries)
         success_CI[k] =  (lower, success[k], upper)
     return success_CI
-        
+
 
 
 
@@ -99,5 +99,16 @@ if __name__ == '__main__':
 
     #TODO: Make this commandline argparse
     #results = get_results('mixed','relaxed')
-    results = get_results('mixed','relaxed',['mixed'], train_sizes = [10,20,30,40,50])
-    
+    #results = get_results('mixed','relaxed',['mixed'], train_sizes = [10,20,30,40,50])
+    train_types = ['hard','soft','soft_strict','no_orders','mixed']
+    test_types = ['hard','soft','soft_strict','no_orders','mixed']
+    results = {}
+
+    for train_type in train_types:
+        for test_type in test_types:
+            record = Record(train_type, 50, test_type, 'rigid')
+            results[(train_type, test_type, 'rigid')] = record
+            record = Record(train_type, 50, test_type, 'relaxed')
+            results[(train_type, test_type, 'relaxed')] = record
+
+    get_success_CI = get_success_CI(results)
