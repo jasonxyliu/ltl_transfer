@@ -105,14 +105,16 @@ if __name__ == '__main__':
     train_types = ['mixed']
     test_types = ['mixed']
     train_sizes = [5,10,15,20,30,40,50]
+    map_ids = [0]
     results = {}
 
     for train_type in train_types:
         for test_type in test_types:
             for train_size in train_sizes:
-                record = Record(train_type, train_size, test_type, 'rigid')
-                results[(train_type, test_type, 'rigid')] = record
-                record = Record(train_type, train_size, test_type, 'relaxed')
-                results[(train_type, test_type, 'relaxed')] = record
+                for map_id in map_ids:
+                    record = Record(train_type, train_size, test_type, 'rigid')
+                    results[(train_type, train_size, test_type, 'rigid', map_id)] = record
+                    record = Record(train_type, train_size, test_type, 'relaxed')
+                    results[(train_type, train_size, test_type, 'relaxed', map_id)] = record
 
     get_success_CI = get_success_CI(results)
