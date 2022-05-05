@@ -12,7 +12,7 @@ import dill
 import numpy as np
 from scipy.stats import beta
 
-RESULT_DPATH = '../results'
+RESULT_DPATH = '../results_test'
 
 
 class Record:
@@ -68,14 +68,15 @@ class Record:
                 inc = len([k for k in r['run2exitcodes'] if r['run2exitcodes'][k] == 'specification_fail'])
                 spec_fails += inc
 
-def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, map_id = 0, train_sizes = [50]):
+def get_results(train_type='hard', edge_matcher = 'relaxed', test_types = None, map_ids = [0], train_sizes = [50]):
 
     if not test_types:
         test_types = ['hard','soft','soft_strict','mixed','no_orders']
     results = {}
     for test_type in test_types:
         for train_size in train_sizes:
-            results[(train_type, train_size, test_type, edge_matcher)] = Record(train_type, train_size, test_type, edge_matcher, map_id = 0)
+            for map_id in map_ids:
+                results[(train_type, train_size, test_type, edge_matcher, map_id)] = Record(train_type, train_size, test_type, edge_matcher, map_id = map_id)
     return results
 
 def get_success_CI(results, trials = 100, CI = 0.95):
