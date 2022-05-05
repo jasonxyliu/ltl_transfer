@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH -n 100
+#SBATCH -n 119
 #SBATCH --mem=99G
-#SBATCH -t 2:00:00
+#SBATCH -t 5:00:00
 #SBATCH --array=0-4
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
@@ -14,24 +14,29 @@ export PYTHONUNBUFFERED=TRUE
 i=`expr $SLURM_ARRAY_TASK_ID % 5`
 j=`expr $SLURM_ARRAY_TASK_ID / 5`
 k=`expr $j % 1`
-#l=`expr $j / 1`
-#m=`expr $l % 1`
+l=`expr $j / 1`
+m=`expr $l % 1`
+n=`expr $l / 1`
+o=`expr $n % 1`
 
 algo="zero_shot_transfer"
 
-train_type="hard"
+train_type="mixed"
 
 test_types=( "hard" "mixed" "soft_strict" "soft" "no_orders" )
 test_type=${test_types[$i]}
 
-train_sizes=( 50 )
+train_sizes=( 50 )  # 5, 10, 15, 20, 30, 40, 50
 train_size=${train_sizes[$k]}
 
-map=0
+maps=( 1 )  # 1 5 6
+map=${maps[$m]}
+
+edge_matchers=( "relaxed" )  # "relaxed" "rigid"
+edge_matcher=${edge_matchers[$o]}
 
 run_id=0
 relabel_method="cluster"
-edge_matcher="relaxed"
 
 module load anaconda/2020.02
 source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
