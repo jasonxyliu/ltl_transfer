@@ -29,6 +29,7 @@ test_type=${test_types[$i]}
 train_sizes=( 50 )  # 5, 10, 15, 20, 30, 40, 50
 train_size=${train_sizes[$k]}
 
+
 maps=( 1 )  # 1 5 6
 map=${maps[$m]}
 
