@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -n 99
+#SBATCH -n 455
 #SBATCH --mem=99G
 #SBATCH -t 99:00:00
 
@@ -10,10 +10,10 @@
 export PYTHONUNBUFFERED=TRUE
 
 algo="zero_shot_transfer"
-train_type="no_orders"
+train_type="mixed"
 train_size=50
-test_type="soft"
-map=0
+test_type="mixed"
+map=1
 run_id=0
 relabel_method="cluster"
 edge_matcher="rigid"
