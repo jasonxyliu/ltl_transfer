@@ -36,7 +36,8 @@ class Record:
         map_id = self.map_id
         n_tasks = self.n_tasks
         edge_matcher = self.edge_matcher
-        train_tasks, test_tasks = read_train_test_formulas(train_set_type = train_type, train_size = train_size, test_set_type = test_type)
+        train_tasks, test_tasks = read_train_test_formulas(train_set_type = train_type, train_size = 50, test_set_type = test_type)
+        train_tasks = train_tasks[0:train_size]
 
         records = []
         result_dpath = os.path.join(RESULT_DPATH, f'{train_type}_{train_size}_{test_type}_{edge_matcher}', f'map_{map_id}')
@@ -88,8 +89,8 @@ def get_success_CI(results, trials = 100, CI = 0.95):
         failed_tries = trials - successful_tries
         lower_q = (1 - CI)/2
         upper_q = 0.5 + CI/2
-        lower = beta.ppf(lower_q, successful_tries, failed_tries)
-        upper = beta.ppf(upper_q, successful_tries, failed_tries)
+        lower = beta.ppf(lower_q, successful_tries+1, failed_tries+1)
+        upper = beta.ppf(upper_q, successful_tries+1, failed_tries+1)
         success_CI[k] =  (lower, success[k], upper)
     return success_CI
 
@@ -101,15 +102,19 @@ if __name__ == '__main__':
     #TODO: Make this commandline argparse
     #results = get_results('mixed','relaxed')
     #results = get_results('mixed','relaxed',['mixed'], train_sizes = [10,20,30,40,50])
-    train_types = ['hard','soft','soft_strict','no_orders','mixed']
-    test_types = ['hard','soft','soft_strict','no_orders','mixed']
+    train_types = ['mixed']
+    test_types = ['mixed']
+    train_sizes = [5,10,15,20,30,40,50]
+    map_ids = [0]
     results = {}
 
     for train_type in train_types:
         for test_type in test_types:
-            record = Record(train_type, 50, test_type, 'rigid')
-            results[(train_type, test_type, 'rigid')] = record
-            record = Record(train_type, 50, test_type, 'relaxed')
-            results[(train_type, test_type, 'relaxed')] = record
+            for train_size in train_sizes:
+                for map_id in map_ids:
+                    record = Record(train_type, train_size, test_type, 'rigid')
+                    results[(train_type, train_size, test_type, 'rigid', map_id)] = record
+                    record = Record(train_type, train_size, test_type, 'relaxed')
+                    results[(train_type, train_size, test_type, 'relaxed', map_id)] = record
 
     get_success_CI = get_success_CI(results)
