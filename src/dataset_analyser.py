@@ -29,12 +29,12 @@ def create_progression_set(train_set, naive=False, verbose=False):
         return prog_set
 
 
-def report_prog_sets(verbose=True):
+def report_prog_sets(dataset_name, verbose=True):
     prog_sets = {}
     naive_sizes = {}
     for dtype in SET_TYPES:
         for size in TRAIN_SIZES:
-            train_set, _ = read_train_test_formulas(train_set_type=dtype, train_size=size)
+            train_set, _ = read_train_test_formulas(dataset_name=dataset_name, train_set_type=dtype, train_size=size)
             prog_set, naive_set_size = create_progression_set(train_set, naive=True)
             if verbose:
                 print(f"Train set: {dtype}, size: {size} progression set size: {len(prog_set)}, naive size: {naive_set_size}")
@@ -43,12 +43,12 @@ def report_prog_sets(verbose=True):
     return prog_sets, naive_sizes
 
 
-def estimate_lpopl_success(verbose=True):
+def estimate_lpopl_success(dataset_name, verbose=True):
     seen_formulas = {}
     success_rate = {}
     for train_type in SET_TYPES:
         for test_type in SET_TYPES:
-            train_set, test_set = read_train_test_formulas(train_set_type=train_type, test_set_type=test_type, train_size=50)
+            train_set, test_set = read_train_test_formulas(dataset_name, train_type, test_type, 50)
             prog_set = create_progression_set(train_set)
             seen = []
             for f in test_set:
@@ -61,11 +61,11 @@ def estimate_lpopl_success(verbose=True):
     return seen_formulas, success_rate
 
 
-def examine_train_test_sets(train_type, test_type, train_sizes=TRAIN_SIZES):
+def examine_train_test_sets(dataset_name, train_type, test_type, train_sizes=TRAIN_SIZES):
     test_tasks = None
     for train_size in train_sizes:
         # Unique formulas in training set
-        train_tasks, test_tasks = read_train_test_formulas(train_type, test_type, train_size)
+        train_tasks, test_tasks = read_train_test_formulas(dataset_name, train_type, test_type, train_size)
         count_unique_formulas(train_tasks, "%s_train_%d contains" % (train_type, train_size))
         # Training formulas also in test set
         train2occurs = defaultdict(int)
@@ -93,5 +93,5 @@ def count_unique_formulas(tasks, print_prompt):
 
 
 if __name__ == '__main__':
-    seen_formulas, success_rate = estimate_lpopl_success()
-    # examine_train_test_sets(train_type='no_orders', test_type='no_orders')  # examine train and test sets
+    # seen_formulas, success_rate = estimate_lpopl_success(dataset_name="spot")
+    examine_train_test_sets(dataset_name="spot", train_type='soft_strict', test_type='soft_strict', train_sizes=[50])  # examine train and test sets

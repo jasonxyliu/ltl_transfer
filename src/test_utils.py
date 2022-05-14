@@ -35,7 +35,7 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, edge_matcher, file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, file_results=None):
         if file_results is None:
             # setting the test attributes
             self.edge_matcher = edge_matcher
@@ -68,7 +68,7 @@ class Tester:
                 else:
                     self.experiment = "%s_%d/map_%d" % (train_type, train_size, map_id)
                     self.experiment_train = "%s_50/map_%d" % (train_type, map_id)
-                    train_tasks, self.transfer_tasks = read_train_test_formulas(train_type, test_type, 50)
+                    train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 50)
                     self.tasks = train_tasks[0:train_size]
                     self.transfer_results_dpath = os.path.join("../results_test", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
