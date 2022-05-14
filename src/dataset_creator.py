@@ -79,13 +79,13 @@ def sample_dataset_unique_formulas(props, set_type='mixed', n=50):
     return formulas
 
 
-def read_train_test_formulas(dataset_name, train_set_type='mixed', test_set_type='mixed', train_size=50):
+def read_train_test_formulas(dataset_name, train_set_type='mixed', test_set_type='hard', train_size=50, test_size=100):
     dataset_dpath = os.path.join("../experiments/datasets", dataset_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
     test_set_dpath = os.path.join(dataset_dpath, 'test')
 
     train_set_name = f'train_{train_set_type}_{train_size}.pkl'
-    test_set_name = f'test_{test_set_type}_100.pkl'
+    test_set_name = f'test_{test_set_type}_{test_size}.pkl'
 
     with open(os.path.join(train_set_dpath, train_set_name), 'rb') as file:
         train_formulas = dill.load(file)
