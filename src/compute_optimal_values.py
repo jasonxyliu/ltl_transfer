@@ -28,22 +28,28 @@ if __name__ == "__main__":
                         help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
     parser.add_argument('--train_size', default=50, type=int,
                         help='This parameter indicated the number of LTLs in the training set')
+    parser.add_argument('--test_size', default=100, type=int,
+                        help='This parameter indicated the number of LTLs in the test set')
+    parser.add_argument('--dataset_name', default='spot', type=str, choices=['minecraft', 'spot'],
+                        help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
     if args.train_type not in train_types+['all']: raise NotImplementedError("Training Tasks " + str(args.train_type) + " hasn't been defined yet")
-    if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
+    if not(-1 <= args.map < 21): raise NotImplementedError("The map must be a number between -1 and 21")
 
     map_ids = range(10) if args.map == -1 else [args.map]
     task_ids = [train_types.index(train_type) for train_type in train_types[5:]] if args.train_type == 'all' else [train_types.index(args.train_type)]
     train_size = args.train_size
+    test_size = args.test_size
     consider_night = False
 
     for map_id in map_ids:
         map_fpath = "../experiments/maps/map_%d.txt" % map_id
         policy_fpath = "../experiments/optimal_policies/map_%d.txt" % map_id
+        open(policy_fpath, 'a').close()
         for task_id in task_ids:
             # Retrieve tasks for a LTL type
             task_type = train_types[task_id]
-            train_tasks, _ = read_train_test_formulas(train_set_type=task_type, train_size=train_size)
+            train_tasks, _ = read_train_test_formulas(dataset_name=args.dataset_name, train_set_type=task_type, train_size=train_size, test_size=test_size)
             task_aux = Game(GameParams(map_fpath, train_tasks[0], consider_night, init_dfa_state=None, init_loc=None))
             time_init = time.time()
             # Compute optimal steps for tasks of this LTL type in this map
