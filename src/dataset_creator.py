@@ -95,6 +95,37 @@ def read_train_test_formulas(dataset_name, train_set_type='mixed', test_set_type
     return train_formulas, test_formulas
 
 
+def create_datasets_spot_simple(dataset_name, set_type, train_size, test_size):
+    train_set_dpath, test_set_dpath = create_dataset_directories(dataset_name)
+    create_dataset_spot_simple(spot_train(), train_set_dpath, 'train', set_type, train_size)
+    create_dataset_spot_simple(spot_test(), test_set_dpath, 'test', set_type, test_size)
+
+
+def create_dataset_spot_simple(formulas, savepath, set_name, set_type, size):
+    filename = f'{set_name}_{set_type}_{size}.pkl'
+    with open(os.path.join(savepath, filename), 'wb') as file:
+        dill.dump(formulas[0:size], file)
+    human_readable_filename = f'{set_name}_{set_type}_{size}.txt'
+    with open(os.path.join(savepath, human_readable_filename), 'w') as file:
+        for idx, formula in enumerate(formulas[0:size]):
+            file.write(f"{idx}: {str(formula)}\n")
+
+
+def spot_train():
+    return [
+        ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')),
+        ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))
+    ]
+
+
+def spot_test():
+    return [
+        ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')),
+        ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')),
+    ]
+
+
 if __name__ == '__main__':
-    create_datasets(dataset_name="spot", set_types=["soft_strict"], duplicate_ok=False)
+    create_datasets_spot_simple("spot", 'hard', 2, 2)
+    # create_datasets(dataset_name="spot", set_types=["hard"], duplicate_ok=False)
     # filter_datasets(dataset_name="spot", set_types=["soft_strict"], filters=[])

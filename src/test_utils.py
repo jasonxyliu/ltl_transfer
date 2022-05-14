@@ -49,7 +49,13 @@ class Tester:
             self.experiment = "%s/map_%d" % (train_type, map_id)
             self.map = "../experiments/maps/map_%d.txt" % map_id
             self.consider_night = False
-            if train_type == "sequence":
+            if dataset_name == "spot":
+                self.experiment = f"spot/{train_type}/map_{map_id}"
+                self.experiment_train = f"spot/{train_type}_2/map_{map_id}"
+                train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 2, 2)
+                self.tasks = train_tasks[0:train_size]
+                self.transfer_results_dpath = os.path.join("../results/spot", f"{train_type}_{train_size}_{test_type}_{edge_matcher}", f"map_{map_id}")
+            elif train_type == "sequence":
                 self.tasks = tasks.get_sequence_of_subtasks()
             elif train_type == "interleaving":
                 self.tasks = tasks.get_interleaving_subtasks()
@@ -60,20 +66,20 @@ class Tester:
                 if train_type == 'transfer_sequence':
                     self.tasks = tasks.get_sequence_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
-                    self.transfer_results_dpath = os.path.join("../results", train_type, "map_%d" % map_id)
+                    self.transfer_results_dpath = os.path.join("../results/minecraft", train_type, "map_%d" % map_id)
                 elif train_type == 'transfer_interleaving':
                     self.tasks = tasks.get_interleaving_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
-                    self.transfer_results_dpath = os.path.join("../results", train_type, "map_%d" % map_id)
+                    self.transfer_results_dpath = os.path.join("../results/minecraft", train_type, "map_%d" % map_id)
                 else:
                     self.experiment = "%s_%d/map_%d" % (train_type, train_size, map_id)
                     self.experiment_train = "%s_50/map_%d" % (train_type, map_id)
                     train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 50)
                     self.tasks = train_tasks[0:train_size]
-                    self.transfer_results_dpath = os.path.join("../results_test", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
-                os.makedirs(self.transfer_results_dpath, exist_ok=True)
-                self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
-                logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
+                    self.transfer_results_dpath = os.path.join("../results_test/minecraft", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
+            os.makedirs(self.transfer_results_dpath, exist_ok=True)
+            self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
+            logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
 
             # load pre-computed optimal steps for 'task_type' in 'map_id'
             optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)

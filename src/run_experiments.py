@@ -165,7 +165,7 @@ if __name__ == "__main__":
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.train_type not in train_types: raise NotImplementedError("Training tasks " + str(args.train_type) + " hasn't been defined yet")
     if args.test_type not in test_types: raise NotImplementedError("Test tasks " + str(args.test_type) + " hasn't been defined yet")
-    if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
+    if not(-1 <= args.map < 21): raise NotImplementedError("The map must be a number between -1 and 9")
 
     # Running the experiment
     tasks_id = train_types.index(args.train_type)

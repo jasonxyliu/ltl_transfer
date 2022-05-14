@@ -5,7 +5,8 @@ import numpy as np
 
 NAME2PROPS = {
     "minecraft": ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 's'),
-    "spot": ('a', 'b', 'c', 'd', 'j', 'p')
+    "spot": ('a', 'b', 'c', 'j'),
+    # "spot": ('a', 'b', 'c', 'd', 'j', 'p')
 }
 
 

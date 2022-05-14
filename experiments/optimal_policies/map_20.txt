@@ -1,0 +1,6 @@
+
+
+
+
+
+[8, 15] # Value optimal policy for solution experiment 6: hard
