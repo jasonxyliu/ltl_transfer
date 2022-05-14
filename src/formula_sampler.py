@@ -36,9 +36,10 @@ def sample_waypoints(props):
     visit_waypoints = []
     props = list(np.random.permutation(props))
     props = [str(x) for x in props]
-    for p in props:
-        if np.random.binomial(1, 0.5):
-            visit_waypoints.append(p)
+    while not visit_waypoints:
+        for p in props:
+            if np.random.binomial(1, 0.5):
+                visit_waypoints.append(p)
     if len(visit_waypoints) > 5:
         visit_waypoints = visit_waypoints[0:5]  # need to clip the dfa size
     return visit_waypoints
