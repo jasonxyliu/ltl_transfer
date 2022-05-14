@@ -157,9 +157,9 @@ if __name__ == "__main__":
                         help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
-    parser.add_argument('--edge_matcher', default='rigid', type=str, choices=['rigid', 'relaxed'],
+    parser.add_argument('--edge_matcher', default='relaxed', type=str, choices=['rigid', 'relaxed'],
                         help='This parameter indicated the number of times to run a transfer experiment')
-    parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'soft'],
+    parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot'],
                         help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
