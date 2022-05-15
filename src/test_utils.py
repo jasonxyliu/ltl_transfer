@@ -43,6 +43,7 @@ class Tester:
             self.testing_params = testing_params
             self.map_id = map_id
             self.tasks_id = tasks_id
+            self.dataset_name = dataset_name
             self.train_type = train_type
             self.train_size = train_size
             self.test_type = test_type
@@ -215,8 +216,8 @@ class Saver:
         # save valid agent locations where rollouts start
         id2state = {}
         state2id = {}
-        for x in range(task_aux.map_width):
-            for y in range(task_aux.map_height):
+        for x in range(task_aux.map_height):
+            for y in range(task_aux.map_width):
                 if task_aux.is_valid_agent_loc(x, y):
                     id2state[len(id2state)] = (x, y)
                     state2id[(x, y)] = len(state2id)

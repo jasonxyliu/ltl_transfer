@@ -95,7 +95,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
         id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
 
     state2id = saver.save_transfer_data(task_aux, id2ltls)
-    all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
+    all_locs = [(x, y) for x in range(task_aux.map_height) for y in range(task_aux.map_width)]
     loc_chunks = [all_locs[chunk_id: chunk_id + RELABEL_CHUNK_SIZE] for chunk_id in range(0, len(all_locs), RELABEL_CHUNK_SIZE)]
 
     completed_ltls = []
@@ -157,7 +157,7 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
         id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
 
     state2id = saver.save_transfer_data(task_aux, id2ltls)
-    all_locs = [(x, y) for x in range(task_aux.map_width) for y in range(task_aux.map_height)]
+    all_locs = [(x, y) for x in range(task_aux.map_height for y in range(task_aux.map_width))]
     loc_chunks = [all_locs[chunk_id: chunk_id + RELABEL_CHUNK_SIZE] for chunk_id in range(0, len(all_locs), RELABEL_CHUNK_SIZE)]
 
     completed_ltls = []
@@ -188,8 +188,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    args = ("--algo=%s --train_type=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d" % (
-                            saver.alg_name, tester.train_type, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps))
+                    args = ("--algo=%s --train_type=%d --train_size=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d  --dataset_name=%s" % (
+                            saver.alg_name, tester.train_type, tester.train_size, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps, tester.dataset_name))
                     worker_commands.append("python3 run_single_worker.py %s" % args)
             if worker_commands:
                 start_time_chunk = time.time()
