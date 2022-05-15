@@ -72,10 +72,10 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
             relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
         if relabel_method == 'parallel':  # use Python multiprocessing
             relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
-
-    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
-    # zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
-    # zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
+    else:
+        policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
+        zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
+        # zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
 
     tf.reset_default_graph()
     sess.close()
