@@ -23,7 +23,7 @@ from game import *
 from test_utils import Loader, save_pkl, load_pkl, save_json
 from run_single_worker import single_worker_rollouts
 
-RELABEL_CHUNK_SIZE = 441
+RELABEL_CHUNK_SIZE = 96
 TRANSFER_CHUNK_SIZE = 100
 
 
@@ -95,7 +95,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
         id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
 
     state2id = saver.save_transfer_data(task_aux, id2ltls)
-    all_locs = [(x, y) for x in range(task_aux.map_height) for y in range(task_aux.map_width)]
+    all_locs = [(x, y) for x in range(task_aux.map_height) for y in range(task_aux.map_width) if str(task_aux.map_array[x, y]) != "X"]
     loc_chunks = [all_locs[chunk_id: chunk_id + RELABEL_CHUNK_SIZE] for chunk_id in range(0, len(all_locs), RELABEL_CHUNK_SIZE)]
 
     completed_ltls = []
