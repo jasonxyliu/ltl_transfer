@@ -5,7 +5,10 @@ import argparse
 import logging
 from collections import defaultdict
 import numpy as np
-import tensorflow as tf
+try:
+    import tensorflow.compat.v1 as tf
+except:
+    import tensorflow as tf
 from game import GameParams, Game
 from dataset_creator import read_train_test_formulas
 import tasks

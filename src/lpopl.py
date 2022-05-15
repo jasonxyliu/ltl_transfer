@@ -2,7 +2,10 @@ import os
 import random
 import time
 import numpy as np
-import tensorflow as tf
+try:
+    import tensorflow.compat.v1 as tf
+except:
+    import tensorflow as tf
 from policy_bank import *
 from schedules import LinearSchedule
 from replay_buffer import ReplayBuffer

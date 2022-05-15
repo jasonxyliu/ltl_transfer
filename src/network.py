@@ -1,4 +1,7 @@
-import tensorflow as tf
+try:
+    import tensorflow.compat.v1 as tf
+except:
+    import tensorflow as tf
 
 
 def get_MLP(s1, s2, num_features, num_actions, num_neurons, num_hidden_layers):

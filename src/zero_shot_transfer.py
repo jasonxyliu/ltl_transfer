@@ -14,7 +14,10 @@ from multiprocessing import Pool
 import numpy as np
 import sympy
 import networkx as nx
-import tensorflow as tf
+try:
+    import tensorflow.compat.v1 as tf
+except:
+    import tensorflow as tf
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from lpopl import _initialize_policy_bank, _test_LPOPL
 from policy_bank import *

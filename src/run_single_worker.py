@@ -3,7 +3,10 @@ import time
 import dill
 import argparse
 from collections import defaultdict
-import tensorflow as tf
+try:
+    import tensorflow.compat.v1 as tf
+except:
+    import tensorflow as tf
 from test_utils import Saver, Loader
 from game import *
 from policy_bank import *
