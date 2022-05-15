@@ -137,29 +137,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
     parser.add_argument('--algo', default='lpopl', type=str,
                         help='This parameter indicated which RL algorithm to use. The options are: ' + str(algos))
-    parser.add_argument('--train_type', default='sequence', type=str,
+    parser.add_argument('--train_type', default='hard', type=str,
                         help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
-    parser.add_argument('--train_size', default=50, type=int,
+    parser.add_argument('--train_size', default=2, type=int,
                         help='This parameter indicated the number of LTLs in the training set')
-    parser.add_argument('--test_type', default='soft', type=str,
+    parser.add_argument('--test_type', default='hard', type=str,
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
-    parser.add_argument('--map', default=0, type=int,
+    parser.add_argument('--map', default=20, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--total_steps', default=500000, type=int,
+    parser.add_argument('--total_steps', default=10000, type=int,
                         help='This parameter indicated the increment to the total training steps')
-    parser.add_argument('--incremental_steps', default=150000, type=int,
+    parser.add_argument('--incremental_steps', default=0, type=int,
                         help='This parameter indicated the increment to the total training steps')
     parser.add_argument('--run_id', default=0, type=int,
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
     # parser.add_argument('--load_trained', action="store_true",
     #                     help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
-    parser.add_argument('--relabel_method', default='cluster', type=str,
+    parser.add_argument('--relabel_method', default='parallel', type=str, choices=['cluster', 'parallel'],
                         help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
     parser.add_argument('--edge_matcher', default='relaxed', type=str, choices=['rigid', 'relaxed'],
                         help='This parameter indicated the number of times to run a transfer experiment')
-    parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot'],
+    parser.add_argument('--dataset_name', default='spot', type=str, choices=['minecraft', 'spot'],
                         help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
