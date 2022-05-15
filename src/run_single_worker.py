@@ -132,18 +132,30 @@ if __name__ == "__main__":
     }  # for reference
 
     parser = argparse.ArgumentParser(prog="run_single_rollout", description="Rollout a trained policy from a given state.")
-    parser.add_argument("--algo", default="zero_shot_transfer", type=str, help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
-    parser.add_argument("--train_type", default="soft", type=int, help="This parameter indicated which tasks to solve. The options are: " + str(id2tasks.values()))
-    parser.add_argument("--map_id", default=0, type=int, help="This parameter indicated the ID of map to run rollouts")
-    parser.add_argument("--run_id", default=0, type=int, help="This parameter indicated the ID of the training run when models are saved")
-    parser.add_argument("--ltl_id", default=9, type=int, help="This parameter indicated the ID of trained policy to rollout")
-    parser.add_argument("--state_id", default=180, type=int, help="This parameter indicated the ID of state in which rollouts start")
-    parser.add_argument("--n_rollouts", default=100, type=int, help="This parameter indicated the number of rollouts")
-    parser.add_argument("--max_depth", default=100, type=int, help="This parameter indicated maximum depth of a rollout")
+    parser.add_argument("--algo", default="zero_shot_transfer", type=str,
+                        help="This parameter indicated which RL algorithm to use. The options are: " + str(algos))
+    parser.add_argument("--train_type", default="soft", type=str,
+                        help="This parameter indicated which tasks to solve. The options are: " + str(id2tasks.values()))
+    parser.add_argument('--train_size', default=50, type=int,
+                        help='This parameter indicated the number of LTLs in the training set')
+    parser.add_argument("--map_id", default=0, type=int,
+                        help="This parameter indicated the ID of map to run rollouts")
+    parser.add_argument("--run_id", default=0, type=int,
+                        help="This parameter indicated the ID of the training run when models are saved")
+    parser.add_argument("--ltl_id", default=9, type=int,
+                        help="This parameter indicated the ID of trained policy to rollout")
+    parser.add_argument("--state_id", default=180, type=int,
+                        help="This parameter indicated the ID of state in which rollouts start")
+    parser.add_argument("--n_rollouts", default=100, type=int,
+                        help="This parameter indicated the number of rollouts")
+    parser.add_argument("--max_depth", default=100, type=int,
+                        help="This parameter indicated maximum depth of a rollout")
+    parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot'],
+                        help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.train_type not in id2tasks.values: raise NotImplementedError("Tasks " + str(args.train_type) + " hasn't been defined yet")
-    if not (-1 <= args.map_id < 10): raise NotImplementedError("The map must be a number between -1 and 9")
+    if not (-1 <= args.map_id < 21): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    classifier_dpath = os.path.join("../tmp", "%s/map_%d" % (args.train_type, args.map_id), "classifier")
+    classifier_dpath = os.path.join("../tmp", f"{args.dataset_name}/{args.train_type}_{args.train_size}/map_{args.map_id}", "classifier")
     single_worker_rollouts(args.algo, classifier_dpath, args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)
