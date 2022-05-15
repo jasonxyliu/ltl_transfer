@@ -222,9 +222,9 @@ def aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts):
         # if ltl_id not in [17]:
         #     continue
         policy2loc2edge2hits_pkl[ltl] = {}
-        policy2loc2edge2hits_json[str(ltl)] = {}
-        for x in range(task_aux.map_width):
-            for y in range(task_aux.map_height):
+        policy2loc2edge2hits_json[str(ltl)] = {}    
+        for x in range(task_aux.map_height):
+            for y in range(task_aux.map_width):
                 # if (x, y) not in [(9, 2), (3, 11)]:
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
