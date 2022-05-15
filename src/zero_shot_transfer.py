@@ -98,7 +98,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
         id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
 
     state2id = saver.save_transfer_data(task_aux, id2ltls)
-    all_locs = [(x, y) for x in range(task_aux.map_height) for y in range(task_aux.map_width) if str(task_aux.map_array[x, y]) != "X"]
+    all_locs = [(x, y) for x in range(task_aux.map_height) for y in range(task_aux.map_width) if str(task_aux.map_array[x][y]) != "X"]
     loc_chunks = [all_locs[chunk_id: chunk_id + RELABEL_CHUNK_SIZE] for chunk_id in range(0, len(all_locs), RELABEL_CHUNK_SIZE)]
 
     completed_ltls = []
