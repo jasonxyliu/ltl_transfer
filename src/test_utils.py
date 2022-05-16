@@ -56,7 +56,7 @@ class Tester:
             if dataset_name == "spot":
                 self.experiment = f"spot/{train_type}/map_{map_id}"
                 self.experiment_train = f"spot/{train_type}_2/map_{map_id}"
-                train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 2, 2)
+                train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 2, 4)
                 self.tasks = train_tasks[0:train_size]
                 self.transfer_results_dpath = os.path.join("../results/spot", f"{train_type}_{train_size}_{test_type}_{edge_matcher}", f"map_{map_id}")
             elif train_type == "sequence":
