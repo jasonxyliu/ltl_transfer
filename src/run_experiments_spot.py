@@ -8,6 +8,7 @@ from test_utils import TestingParameters, Tester, Saver
 from curriculum import CurriculumLearner
 
 import bosdyn.client
+import bosdyn.client.util
 
 
 class LearningParameters:
