@@ -29,9 +29,14 @@ from run_single_worker import single_worker_rollouts
 
 import bosdyn.client
 from bosdyn.client import create_standard_sdk
-from bosdyn.client.robot_command import RobotCommandClient, blocking_standking
+from bosdyn.client.robot_command import RobotCommandClient, blocking_stand
+from bosdyn.client.robot_state import RobotStateClient
 from bosdyn.client.docking import blocking_undock, blocking_dock_robot
+from bosdyn.client.frame_helpers import VISION_FRAME_NAME
 from bosdyn.api import robot_command_pb2
+from bosdyn.util import seconds_to_duration
+from spot_control import spot_execute_option, yaw_angle
+from env_map import COORD2POS
 
 RELABEL_CHUNK_SIZE = 96
 TRANSFER_CHUNK_SIZE = 100
@@ -426,18 +431,19 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
     assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
                                     "such as the estop SDK example, to configure E-Stop."
 
+    robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
 
     for task_idx, transfer_task in enumerate(transfer_tasks[2:3]):
-        tester.log_results(f"== Transfer Task {task_idx}: {str(transfer_task)}")
+        # tester.log_results(f"== Transfer Task {task_idx}: {str(transfer_task)}")
         print(f"== Transfer Task {task_idx}: {str(transfer_task)}\n")
-
+        #
         task_aux = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
         # Wrapper: DFA -> NetworkX graph
         dfa_graph = dfa2graph(task_aux.dfa)
-        for line in nx.generate_edgelist(dfa_graph):
-            tester.log_results(line)
-            print(line)
+        # for line in nx.generate_edgelist(dfa_graph):
+        #     tester.log_results(line)
+        #     print(line)
         # pos = nx.circular_layout(dfa_graph)
         # nx.draw_networkx(dfa_graph, pos, with_labels=True)
         # nx.draw_networkx_edges(dfa_graph, pos)
@@ -446,32 +452,33 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
         # plt.axis("off")
         # plt.show()
 
-        tester.log_results(f"\ntraining edges: {train_edges}")
-        print(f"\ntraining edges: {train_edges}")
+        # tester.log_results(f"\ntraining edges: {train_edges}")
+        # print(f"\ntraining edges: {train_edges}")
+
         # Remove edges in DFA that do not have a matching train edge
         start_time = time.time()
         test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
 
-        tester.log_results("\nNew DFA graph")
-        print("\nNew DFA graph")
-        for line in nx.generate_edgelist(dfa_graph):
-            tester.log_results(line)
-            print(line)
+        # tester.log_results("\nNew DFA graph")
+        # print("\nNew DFA graph")
+        # for line in nx.generate_edgelist(dfa_graph):
+        #     tester.log_results(line)
+        #     print(line)
 
         if not test2trains:
             tester.log_results("DFA graph disconnected after removing infeasible edges\n")
             print("DFA graph disconnected after removing infeasible edges\n")
             continue
         tester.log_results("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
-        print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
+        # print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
 
         # Graph search to find all simple/feasible paths from initial state to goal state
         feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal[0]))
         feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
-        tester.log_results(f"\ndfa start: {task_aux.dfa.state}; goal: {str(task_aux.dfa.terminal)}")
-        print(f"\ndfa start: {task_aux.dfa.state}; goal: {str(task_aux.dfa.terminal)}")
-        tester.log_results(f"feasible paths: {str(feasible_paths_node)}\n")
-        print(f"feasible paths: {str(feasible_paths_node)}\n")
+        # tester.log_results(f"\ndfa start: {task_aux.dfa.state}; goal: {str(task_aux.dfa.terminal)}")
+        # print(f"\ndfa start: {task_aux.dfa.state}; goal: {str(task_aux.dfa.terminal)}")
+        # tester.log_results(f"feasible paths: {str(feasible_paths_node)}\n")
+        # print(f"feasible paths: {str(feasible_paths_node)}\n")
 
         if not feasible_paths_node:
             tester.log_results("No feasible DFA paths found to achieve this transfer task\n")
@@ -479,8 +486,8 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
             continue
 
         for num_time in range(num_times):
-            tester.log_results(f"** Run {num_time}. Transfer Task {task_idx}: {str(transfer_task)}")
-            print(f"** Run {num_time}. Transfer Task {task_idx}: {str(transfer_task)}\n")
+            # tester.log_results(f"** Run {num_time}. Transfer Task {task_idx}: {str(transfer_task)}")
+            # print(f"** Run {num_time}. Transfer Task {task_idx}: {str(transfer_task)}\n")
 
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
             run_traj = []
@@ -494,20 +501,36 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                 assert robot.is_powered_on(), "Robot power on failed."
                 robot.logger.info("Robot powered on.")
 
-                # Undock
-                robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
-                blocking_undock(robot)
-                robot.logger.info("Robot undocked and standing")
-                time.sleep(3)
+                if robot_state_client.get_robot_state().power_state.shore_power_state == 1:
+                    # Undock if docked
+                    robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
+                    blocking_undock(robot)
+                    robot.logger.info("Robot undocked and standing")
+                    time.sleep(3)
+                else:
+                    # Stand if not docked
+                    robot.logger.info("Commanding robot to stand...")
+                    blocking_stand(robot_command_client, timeout_sec=10)
+                    robot.logger.info("Robot standing.")
+                    time.sleep(3)
 
                 # Initialize a robot command message, which we will build out below
                 command = robot_command_pb2.RobotCommand()
-
-                # # Stand
-                # robot.logger.info("Commanding robot to stand...")
-                # blocking_stand(robot_command_client, timeout_sec=10)
-                # robot.logger.info("Robot standing.")
-                # time.sleep(3)
+                # Walk to origin
+                point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+                pos_vision, rot_vision = COORD2POS[(4, 1, 0)]  # pose relative to vision frame
+                point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
+                point.pose.angle = yaw_angle(rot_vision)
+                point.time_since_reference.CopyFrom(seconds_to_duration(25))
+                # Supply frame
+                command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
+                # Send the command using command client
+                coords = []
+                num_moves = len(coords) if coords else 1
+                time_full = config.time_per_move * num_moves
+                robot.logger.info("Send body trajectory command.")
+                robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
+                time.sleep(time_full + 2)
 
                 while not task.ltl_game_over and not task.env_game_over:
                     cur_node = task.dfa.state
@@ -553,7 +576,8 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                         print("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
                         tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                         print("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
-                        next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
+                        next_loc, option_reward, option_traj, actions = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
+                        spot_execute_option(cur_loc, actions)
                         run_traj.append(option_traj)
                         next_node = task.dfa.state
                         if cur_node != next_node:
@@ -745,7 +769,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
     """
     num_features = task.get_num_features()
-    step, option_reward, traj = 0, 0, []
+    step, option_reward, traj, actions = 0, 0, [], []
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
     tester.log_results("cur_loc: %s" % str(cur_loc))
     print("cur_loc: %s" % str(cur_loc))
@@ -760,11 +784,12 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         option_reward += r
         transition = ((cur_loc, cur_node), a.name, r, ((task.agent.i, task.agent.j), task.dfa.state))
         traj.append(transition)
+        actions.append(a)
         tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
-    return cur_loc, option_reward, traj
+    return cur_loc, option_reward, traj, actions
 
 
 if __name__ == '__main__':
