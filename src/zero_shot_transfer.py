@@ -341,7 +341,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps,
             save_pkl(logfilename, data)
             return success, run2sol, run2traj, run2exitcode, runtime
 
-        feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
+        feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal[0]))
         feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
 
         start_time = time.time()
@@ -413,14 +413,15 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    for task_idx, transfer_task in enumerate(transfer_tasks):
-        tester.log_results("== Transfer Task %d: %s" % (task_idx, str(transfer_task)))
-        print("== Transfer Task %d: %s\n" % (task_idx, str(transfer_task)))
+    for task_idx, transfer_task in enumerate(transfer_tasks[2:]):
+        tester.log_results(f"== Transfer Task {task_idx}: {str(transfer_task)}")
+        print(f"== Transfer Task {task_idx}: {str(transfer_task)}\n")
 
         task_aux = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
         # Wrapper: DFA -> NetworkX graph
         dfa_graph = dfa2graph(task_aux.dfa)
         for line in nx.generate_edgelist(dfa_graph):
+            tester.log_results(line)
             print(line)
         # pos = nx.circular_layout(dfa_graph)
         # nx.draw_networkx(dfa_graph, pos, with_labels=True)
@@ -430,10 +431,17 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
         # plt.axis("off")
         # plt.show()
 
-        print("\ntraining edges: ", train_edges)
+        tester.log_results(f"\ntraining edges: {train_edges}")
+        print(f"\ntraining edges: {train_edges}")
         # Remove edges in DFA that do not have a matching train edge
         start_time = time.time()
         test2trains = remove_infeasible_edges(dfa_graph, train_edges, task_aux.dfa.state, task_aux.dfa.terminal[0], tester.edge_matcher)
+
+        tester.log_results("\nNew DFA graph")
+        print("\nNew DFA graph")
+        for line in nx.generate_edgelist(dfa_graph):
+            tester.log_results(line)
+            print(line)
 
         if not test2trains:
             tester.log_results("DFA graph disconnected after removing infeasible edges\n")
@@ -441,16 +449,14 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
             continue
         tester.log_results("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
         print("took %0.2f mins to remove infeasible edges" % ((time.time() - start_time) / 60))
-        print("\nNew DFA graph")
-        for line in nx.generate_edgelist(dfa_graph):
-            print(line)
 
         # Graph search to find all simple/feasible paths from initial state to goal state
-        feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal))
+        feasible_paths_node = list(nx.all_simple_paths(dfa_graph, source=task_aux.dfa.state, target=task_aux.dfa.terminal[0]))
         feasible_paths_edge = [list(path) for path in map(nx.utils.pairwise, feasible_paths_node)]
-        tester.log_results("\ndfa start: %d; goal: %s" % (task_aux.dfa.state, str(task_aux.dfa.terminal)))
-        print("\ndfa start: %d; goal: %s" % (task_aux.dfa.state, str(task_aux.dfa.terminal)))
-        print("feasible paths: %s\n" % str(feasible_paths_node))
+        tester.log_results(f"\ndfa start: {task_aux.dfa.state}; goal: {str(task_aux.dfa.terminal)}")
+        print(f"\ndfa start: {task_aux.dfa.state}; goal: {str(task_aux.dfa.terminal)}")
+        tester.log_results(f"feasible paths: {str(feasible_paths_node)}\n")
+        print(f"feasible paths: {str(feasible_paths_node)}\n")
 
         if not feasible_paths_node:
             tester.log_results("No feasible DFA paths found to achieve this transfer task\n")
@@ -458,12 +464,13 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
             continue
 
         for num_time in range(num_times):
-            tester.log_results("** Run %d. Transfer Task %d: %s" % (num_time, task_idx, str(transfer_task)))
-            print("** Run %d. Transfer Task %d: %s\n" % (num_time, task_idx, str(transfer_task)))
+            tester.log_results(f"** Run {num_time}. Transfer Task {task_idx}: {str(transfer_task)}")
+            print(f"** Run {num_time}. Transfer Task {task_idx}: {str(transfer_task)}\n")
 
             task = Game(tester.get_task_params(transfer_task))  # same grid map as the training tasks
             run_traj = []
             node2option2prob = {}
+
             while not task.ltl_game_over and not task.env_game_over:
                 cur_node = task.dfa.state
                 next_node = cur_node
@@ -488,10 +495,11 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                                     prob = policy2edge2loc2prob[ltl][train_out_edge][cur_loc]
                                     option2prob[(ltl, train_self_edge, train_out_edge)] = prob
                     node2option2prob[cur_node] = option2prob
-                print("candidate options: %d, %s\n" % (len(node2option2prob[cur_node]), str(node2option2prob[cur_node])))
+                tester.log_results(f"candidate options: {len(node2option2prob[cur_node])}, {str(node2option2prob[cur_node])}\n")
+                print(f"candidate options: {len(node2option2prob[cur_node])}, {str(node2option2prob[cur_node])}\n")
                 if not node2option2prob[cur_node]:
-                    tester.log_results("No options found at DFA state %d, location %s\n" % (cur_node, str(cur_loc)))
-                    print("No options found at DFA state %d, location %s\n" % (cur_node, str(cur_loc)))
+                    tester.log_results(f"No options found at DFA state {cur_node}, location {str(cur_loc)}\n")
+                    print(f"No options found at DFA state {cur_node}, location {str(cur_loc)}\n")
                     break
 
                 while node2option2prob[cur_node] and cur_node == next_node:
@@ -515,8 +523,8 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                         tester.log_results("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
                         print("option changed loc: %s; option_reward: %d\n" % (str(cur_loc != next_loc), option_reward))
                     else:
-                        print("loc did not change after option execution")
-                        print(cur_loc, next_loc)
+                        tester.log_results(f"loc did not change after option execution\n{cur_loc}, {next_loc}")
+                        print(f"loc did not change after option execution\n{cur_loc}, {next_loc}")
                         # reduce its success probability because option did not succeed, but not discard it completely
                         del node2option2prob[cur_node][(best_policy, best_self_edge, best_out_edge)]
                 if cur_node == next_node:
@@ -568,6 +576,7 @@ def remove_infeasible_edges(test_dfa, train_edges, start_state, goal_state, edge
     test2trains = defaultdict(set)
     test_edges = list(test_dfa.edges.keys())  # make a copy of edges because nx graph dict mutated in-place
     for test_edge in test_edges:
+        # print(f"test_edge: {test_edge}")
         if test_edge[0] != test_edge[1]:  # ignore self-edge
             self_edge_label = test_dfa.edges[test_edge[0], test_edge[0]]["edge_label"]
             out_edge_label = test_dfa.edges[test_edge]["edge_label"]
@@ -582,6 +591,7 @@ def remove_infeasible_edges(test_dfa, train_edges, start_state, goal_state, edge
                 if match:
                     test2trains[test_edge_pair].add(train_edge)
                     is_matched = True
+            # print(is_matched)
             if not is_matched:
                 test_dfa.remove_edge(test_edge[0], test_edge[1])
                 # optimization: return as soon as start and goal are not connected
@@ -699,8 +709,8 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
     num_features = task.get_num_features()
     step, option_reward, traj = 0, 0, []
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
-    # tester.log_results("cur_loc: %s" % str(cur_loc))
-    # print("cur_loc: %s" % str(cur_loc))
+    tester.log_results("cur_loc: %s" % str(cur_loc))
+    print("cur_loc: %s" % str(cur_loc))
     # while not exceed max steps AND no DFA transition occurs AND option policy is still defined in current MDP state
     while step < num_steps and cur_node == task.dfa.state and cur_loc in edge2loc2prob[option_edge]:
         cur_node = task.dfa.state
@@ -712,8 +722,8 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         option_reward += r
         transition = ((cur_loc, cur_node), a.name, r, ((task.agent.i, task.agent.j), task.dfa.state))
         traj.append(transition)
-        # tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
-        # print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward, traj
