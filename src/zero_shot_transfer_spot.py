@@ -36,7 +36,8 @@ from bosdyn.client.frame_helpers import VISION_FRAME_NAME
 from bosdyn.api import robot_command_pb2
 from bosdyn.util import seconds_to_duration
 from spot_control import spot_execute_option, yaw_angle
-from env_map import COORD2POS
+
+from env_map import COORD2LOC, CODE2ROT
 
 RELABEL_CHUNK_SIZE = 96
 TRANSFER_CHUNK_SIZE = 100
@@ -518,7 +519,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                 command = robot_command_pb2.RobotCommand()
                 # Walk to origin
                 point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-                pos_vision, rot_vision = COORD2POS[(4, 1, 0)]  # pose relative to vision frame
+                pos_vision, rot_vision = COORD2LOC[(3, 3)], CODE2ROT[0]  # pose relative to vision frame
                 point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
                 point.pose.angle = yaw_angle(rot_vision)
                 point.time_since_reference.CopyFrom(seconds_to_duration(25))
@@ -577,7 +578,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                         tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                         print("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                         next_loc, option_reward, option_traj, actions = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
-                        spot_execute_option(cur_loc, actions)
+                        spot_execute_option(robot, config, robot_command_client, cur_loc, actions)
                         run_traj.append(option_traj)
                         next_node = task.dfa.state
                         if cur_node != next_node:

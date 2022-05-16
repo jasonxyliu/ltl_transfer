@@ -3,6 +3,8 @@ import argparse
 import time
 import math
 
+from game_objects import Actions
+
 import bosdyn.client
 import bosdyn.client.util
 import bosdyn.client.lease
@@ -18,14 +20,69 @@ from bosdyn.api.geometry_pb2 import SE2VelocityLimit, SE2Velocity, Vec2
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pd2
 from bosdyn.util import seconds_to_duration
 
-from demo_env import COORD2POS
+from env_map import COORD2POS, COORD2LOC, CODE2ROT
 
 
-def spot_execute_option(cur_loc, actions):
-
-
+def spot_execute_option(robot, config, robot_command_client, cur_loc, actions):
     # Initialize a robot command message, which we will build out below
     command = robot_command_pb2.RobotCommand()
+
+    # Walk through a sequence of coordinates
+    poses = plan_trajectory(cur_loc, actions)
+    for idx, pose in enumerate(poses):
+        print(f"adding pose to command: {pose}")
+        point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+        loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
+        point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
+        point.pose.angle = yaw_angle(rot_vision)
+        traj_time = (idx + 1) * config.time_per_move
+        point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
+
+    # Support frame
+    command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
+
+    # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
+    #                                min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=0))
+    # mobility_command = spot_command_pd2.MobilityParams(vel_limit=speed_limit)
+    # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
+
+    # Send the command using command client
+    time_full = config.time_per_move * len(poses)
+    robot.logger.info("Send body trajectory command.")
+    robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
+    time.sleep(time_full + 2)
+
+
+def plan_trajectory(cur_loc, actions):
+    """
+    Plan robot trajectory to destination pose in grid
+    """
+    next_x, next_y = cur_loc
+    traj = []
+
+    for action in actions:
+        if action == Actions.up:
+            next_x -= 1
+            rot_code = 0
+        if action == Actions.down:
+            next_x += 1
+            rot_code = 2
+        if action == Actions.left:
+            next_y -= 1
+            rot_code = 3
+        if action == Actions.right:
+            next_y += 1
+            rot_code = 1
+
+        # if (next_x, next_y) == (5, 3):  # always facing desk_a if it is the desination
+        #     rot_code = 1
+
+        if (next_x, next_y) == (3, 10):  # always facing counter in kitchen
+            rot_code = 2
+
+        traj.append((next_x, next_y, rot_code))
+
+    return traj
 
 
 def move_base(config):
@@ -72,24 +129,35 @@ def move_base(config):
         # Initialize a robot command message, which we will build out below
         command = robot_command_pb2.RobotCommand()
 
-        # # Walk to origin
+        # # Walk to start loc
         # point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-        # pos_vision, rot_vision = COORD2POS[(2, 0, 0)]  # pose relative to vision frame
+        # pos_vision, rot_vision = COORD2LOC[(3, 3)], CODE2ROT[0]  # pose relative to vision frame
         # point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
         # point.pose.angle = yaw_angle(rot_vision)
-        # point.time_since_reference.CopyFrom(seconds_to_duration(25))
+        # point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
 
-        # Walk through a sequence of coordinates
-        coords = plan_trajectory(config.grid_x, config.grid_y)
-        for idx, coord in enumerate(coords):
-            print(f"adding coordinate to command: {coord}")
-            point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-            pos_vision, rot_vision = COORD2POS[coord]  # pose relative to vision frame
-            point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
-            point.pose.angle = yaw_angle(rot_vision)
-            traj_time = (idx + 1) * config.time_per_move
-            point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
+        # Walk to origin
+        poses = [(0, 0, 0)]
+        point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+        pos_vision, rot_vision = COORD2LOC[(0, 0)], CODE2ROT[0]  # pose relative to vision frame
+        point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
+        point.pose.angle = yaw_angle(rot_vision)
+        point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
 
+        # # Walk through a sequence of coordinates
+        # cur_loc = (3, 3)
+        # actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down]
+        # poses = plan_trajectory(cur_loc, actions)
+        # for idx, pose in enumerate(poses):
+        #     print(f"adding pose to command: {pose}")
+        #     point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+        #     loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
+        #     point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
+        #     point.pose.angle = yaw_angle(rot_vision)
+        #     traj_time = (idx + 1) * config.time_per_move
+        #     point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
+
+        # Support frame
         command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
 
         # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
@@ -98,7 +166,7 @@ def move_base(config):
         # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
 
         # Send the command using command client
-        time_full = config.time_per_move * len(coords)
+        time_full = config.time_per_move * len(poses)
         robot.logger.info("Send body trajectory command.")
         robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
         time.sleep(time_full + 2)
@@ -108,23 +176,11 @@ def move_base(config):
             blocking_dock_robot(robot, config.dock_id)
             robot.logger.info("Robot docked")
 
-        if config.poweroff_after_dock:
+        if config.poweroff_after_use:
             # Power off
             robot.power_off(cut_immediately=False, timeout_sec=20)
             assert not robot.is_powered_on(), "Robot power off failed"
             robot.logger.info("Robot safely powered off")
-
-
-def plan_trajectory(dest_x, dest_y):
-    """
-    Plan robot trajectory to destination position in grid
-    """
-    return [(0, 0, 0)]
-    # return [(2, 0, 1), (2, 1, 1), (2, 1, 2), (0.2, 1, 2), (0.2, 1, 0),
-    #         (2, 1, 0), (3, 1, 0), (6, 1, 0), (6, 1, 1), (6, 4, 1), (6, 4, 2),
-    #         (5, 4, 2), (5, 4, 1), (5, 5, 1), (5, 11, 2), (5, 11, 3), (5, 5, 3), (5, 0, 2), (2, 0, 2), (2, 0, 0)
-    #         ]  # go to book shelf, desk, kitchen then back
-    # return [(3, 0, 0), (5, 0, 0), (5, 5, 1), (5, 11, 2), (5, 11, 3), (5, 5, 3), (5, 0, 2), (2, 0, 2), (2, 0, 0)]  # go to kitchen then back
 
 
 def move_arm(config):
@@ -215,8 +271,6 @@ def main(argv):
     parser.add_argument("--username", type=str, default="user", help="Username of Spot")
     parser.add_argument("--password", type=str, default="97qp5bwpwf2c", help="Password of Spot")  # dungnydsc8su
     parser.add_argument("--dock_id", required=True, type=int, help="Docking station ID to dock at")
-    parser.add_argument("---grid_x", type=int, default=1, help="X coordinate of grid cell to move robot base to")
-    parser.add_argument("--grid_y", type=int, default=0, help="Y coordinate of grid cell to move robot base to")
     parser.add_argument("--time_per_move", type=int, default=25, help="Seconds each move in grid should take")
     parser.add_argument('--dock_after_use', action="store_true", help='Include to dock Spot after operation')
     parser.add_argument('--poweroff_after_use', action="store_true", help='Include to power off Spot after operation')
