@@ -120,12 +120,17 @@ def spot_train():
 
 def spot_test():
     return [
-        ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')),
-        ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')),
+        # ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')),
+        # ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')),
+        ('and', ('until', ('not', 'a'), 'c'), ('and', ('until', ('not', 'j'), 'a'), ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')))),
+        ('and', ('until', ('not', 'b'), 'j'), ('and', ('until', ('not', 'c'), 'b'), ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')))),
+        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'a'))))))),
+        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'b')))))))
+
     ]
 
 
 if __name__ == '__main__':
-    create_datasets_spot_simple("spot", 'hard', 2, 2)
+    create_datasets_spot_simple("spot", 'hard', 2, 4)
     # create_datasets(dataset_name="spot", set_types=["hard"], duplicate_ok=False)
     # filter_datasets(dataset_name="spot", set_types=["soft_strict"], filters=[])
