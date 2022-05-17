@@ -184,6 +184,8 @@ def main(argv):
     parser.add_argument("--password", type=str, default="97qp5bwpwf2c", help="Password of Spot")  # dungnydsc8su
     parser.add_argument("--dock_id", required=True, type=int, help="Docking station ID to dock at")
     parser.add_argument("--time_per_move", type=int, default=25, help="Seconds each move in grid should take")
+    parser.add_argument('--dock_after_use', action="store_true", help='Include to dock Spot after operation')
+    parser.add_argument('--poweroff_after_use', action="store_true", help='Include to power off Spot after operation')
 
     args = parser.parse_args(argv)
     bosdyn.client.util.setup_logging(args.verbose)

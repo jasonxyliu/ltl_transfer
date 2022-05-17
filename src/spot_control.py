@@ -23,6 +23,33 @@ from bosdyn.util import seconds_to_duration
 from env_map import COORD2LOC, CODE2ROT
 
 
+def spot_execute_action(robot, config, robot_command_client, cur_loc, action):
+    # Initialize a robot command message, which we will build out below
+    command = robot_command_pb2.RobotCommand()
+
+    # Walk through a sequence of coordinates
+    pose = plan_trajectory(cur_loc, [action])[0]
+    print(f"adding pose to command: {pose}")
+    point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+    loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
+    point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
+    point.pose.angle = yaw_angle(rot_vision)
+    point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
+
+    # Support frame
+    command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
+
+    # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
+    #                                min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=0))
+    # mobility_command = spot_command_pd2.MobilityParams(vel_limit=speed_limit)
+    # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
+
+    # Send the command using command client
+    robot.logger.info("Send body trajectory command.")
+    robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
+    time.sleep(config.time_per_move + 2)
+
+
 def spot_execute_option(robot, config, robot_command_client, cur_loc, actions):
     # Initialize a robot command message, which we will build out below
     command = robot_command_pb2.RobotCommand()

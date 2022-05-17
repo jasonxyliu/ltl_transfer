@@ -35,7 +35,7 @@ from bosdyn.client.docking import blocking_undock, blocking_dock_robot
 from bosdyn.client.frame_helpers import VISION_FRAME_NAME
 from bosdyn.api import robot_command_pb2
 from bosdyn.util import seconds_to_duration
-from spot_control import spot_execute_option, yaw_angle
+from spot_control import spot_execute_action, yaw_angle
 
 from env_map import COORD2LOC, CODE2ROT
 
@@ -526,12 +526,9 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                 # Supply frame
                 command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
                 # Send the command using command client
-                coords = []
-                num_moves = len(coords) if coords else 1
-                time_full = config.time_per_move * num_moves
                 robot.logger.info("Send body trajectory command.")
-                robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
-                time.sleep(time_full + 2)
+                robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
+                time.sleep(config.time_per_move + 2)
 
                 while not task.ltl_game_over and not task.env_game_over:
                     cur_node = task.dfa.state
@@ -577,8 +574,9 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                         print("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
                         tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                         print("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
-                        next_loc, option_reward, option_traj, actions = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps)
-                        spot_execute_option(robot, config, robot_command_client, cur_loc, actions)
+                        next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps,
+                                                                              robot, config, robot_command_client)
+                        # spot_execute_option(robot, config, robot_command_client, cur_loc, actions)
                         run_traj.append(option_traj)
                         next_node = task.dfa.state
                         if cur_node != next_node:
@@ -601,6 +599,17 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                         tester.task2success[str(transfer_task)] += 1
                 tester.task2run2trajs[str(transfer_task)][num_time] = run_traj
     tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
+
+    if config.dock_after_use:
+        # Dock robot after mission complete
+        blocking_dock_robot(robot, config.dock_id)
+        robot.logger.info("Robot docked")
+
+    if config.poweroff_after_use:
+        # Power off
+        robot.power_off(cut_immediately=False, timeout_sec=20)
+        assert not robot.is_powered_on(), "Robot power off failed"
+        robot.logger.info("Robot safely powered off")
 
 
 def get_training_edges(policy_bank, policy2edge2loc2prob):
@@ -764,13 +773,13 @@ def _is_subset_eq(test_edge, train_edge):
             return test_edge == train_edge
 
 
-def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2prob, num_steps):
+def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2prob, num_steps, robot, config, robot_command_client):
     """
     'option_edge' is 1 outgoing edge associated with edge-centric option
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
     """
     num_features = task.get_num_features()
-    step, option_reward, traj, actions = 0, 0, [], []
+    step, option_reward, traj = 0, 0, []
     cur_node, cur_loc = task.dfa.state, (task.agent.i, task.agent.j)
     tester.log_results("cur_loc: %s" % str(cur_loc))
     print("cur_loc: %s" % str(cur_loc))
@@ -785,12 +794,12 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         option_reward += r
         transition = ((cur_loc, cur_node), a.name, r, ((task.agent.i, task.agent.j), task.dfa.state))
         traj.append(transition)
-        actions.append(a)
         tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
+        spot_execute_action(robot, config, robot_command_client, cur_loc, a)
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
-    return cur_loc, option_reward, traj, actions
+    return cur_loc, option_reward, traj
 
 
 if __name__ == '__main__':
