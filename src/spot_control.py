@@ -11,16 +11,15 @@ import bosdyn.client.lease
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.robot_command import RobotCommandClient, blocking_stand, RobotCommandBuilder, block_until_arm_arrives
 from bosdyn.client.robot_state import RobotStateClient
-from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_vision_tform_body, get_a_tform_b
+from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_vision_tform_body, get_a_tform_b, ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME
 from bosdyn.client.docking import blocking_undock, blocking_dock_robot
 from bosdyn.client import math_helpers
-from bosdyn.api import robot_command_pb2
-from bosdyn.api import geometry_pb2
+from bosdyn.api import robot_command_pb2, geometry_pb2, arm_command_pb2
 from bosdyn.api.geometry_pb2 import SE2VelocityLimit, SE2Velocity, Vec2
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pd2
 from bosdyn.util import seconds_to_duration
 
-from env_map import COORD2LOC, CODE2ROT
+from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE
 
 
 def spot_execute_action(robot, config, robot_command_client, cur_loc, action):
@@ -272,19 +271,15 @@ def move_arm(config):
             robot.logger.info("Robot standing.")
             time.sleep(3)
 
-        # Move arm to a given pose
+        # # Unstow arm
+        # if robot_state_client.get_robot_state().manipulator_state.stow_state == 1:
+        #     unstow_command = RobotCommandBuilder.arm_ready_command()
+        #     unstow_command_id = robot_command_client.robot_command(unstow_command)
+        #     robot.logger.info("Unstow command issued.")
+        #     block_until_arm_arrives(robot_command_client, unstow_command_id, 3.0)
+        #     time.sleep(3)
 
-        # Initialize a robot command message, which we will build out below
-        command = robot_command_pb2.RobotCommand()
-
-
-        # Unstow arm
-        if robot_state_client.get_robot_state().manipulator_state.stow_state == 1:
-            unstow_command = RobotCommandBuilder.arm_ready_command()
-            unstow_command_id = robot_command_client.robot_command(unstow_command)
-            robot.logger.info("Unstow command issued.")
-            block_until_arm_arrives(robot_command_client, unstow_command_id, 3.0)
-            time.sleep(3)
+        move_gripper(COORD2GPOSE[6, 1], robot, robot_state_client, robot_command_client)
 
         # Stow arm
         if robot_state_client.get_robot_state().manipulator_state.stow_state == 2:
@@ -304,6 +299,65 @@ def move_arm(config):
             robot.power_off(cut_immediately=False, timeout_sec=20)
             assert not robot.is_powered_on(), "Robot power off failed"
             robot.logger.info("Robot safely powered off")
+
+
+def move_gripper(gripper_pose, robot, robot_state_client, robot_command_client):
+    """
+    Move arm to a spot in front of robot, then open gripper
+    """
+    (x, y, z), (qw, qx, qy, qz) = gripper_pose
+    # Make arm pose RobotCommand
+    # Build a position to move arm to (in meters, relative to and expressed in gravity aligned body frame)
+    hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
+    # Rotation as a quaternion
+    flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
+    # Build SE3Pose proto object
+    flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body, rotation=flat_body_Q_hand)
+
+    robot_state = robot_state_client.get_robot_state()
+    odom_T_flat_body = get_a_tform_b(robot_state.kinematic_state.transforms_snapshot,
+                                     ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME)
+    odom_T_hand = odom_T_flat_body * math_helpers.SE3Pose.from_proto(flat_body_T_hand)
+    print(f"odom_T_hand: {odom_T_hand}\n{type(odom_T_hand)}")
+
+    duration_seconds = 2
+    arm_command = RobotCommandBuilder.arm_pose_command(
+        odom_T_hand.x, odom_T_hand.y, odom_T_hand.z,
+        odom_T_hand.rot.w, odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z,
+        ODOM_FRAME_NAME, duration_seconds)
+
+    # Make open gripper RobotCommand
+    gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(1.0)
+
+    # Combine arm and gripper commands into 1 RobotCommand
+    robot_command = RobotCommandBuilder.build_synchro_command(gripper_command, arm_command)
+
+    # Send request
+    cmd_id = robot_command_client.robot_command(robot_command)
+    robot.logger.info("Move arm to pose.")
+    block_until_arm_arrives_with_prints(robot, robot_command_client, cmd_id)
+    block_until_arm_arrives(robot_command_client, cmd_id)
+    time.sleep(10)
+    robot.logger.info("Arm move done.")
+
+
+def block_until_arm_arrives_with_prints(robot, command_client, cmd_id):
+    """
+    Block until arm arrives at goal and print remaining distance of position and rotation.
+    Note: a version w/o prints of this function is available as a helper in robot_command
+    """
+    while True:
+        feedback_resp = command_client.robot_command_feedback(cmd_id)
+        robot.logger.info(
+            "Distance to go: " +
+            f"{feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_pos_distance_to_goal:.2f} meters" +
+            f"{feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_rot_distance_to_goal:.2f}"
+        )
+
+        if feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_COMPLETE:
+            robot.logger.info("Arm reached goal")
+            break
+        time.sleep(0.1)
 
 
 def yaw_angle(rot_vision):
