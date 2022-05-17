@@ -20,7 +20,7 @@ from bosdyn.api.geometry_pb2 import SE2VelocityLimit, SE2Velocity, Vec2
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pd2
 from bosdyn.util import seconds_to_duration
 
-from env_map import COORD2POS, COORD2LOC, CODE2ROT
+from env_map import COORD2LOC, CODE2ROT
 
 
 def spot_execute_option(robot, config, robot_command_client, cur_loc, actions):
@@ -137,25 +137,25 @@ def move_base(config):
         # point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
 
         # Walk to origin
-        poses = [(0, 0, 0)]
+        poses = [(3, 3, 0)]
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-        pos_vision, rot_vision = COORD2LOC[(0, 0)], CODE2ROT[0]  # pose relative to vision frame
+        pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
         point.pose.angle = yaw_angle(rot_vision)
         point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
 
-        # # Walk through a sequence of coordinates
-        # cur_loc = (3, 3)
-        # actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down]
-        # poses = plan_trajectory(cur_loc, actions)
-        # for idx, pose in enumerate(poses):
-        #     print(f"adding pose to command: {pose}")
-        #     point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-        #     loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
-        #     point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
-        #     point.pose.angle = yaw_angle(rot_vision)
-        #     traj_time = (idx + 1) * config.time_per_move
-        #     point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
+        # Walk through a sequence of coordinates
+        cur_loc = (3, 3)
+        actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down]
+        poses = plan_trajectory(cur_loc, actions)
+        for idx, pose in enumerate(poses):
+            print(f"adding pose to command: {pose}")
+            point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+            loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
+            point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
+            point.pose.angle = yaw_angle(rot_vision)
+            traj_time = (idx + 1) * config.time_per_move
+            point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
 
         # Support frame
         command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
@@ -271,6 +271,7 @@ def main(argv):
     parser.add_argument("--username", type=str, default="user", help="Username of Spot")
     parser.add_argument("--password", type=str, default="97qp5bwpwf2c", help="Password of Spot")  # dungnydsc8su
     parser.add_argument("--dock_id", required=True, type=int, help="Docking station ID to dock at")
+    parser.add_argument("--move", required=True, type=str, help="Move base or arm")
     parser.add_argument("--time_per_move", type=int, default=25, help="Seconds each move in grid should take")
     parser.add_argument('--dock_after_use', action="store_true", help='Include to dock Spot after operation')
     parser.add_argument('--poweroff_after_use', action="store_true", help='Include to power off Spot after operation')
@@ -278,8 +279,10 @@ def main(argv):
     bosdyn.client.util.setup_logging(config.verbose)
 
     try:
-        move_base(config)
-        # move_arm(config)
+        if config.move == "base":
+            move_base(config)
+        else:
+            move_arm(config)
         return True
     except Exception as exc:
         logger = bosdyn.client.util.get_logger()
