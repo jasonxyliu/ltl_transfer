@@ -28,7 +28,7 @@ def spot_execute_action(robot, config, robot_command_client, cur_loc, action):
     command = robot_command_pb2.RobotCommand()
 
     # Walk through a sequence of coordinates
-    pose = plan_trajectory(cur_loc, [action])[0]
+    pose = action2pose(cur_loc, action)
     print(f"adding pose to command: {pose}")
     point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
     loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
@@ -48,6 +48,34 @@ def spot_execute_action(robot, config, robot_command_client, cur_loc, action):
     robot.logger.info("Send body trajectory command.")
     robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
     time.sleep(config.time_per_move + 2)
+
+
+def action2pose(cur_loc, action):
+    next_x, next_y = cur_loc
+
+    if action == Actions.up:
+        next_x -= 1
+        rot_code = 0
+    if action == Actions.down:
+        next_x += 1
+        rot_code = 2
+    if action == Actions.left:
+        next_y -= 1
+        rot_code = 3
+    if action == Actions.right:
+        next_y += 1
+        rot_code = 1
+
+    # if (next_x, next_y) == (5, 3):  # always facing desk_a if it is the desination
+    #     rot_code = 1
+
+    if (next_x, next_y) == (1, 4):  # always facing desk_b if it is the desination
+        rot_code = 1
+
+    if (next_x, next_y) == (3, 10):  # always facing counter in kitchen
+        rot_code = 2
+
+    return next_x, next_y, rot_code
 
 
 def spot_execute_option(robot, config, robot_command_client, cur_loc, actions):
@@ -103,6 +131,9 @@ def plan_trajectory(cur_loc, actions):
 
         # if (next_x, next_y) == (5, 3):  # always facing desk_a if it is the desination
         #     rot_code = 1
+
+        if (next_x, next_y) == (1, 4):  # always facing desk_b if it is the desination
+            rot_code = 1
 
         if (next_x, next_y) == (3, 10):  # always facing counter in kitchen
             rot_code = 2
