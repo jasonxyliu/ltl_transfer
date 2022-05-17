@@ -67,6 +67,6 @@ COORD2LOC = {
 
 COORD2GPOSE = {
     (6, 1): ((0.75, 0, 0.25), (1, 0, 0, 0)),  # book shelf
-    (3, 10): (),  # at counter
+    (3, 10): ((0.75, 0, 0.8), (1, 0, 0, 0)),  # at counter
     (0, 0): ((), (1, 0, 0, 0))  # stow pose
 }
