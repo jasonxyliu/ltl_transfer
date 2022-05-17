@@ -187,13 +187,6 @@ def move_base(config):
         # Initialize a robot command message, which we will build out below
         command = robot_command_pb2.RobotCommand()
 
-        # # Walk to start loc
-        # point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-        # pos_vision, rot_vision = COORD2LOC[(3, 3)], CODE2ROT[0]  # pose relative to vision frame
-        # point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
-        # point.pose.angle = yaw_angle(rot_vision)
-        # point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
-
         # Walk to origin
         poses = [(3, 3, 0)]
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
@@ -241,105 +234,6 @@ def move_base(config):
             robot.logger.info("Robot safely powered off")
 
 
-def move_base_new(config):
-    """
-    Move robot base to a give pose in space
-    """
-    # Initialize robot
-    sdk = create_standard_sdk("move_robot_base")
-    robot = sdk.create_robot(config.hostname)
-    robot.authenticate(username=config.username, password=config.password)
-    robot.time_sync.wait_for_sync()
-    assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
-                                    "such as the estop SDK example, to configure E-Stop."
-
-    robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-    robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
-
-    lease_client = robot.ensure_client(bosdyn.client.lease.LeaseClient.default_service_name)
-    with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True):
-        # Power on
-        robot.logger.info("Powering on robot... This may take several seconds.")
-        robot.power_on(timeout_sec=20)
-        assert robot.is_powered_on(), "Robot power on failed."
-        robot.logger.info("Robot powered on.")
-
-        if robot_state_client.get_robot_state().power_state.shore_power_state == 1:
-            # Undock if docked
-            robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
-            blocking_undock(robot)
-            robot.logger.info("Robot undocked and standing")
-            time.sleep(3)
-        else:
-            # Stand if not docked
-            robot.logger.info("Commanding robot to stand...")
-            blocking_stand(robot_command_client, timeout_sec=10)
-            robot.logger.info("Robot standing.")
-            time.sleep(3)
-
-        # Initialize a robot command message, which we will build out below
-        command = robot_command_pb2.RobotCommand()
-
-        # Walk to a pose
-        poses = [(3, 3, 0)]
-        point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-        pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
-        point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
-        point.pose.angle = yaw_angle(rot_vision)
-        point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
-
-        command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
-
-        robot.logger.info("Send body trajectory command.")
-        robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
-        time.sleep(config.time_per_move)
-
-        # Walk through a sequence of coordinates
-        cur_loc = (3, 3)
-        actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down]
-        poses = plan_trajectory(cur_loc, actions)
-        for idx, pose in enumerate(poses):
-            command = robot_command_pb2.RobotCommand()
-            print(f"adding pose to command: {pose}")
-            point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-            loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
-            point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
-            point.pose.angle = yaw_angle(rot_vision)
-            traj_time = (idx + 1) * config.time_per_move
-            point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
-
-            command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
-
-            robot.logger.info("Send body trajectory command.")
-            robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
-            time.sleep(config.time_per_move)
-
-        # # Support frame
-        # command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
-
-        # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
-        #                                min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=0))
-        # mobility_command = spot_command_pd2.MobilityParams(vel_limit=speed_limit)
-        # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
-
-        # # Send the command using command client
-        time_full = config.time_per_move * (len(poses) + 1)
-        # robot.logger.info("Send body trajectory command.")
-        # robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
-        time.sleep(time_full + 2)
-
-        if config.dock_after_use:
-            # Dock robot after mission complete
-            blocking_dock_robot(robot, config.dock_id)
-            robot.logger.info("Robot docked")
-
-        if config.poweroff_after_use:
-            # Power off
-            robot.power_off(cut_immediately=False, timeout_sec=20)
-            assert not robot.is_powered_on(), "Robot power off failed"
-            robot.logger.info("Robot safely powered off")
-
-
 def move_arm(config):
     """
     Move robot arm to a given pose in space
@@ -355,7 +249,7 @@ def move_arm(config):
                                     "such as the estop SDK example, to configure E-Stop."
 
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-    command_client = robot.ensure_client(RobotCommandClient.default_service_name)
+    robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
 
     lease_client = robot.ensure_client(bosdyn.client.lease.LeaseClient.default_service_name)
     with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True):
@@ -365,47 +259,51 @@ def move_arm(config):
         assert robot.is_powered_on(), "Robot power on failed"
         robot.logger.info("Robot powered on.")
 
-        # # Undock
-        # robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
-        # blocking_undock(robot)
-        # robot.logger.info("Robot undocked and standing")
-        # time.sleep(3)
-
-        # # Stand
-        # robot.logger.info("Commanding robot to stand...")
-        # blocking_stand(command_client, timeout_sec=10)
-        # robot.logger.info("Robot standing.")
-        # time.sleep(3)
-
-        # # Stow arm
-        # stow_command = RobotCommandBuilder.arm_stow_command()
-        # stow_command_id = command_client.robot_command(stow_command)
-        # robot.logger.info("Stow command issued")
-        # block_until_arm_arrives(command_client, stow_command_id, 3.0)
-        # time.sleep(3)
+        if robot_state_client.get_robot_state().power_state.shore_power_state == 1:
+            # Undock if docked
+            robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
+            blocking_undock(robot)
+            robot.logger.info("Robot undocked and standing")
+            time.sleep(3)
+        else:
+            # Stand if not docked
+            robot.logger.info("Commanding robot to stand...")
+            blocking_stand(robot_command_client, timeout_sec=10)
+            robot.logger.info("Robot standing.")
+            time.sleep(3)
 
         # Move arm to a given pose
-
 
         # Initialize a robot command message, which we will build out below
         command = robot_command_pb2.RobotCommand()
 
 
-        # # Unstow arm
-        # unstow_command = RobotCommandBuilder.arm_ready_command()
-        # unstow_command_id = command_client.robot_command(unstow_command)
-        # robot.logger.info("Unstow command issued.")
-        # block_until_arm_arrives(command_client, unstow_command_id, 3.0)
-        # time.sleep(3)
+        # Unstow arm
+        if robot_state_client.get_robot_state().manipulator_state.stow_state == 1:
+            unstow_command = RobotCommandBuilder.arm_ready_command()
+            unstow_command_id = robot_command_client.robot_command(unstow_command)
+            robot.logger.info("Unstow command issued.")
+            block_until_arm_arrives(robot_command_client, unstow_command_id, 3.0)
+            time.sleep(3)
 
-        # Dock robot after mission complete
-        blocking_dock_robot(robot, config.dock_id)
-        robot.logger.info("Robot docked.")
+        # Stow arm
+        if robot_state_client.get_robot_state().manipulator_state.stow_state == 2:
+            stow_command = RobotCommandBuilder.arm_stow_command()
+            stow_command_id = robot_command_client.robot_command(stow_command)
+            robot.logger.info("Stow command issued")
+            block_until_arm_arrives(robot_command_client, stow_command_id, 3.0)
+            time.sleep(3)
 
-        # # Power off
-        # robot.power_off(cut_immediately=False, timeout_sec=20)
-        # assert not robot.is_powered_on(), "Robot power off failed"
-        # robot.logger.info("Robot safely powered off")
+        if config.dock_after_use:
+            # Dock robot after mission complete
+            blocking_dock_robot(robot, config.dock_id)
+            robot.logger.info("Robot docked")
+
+        if config.poweroff_after_use:
+            # Power off
+            robot.power_off(cut_immediately=False, timeout_sec=20)
+            assert not robot.is_powered_on(), "Robot power off failed"
+            robot.logger.info("Robot safely powered off")
 
 
 def yaw_angle(rot_vision):
