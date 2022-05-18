@@ -8,7 +8,7 @@
 	<size>
 		<width>640</width>
 		<height>480</height>
-		<depth>3</depth>
+		<depth>1</depth>
 	</size>
 	<segmented>0</segmented>
 	<object>
@@ -17,9 +17,9 @@
 		<truncated>0</truncated>
 		<difficult>0</difficult>
 		<bndbox>
-			<xmin>236</xmin>
+			<xmin>235</xmin>
 			<ymin>225</ymin>
-			<xmax>270</xmax>
+			<xmax>269</xmax>
 			<ymax>454</ymax>
 		</bndbox>
 	</object>
