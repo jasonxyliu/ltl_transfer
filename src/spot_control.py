@@ -25,23 +25,23 @@ from bosdyn.util import seconds_to_duration
 
 from network_compute_server import TensorFlowObjectDetectionModel
 from game_objects import Actions
-from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE
+from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE, PICK_PROPS, PLACE_PROPS
 
 
 MODEL2PATHS = {
     "book_pr": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
                 "multiobj/annotations/label_map.pbtxt"),
-    "juice": ()
+    "juice": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
+              "multiobj/annotations_juice_hand_color/label_map.pbtxt")
 }
 
 COORD2MODE = {
-    "book_pr": (6, 1)
+    (6, 1): "book_pr",
+    (3, 10): "juice_orange"
 }
 
 
 def navigate(robot, config, robot_command_client, cur_loc, action):
-    print("navigate function")
-
     # Initialize a robot command message, which we will build out below
     command = robot_command_pb2.RobotCommand()
 
@@ -259,13 +259,6 @@ def move_base(config):
 
 
 def nav_grasp(config):
-    # Load detector models
-    models = {}
-    for model_name in ["book_pr"]:
-        model_dpath, label_fpath = MODEL2PATHS[model_name]
-        models[model_name] = TensorFlowObjectDetectionModel(model_dpath, label_fpath)
-        print(f"loaded model {model_dpath}")
-
     # Initialize robot
     sdk = create_standard_sdk("move_robot_arm")
     robot = sdk.create_robot(config.hostname)
@@ -280,6 +273,21 @@ def nav_grasp(config):
     robot_image_client = robot.ensure_client(ImageClient.default_service_name)
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
     robot_manipulation_client = robot.ensure_client(ManipulationApiClient.default_service_name)
+
+    # Pre-load detector models
+    models = {}
+    for model_name in ["book_pr"]:
+        model_dpath, label_fpath = MODEL2PATHS[model_name]
+        model = TensorFlowObjectDetectionModel(model_dpath, label_fpath)
+        models[model_name] = model
+
+        # Preload tf model
+        image_responses = robot_image_client.get_image_from_sources(['hand_color_image'])
+        # Unpack image
+        image = np.frombuffer(image_responses[0].shot.image.data, dtype=np.uint8)
+        image = cv2.imdecode(image, -1)
+        model.predict(image)
+        print(f"loaded model {model_dpath}")
 
     lease_client = robot.ensure_client(bosdyn.client.lease.LeaseClient.default_service_name)
     with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True):
@@ -306,7 +314,7 @@ def nav_grasp(config):
         command = robot_command_pb2.RobotCommand()
 
         # Walk to origin
-        poses = [(6, 1, 0)]
+        poses = [(3, 3, 0)]
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
@@ -327,24 +335,35 @@ def nav_grasp(config):
         time.sleep(time_full + 2)
 
         cur_loc = poses[0][:2]
-        actions = [
-                   # Actions.down, Actions.down,   # to c
-                   # Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,  # to a
-                   # Actions.up, Actions.up,  # to A
-                   Actions.pick,
-                   ]
+        actions = [Actions.right] * 7 + [Actions.pick]
+        # actions = [
+        #            Actions.down, Actions.down,   # to a
+        #            Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,  # to a
+        #            Actions.pick,
+        #            ]
         for action in actions:
             if action == Actions.pick:
                 pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models["book_pr"], cur_loc)
             elif action == Actions.place:
                 place(robot, robot_state_client, robot_command_client, cur_loc, 3)
+            elif action == "capture_image":
+                move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[cur_loc[0], cur_loc[1]], 1.0, 10, True)
             else:
                 cur_pose = navigate(robot, config, robot_command_client, cur_loc, action)
                 cur_loc = cur_pose[:2]
 
 
+def spot_execute_action(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models, cur_loc, action, goal_prop):
+    next_pose = navigate(robot, config, robot_command_client, cur_loc, action)
+    next_loc = next_pose[:2]
+
+    if goal_prop in PICK_PROPS.keys() and next_loc in PICK_PROPS.items():
+        pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models[COORD2MODE[cur_loc]], cur_loc)
+    if goal_prop in PLACE_PROPS.keys() and next_loc in PLACE_PROPS.values():
+        place(robot, robot_state_client, robot_command_client, cur_loc, 3)
+
+
 def pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, model, coord):
-    print("pick function")
     box2conf, image_resps = get_boxes(config, robot, robot_state_client, robot_command_client, robot_image_client, COORD2GPOSE[coord[0], coord[1]], 25, model)
 
     # Find overlapping region
@@ -577,7 +596,7 @@ def move_arm(config):
             robot.logger.info("Robot safely powered off")
 
 
-def move_gripper(robot, robot_state_client, robot_command_client, gripper_pose, open_fraction, hold_time):
+def move_gripper(robot, robot_state_client, robot_command_client, gripper_pose, open_fraction, hold_time, collect=False):
     """
     Move arm to a spot in front of robot, then open gripper
     """
@@ -612,8 +631,12 @@ def move_gripper(robot, robot_state_client, robot_command_client, gripper_pose, 
     cmd_id = robot_command_client.robot_command(robot_command)
     robot.logger.info("Move arm to pose.")
     block_until_arm_arrives_with_prints(robot, robot_command_client, cmd_id)
-    block_until_arm_arrives(robot_command_client, cmd_id)
-    time.sleep(hold_time)
+    # block_until_arm_arrives(robot_command_client, cmd_id)
+    if collect:
+        while True:
+            continue
+    else:
+        time.sleep(hold_time)
     robot.logger.info("Arm move done.")
 
 

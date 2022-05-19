@@ -11,6 +11,7 @@ try:
 except:
     print('MPI installation not found. Please do not use cluster computing options')
 from multiprocessing import Pool
+import cv2
 import numpy as np
 import sympy
 import networkx as nx
@@ -31,16 +32,25 @@ import bosdyn.client
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.robot_command import RobotCommandClient, blocking_stand
 from bosdyn.client.robot_state import RobotStateClient
+from bosdyn.client.image import ImageClient
+from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.docking import blocking_undock, blocking_dock_robot
 from bosdyn.client.frame_helpers import VISION_FRAME_NAME
 from bosdyn.api import robot_command_pb2
 from bosdyn.util import seconds_to_duration
-from spot_control import navigate, yaw_angle
 
+from network_compute_server import TensorFlowObjectDetectionModel
+from spot_control import spot_execute_action, yaw_angle
 from env_map import COORD2LOC, CODE2ROT
 
 RELABEL_CHUNK_SIZE = 96
 TRANSFER_CHUNK_SIZE = 100
+MODEL2PATHS = {
+    "book_pr": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
+                "multiobj/annotations/label_map.pbtxt"),
+    "juice": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
+              "multiobj/annotations_juice_hand_color/label_map.pbtxt")
+}
 
 
 def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times, config):
@@ -425,15 +435,35 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    sdk = create_standard_sdk("spot_transfer")
+    # Initialize robot
+    sdk = create_standard_sdk("move_robot_arm")
     robot = sdk.create_robot(config.hostname)
+
     robot.authenticate(username=config.username, password=config.password)
     robot.time_sync.wait_for_sync()
+    assert robot.has_arm(), "Robot requires an arm to run this program"
     assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
                                     "such as the estop SDK example, to configure E-Stop."
 
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
+    robot_image_client = robot.ensure_client(ImageClient.default_service_name)
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
+    robot_manipulation_client = robot.ensure_client(ManipulationApiClient.default_service_name)
+
+    # Pre-load detector models
+    models = {}
+    for model_name in ["book_pr"]:
+        model_dpath, label_fpath = MODEL2PATHS[model_name]
+        model = TensorFlowObjectDetectionModel(model_dpath, label_fpath)
+        models[model_name] = model
+
+        # Preload tf model
+        image_responses = robot_image_client.get_image_from_sources(['hand_color_image'])
+        # Unpack image
+        image = np.frombuffer(image_responses[0].shot.image.data, dtype=np.uint8)
+        image = cv2.imdecode(image, -1)
+        model.predict(image)
+        print(f"loaded model {model_dpath}")
 
     for task_idx, transfer_task in enumerate(transfer_tasks[2:3]):
         # tester.log_results(f"== Transfer Task {task_idx}: {str(transfer_task)}")
@@ -518,12 +548,13 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                 # Initialize a robot command message, which we will build out below
                 command = robot_command_pb2.RobotCommand()
                 # Walk to origin
+                poses = [(3, 3, 0)]
                 point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-                pos_vision, rot_vision = COORD2LOC[(3, 3)], CODE2ROT[0]  # pose relative to vision frame
+                pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
                 point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
                 point.pose.angle = yaw_angle(rot_vision)
-                point.time_since_reference.CopyFrom(seconds_to_duration(25))
-                # Supply frame
+                point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
+                # Support frame
                 command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
                 # Send the command using command client
                 robot.logger.info("Send body trajectory command.")
@@ -574,9 +605,10 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                         print("executing option edge: (%s, %s)" % (str(best_self_edge), str(best_out_edge)))
                         tester.log_results("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
                         print("from policy %d: %s" % (policy_bank.get_id(best_policy), str(best_policy)))
+                        goal_prop = target_prop(best_out_edge)
                         next_loc, option_reward, option_traj = execute_option(tester, task, policy_bank, best_policy, best_out_edge, policy2edge2loc2prob[best_policy], num_steps,
-                                                                              robot, config, robot_command_client)
-                        # spot_execute_option(robot, config, robot_command_client, cur_loc, actions)
+                                                                              config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
+                                                                              models, goal_prop)
                         run_traj.append(option_traj)
                         next_node = task.dfa.state
                         if cur_node != next_node:
@@ -773,7 +805,18 @@ def _is_subset_eq(test_edge, train_edge):
             return test_edge == train_edge
 
 
-def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2prob, num_steps, robot, config, robot_command_client):
+def target_prop(out_edge):
+    model = sympy.logic.satisfiable(sympy.logic.simplify_logic(out_edge.replace('!', '~')))
+    goal_prop = None
+    for prop, truth_val in model.items():
+        if truth_val:
+            goal_prop = prop
+    return goal_prop
+
+
+def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2prob, num_steps,
+                   config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
+                   models, goal_prop):
     """
     'option_edge' is 1 outgoing edge associated with edge-centric option
     'option_edge' maye be different from target DFA edge when 'option_edge' is more constraint than target DFA edge
@@ -796,7 +839,8 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         traj.append(transition)
         tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
-        navigate(robot, config, robot_command_client, cur_loc, a)
+        spot_execute_action(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
+                            models, cur_loc, a, goal_prop)
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward, traj
