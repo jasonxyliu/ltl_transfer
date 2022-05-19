@@ -35,7 +35,7 @@ from bosdyn.client.docking import blocking_undock, blocking_dock_robot
 from bosdyn.client.frame_helpers import VISION_FRAME_NAME
 from bosdyn.api import robot_command_pb2
 from bosdyn.util import seconds_to_duration
-from spot_control import spot_execute_action, yaw_angle
+from spot_control import navigate, yaw_angle
 
 from env_map import COORD2LOC, CODE2ROT
 
@@ -796,7 +796,7 @@ def execute_option(tester, task, policy_bank, ltl_policy, option_edge, edge2loc2
         traj.append(transition)
         tester.log_results("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
         print("step %d: dfa_state: %d; %s; %s; %d" % (step, cur_node, str(cur_loc), str(a), option_reward))
-        spot_execute_action(robot, config, robot_command_client, cur_loc, a)
+        navigate(robot, config, robot_command_client, cur_loc, a)
         cur_loc = (task.agent.i, task.agent.j)
         step += 1
     return cur_loc, option_reward, traj
