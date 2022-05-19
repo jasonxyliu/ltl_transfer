@@ -157,7 +157,7 @@ if __name__ == "__main__":
                         help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
-    if args.train_type not in id2tasks.values: raise NotImplementedError("Tasks " + str(args.train_type) + " hasn't been defined yet")
+    if args.train_type not in id2tasks.values(): raise NotImplementedError("Tasks " + str(args.train_type) + " hasn't been defined yet")
     if not (-1 <= args.map_id < 21): raise NotImplementedError("The map must be a number between -1 and 9")
 
     classifier_dpath = os.path.join("../tmp", f"{args.dataset_name}/{args.train_type}_{args.train_size}/map_{args.map_id}", "classifier")

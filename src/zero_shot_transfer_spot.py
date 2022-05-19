@@ -43,12 +43,12 @@ from network_compute_server import TensorFlowObjectDetectionModel
 from spot_control import spot_execute_action, yaw_angle
 from env_map import COORD2LOC, CODE2ROT
 
-RELABEL_CHUNK_SIZE = 96
+RELABEL_CHUNK_SIZE = 1
 TRANSFER_CHUNK_SIZE = 100
 MODEL2PATHS = {
     "book_pr": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
                 "multiobj/annotations/label_map.pbtxt"),
-    "juice": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
+    "juice": ("multiobj/exported_models/juice_orange_hand_color/saved_model",
               "multiobj/annotations_juice_hand_color/label_map.pbtxt")
 }
 
@@ -183,12 +183,13 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
         id2ltls[ltl_id] = (ltl, policy_bank.policies[ltl_id].f_task)
 
     state2id = saver.save_transfer_data(task_aux, id2ltls)
-    all_locs = [(x, y) for x in range(task_aux.map_height) for y in range(task_aux.map_width)]
+    all_locs = [(x, y) for x in range(task_aux.map_height) for y in range(task_aux.map_width) if str(task_aux.map_array[x][y]) != "X"]
     loc_chunks = [all_locs[chunk_id: chunk_id + RELABEL_CHUNK_SIZE] for chunk_id in range(0, len(all_locs), RELABEL_CHUNK_SIZE)]
 
     completed_ltls = []
     if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
-        old_list = load_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))['completed_ltl']
+        old_list = load_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))
+        print(old_list)
         completed_ltls.extend(old_list)
 
     for idx, ltl in enumerate(policy_bank.get_LTL_policies()):
@@ -214,8 +215,8 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    args = ("--algo=%s --train_type=%d --train_size=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d  --dataset_name=%s" % (
-                            saver.alg_name, tester.train_type, tester.train_size, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps, tester.dataset_name))
+                    args = ("--algo=%s --train_type=%s --train_size=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d  --dataset_name=%s" % (
+                            saver.alg_name, tester.train_type, tester.train_size, tester.map_id, run_id[0], ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps, tester.dataset_name))
                     worker_commands.append("python3 run_single_worker.py %s" % args)
             if worker_commands:
                 start_time_chunk = time.time()
@@ -273,6 +274,7 @@ def construct_initiation_set_classifiers(classifier_dpath, policy_bank, train_si
     """
     classifier_pkl_fpath = os.path.join(classifier_dpath, "classifier_%d.pkl" % train_size)
     if os.path.exists(classifier_pkl_fpath):
+        print(classifier_pkl_fpath)
         policy2edge2loc2prob = load_pkl(classifier_pkl_fpath)
     else:
         print("constructing init set classifier")
@@ -628,18 +630,34 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
                     if task.dfa.state != -1:
                         tester.task2success[str(transfer_task)] += 1
                 tester.task2run2trajs[str(transfer_task)][num_time] = run_traj
+
+        if config.dock_after_use:
+            # Initialize a robot command message, which we will build out below
+            command = robot_command_pb2.RobotCommand()
+            # Walk to initial location
+            poses = [(0, 0, 0)]
+            point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+            pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
+            point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
+            point.pose.angle = yaw_angle(rot_vision)
+            point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
+            # Support frame
+            command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
+            # Send the command using command client
+            robot.logger.info("Send body trajectory command.")
+            robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
+            time.sleep(config.time_per_move + 1)
+
+            # Dock robot after mission complete
+            blocking_dock_robot(robot, config.dock_id)
+            robot.logger.info("Robot docked")
+
+        if config.poweroff_after_use:
+            # Power off
+            robot.power_off(cut_immediately=False, timeout_sec=20)
+            assert not robot.is_powered_on(), "Robot power off failed"
+            robot.logger.info("Robot safely powered off")
     tester.task2success = {task: success/num_times for task, success in tester.task2success.items()}
-
-    if config.dock_after_use:
-        # Dock robot after mission complete
-        blocking_dock_robot(robot, config.dock_id)
-        robot.logger.info("Robot docked")
-
-    if config.poweroff_after_use:
-        # Power off
-        robot.power_off(cut_immediately=False, timeout_sec=20)
-        assert not robot.is_powered_on(), "Robot power off failed"
-        robot.logger.info("Robot safely powered off")
 
 
 def get_training_edges(policy_bank, policy2edge2loc2prob):

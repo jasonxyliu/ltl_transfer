@@ -80,6 +80,9 @@ PICK_PROPS = {
 }
 
 
+PICK_PROPS_INV = {val: key for key, val in PICK_PROPS.items()}
+
+
 PLACE_PROPS = {
     "a": (5, 3),
     "b": (1, 4)
