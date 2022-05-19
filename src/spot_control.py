@@ -276,7 +276,7 @@ def nav_grasp(config):
 
     # Pre-load detector models
     models = {}
-    for model_name in ["book_pr"]:
+    for model_name in MODEL2PATHS.keys():
         model_dpath, label_fpath = MODEL2PATHS[model_name]
         model = TensorFlowObjectDetectionModel(model_dpath, label_fpath)
         models[model_name] = model
