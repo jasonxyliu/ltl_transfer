@@ -1,9 +1,11 @@
 import sys
+import os
 import argparse
 import time
 import math
-
-from game_objects import Actions
+import cv2
+import numpy as np
+import tensorflow as tf
 
 import bosdyn.client
 import bosdyn.client.util
@@ -11,18 +13,34 @@ import bosdyn.client.lease
 from bosdyn.client import create_standard_sdk
 from bosdyn.client.robot_command import RobotCommandClient, blocking_stand, RobotCommandBuilder, block_until_arm_arrives
 from bosdyn.client.robot_state import RobotStateClient
+from bosdyn.client.image import ImageClient
+from bosdyn.client.manipulation_api_client import ManipulationApiClient
 from bosdyn.client.frame_helpers import VISION_FRAME_NAME, get_vision_tform_body, get_a_tform_b, ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME
 from bosdyn.client.docking import blocking_undock, blocking_dock_robot
 from bosdyn.client import math_helpers
-from bosdyn.api import robot_command_pb2, geometry_pb2, arm_command_pb2
+from bosdyn.api import robot_command_pb2, geometry_pb2, arm_command_pb2, manipulation_api_pb2
 from bosdyn.api.geometry_pb2 import SE2VelocityLimit, SE2Velocity, Vec2
 from bosdyn.api.spot import robot_command_pb2 as spot_command_pd2
 from bosdyn.util import seconds_to_duration
 
+from network_compute_server import TensorFlowObjectDetectionModel
+from fetch import find_center_px
+from game_objects import Actions
 from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE
 
 
-def spot_execute_action(robot, config, robot_command_client, cur_loc, action):
+MODEL2PATHS = {
+    "book_pr": ("../multiobj/exported_models/model_book_pr_hand_gray/saved_model",
+                "../multiobj/annotations/label_map.pbtxt"),
+    "juice": ()
+}
+
+COORD2MODE = {
+    "book_pr": (6, 1)
+}
+
+
+def navigate(robot, config, robot_command_client, cur_loc, action):
     # Initialize a robot command message, which we will build out below
     command = robot_command_pb2.RobotCommand()
 
@@ -47,6 +65,8 @@ def spot_execute_action(robot, config, robot_command_client, cur_loc, action):
     robot.logger.info("Send body trajectory command.")
     robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
     time.sleep(config.time_per_move + 2)
+
+    return pose
 
 
 def action2pose(cur_loc, action):
@@ -77,7 +97,10 @@ def action2pose(cur_loc, action):
     return next_x, next_y, rot_code
 
 
-def spot_execute_option(robot, config, robot_command_client, cur_loc, actions):
+def navigate_seq(robot, config, robot_command_client, cur_loc, actions):
+    """
+    Use navigate
+    """
     # Initialize a robot command message, which we will build out below
     command = robot_command_pb2.RobotCommand()
 
@@ -187,25 +210,26 @@ def move_base(config):
         command = robot_command_pb2.RobotCommand()
 
         # Walk to origin
-        poses = [(3, 3, 0)]
+        poses = [(6, 1, 2)]
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
         point.pose.angle = yaw_angle(rot_vision)
         point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
 
-        # Walk through a sequence of coordinates
-        cur_loc = (3, 3)
-        actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down]
-        poses = plan_trajectory(cur_loc, actions)
-        for idx, pose in enumerate(poses):
-            print(f"adding pose to command: {pose}")
-            point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-            loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
-            point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
-            point.pose.angle = yaw_angle(rot_vision)
-            traj_time = (idx + 1) * config.time_per_move
-            point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
+        # # Walk through a sequence of coordinates
+        # cur_loc = (3, 3)
+        # # actions = [Actions.right] * 7  # to j
+        # actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down]  # to c
+        # poses = plan_trajectory(cur_loc, actions)
+        # for idx, pose in enumerate(poses):
+        #     print(f"adding pose to command: {pose}")
+        #     point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+        #     loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
+        #     point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
+        #     point.pose.angle = yaw_angle(rot_vision)
+        #     traj_time = (idx + 1) * config.time_per_move
+        #     point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
 
         # Support frame
         command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
@@ -231,6 +255,229 @@ def move_base(config):
             robot.power_off(cut_immediately=False, timeout_sec=20)
             assert not robot.is_powered_on(), "Robot power off failed"
             robot.logger.info("Robot safely powered off")
+
+
+def nav_grasp(config):
+    # Load detector models
+    models = {}
+    for model_name in ["book_pr"]:
+        model_dpath, label_fpath = MODEL2PATHS[model_name]
+        models[model_name] = TensorFlowObjectDetectionModel(model_dpath, label_fpath)
+        print(f"loaded model {model_dpath}")
+
+    # Initialize robot
+    sdk = create_standard_sdk("move_robot_arm")
+    robot = sdk.create_robot(config.hostname)
+
+    robot.authenticate(username=config.username, password=config.password)
+    robot.time_sync.wait_for_sync()
+    assert robot.has_arm(), "Robot requires an arm to run this program"
+    assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
+                                    "such as the estop SDK example, to configure E-Stop."
+
+    robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
+    robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
+    robot_image_client = robot.ensure_client(ImageClient.default_service_name)
+    robot_manipulation_client = robot.ensure_client(ManipulationApiClient.default_service_name)
+
+    lease_client = robot.ensure_client(bosdyn.client.lease.LeaseClient.default_service_name)
+    with bosdyn.client.lease.LeaseKeepAlive(lease_client, must_acquire=True, return_at_exit=True):
+        # Power on
+        robot.logger.info("Powering on robot... This may take several seconds.")
+        robot.power_on(timeout_sec=20)
+        assert robot.is_powered_on(), "Robot power on failed"
+        robot.logger.info("Robot powered on.")
+
+        if robot_state_client.get_robot_state().power_state.shore_power_state == 1:
+            # Undock if docked
+            robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
+            blocking_undock(robot)
+            robot.logger.info("Robot undocked and standing")
+            time.sleep(3)
+        else:
+            # Stand if not docked
+            robot.logger.info("Commanding robot to stand...")
+            blocking_stand(robot_command_client, timeout_sec=10)
+            robot.logger.info("Robot standing.")
+            time.sleep(3)
+
+        # Initialize a robot command message, which we will build out below
+        command = robot_command_pb2.RobotCommand()
+
+        # Walk to origin
+        poses = [(3, 3, 0)]
+        point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+        pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
+        point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
+        point.pose.angle = yaw_angle(rot_vision)
+        point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
+
+        cur_loc = (3, 3)
+        actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down,   # to c
+                   Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,
+                   ]
+        for action in actions:
+            if actions == Actions.pick:
+                pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models["book_pr"], cur_loc)
+            elif actions == Actions.place:
+                place(robot, robot_state_client, robot_command_client, robot_manipulation_client, cur_loc, 3)
+            else:
+                cur_loc = navigate(robot, config, robot_command_client, cur_loc, action)
+
+
+def pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, model, coord):
+    box2conf = get_boxes(robot, robot_state_client, robot_command_client, robot_image_client, COORD2GPOSE[coord[0], coord[1]], 25, model)
+
+    # Find overlapping region
+    (image, box), conf = sorted(box2conf.items(), key=lambda kv: kv[1])[-1]
+    print(f"most confident box: {box}")
+
+    # Pick bounding box center
+    center_x, center_y = find_center_px(box)
+
+    # Stow
+    stow_command = RobotCommandBuilder.arm_stow_command()
+    stow_command_id = robot_command_client.robot_command(stow_command)
+    robot.logger.info("Stow command issued")
+    block_until_arm_arrives(robot_command_client, stow_command_id, 3.0)
+    time.sleep(3)
+
+    # Grasp
+    pick_vec = geometry_pb2.Vec2(x=center_x, y=center_y)
+    grasp = manipulation_api_pb2.PickObjectInImage(
+        pixel_xy=pick_vec, transforms_snapshot_from_camera=image.shot.transforms_snapshot,
+        frame_name_sensor=image.shot.frame_name_image_sensor,
+        camera_model=image.source.pinhole)
+
+    # Ask the robot to pick up the object
+    grasp_request = manipulation_api_pb2.ManipulationApiRequest(pick_object_in_image=grasp)
+    # Send the request
+    cmd_response = robot_manipulation_client.manipulation_api_command(manipulation_api_request=grasp_request)
+
+    # Get feedback from the robot
+    while True:
+        feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(manipulation_cmd_id=cmd_response.manipulation_cmd_id)
+
+        # Send the request
+        response = robot_manipulation_client.manipulation_api_feedback_command(manipulation_api_feedback_request=feedback_request)
+
+        print('Current state: ', manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
+
+        if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
+            break
+
+        time.sleep(0.25)
+
+    # Carry
+    carry_command = RobotCommandBuilder.arm_carry_command()
+    carry_command_id = robot_command_client.robot_command(carry_command)
+    robot.logger.info("Carry command issued")
+    block_until_arm_arrives(robot_command_client, carry_command_id, 3.0)
+    time.sleep(3)
+
+
+def place(robot, robot_state_client, robot_command_client, robot_manipulation_client, coord, hold_time):
+    move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, hold_time)
+    move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0]+0.1, coord[1]], 1.0, hold_time)
+
+
+def get_boxes(config, robot, robot_state_client, robot_command_client, robot_image_client, gripper_pose, hold_time, model):
+    """
+    Move arm to a spot in front of robot, open gripper, then keep taking images until bounding box is detected
+    """
+    (x, y, z), (qw, qx, qy, qz) = gripper_pose
+    # Make arm pose RobotCommand
+    # Build a position to move arm to (in meters, relative to and expressed in gravity aligned body frame)
+    hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
+    # Rotation as a quaternion
+    flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
+    # Build SE3Pose proto object
+    flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body, rotation=flat_body_Q_hand)
+
+    robot_state = robot_state_client.get_robot_state()
+    odom_T_flat_body = get_a_tform_b(robot_state.kinematic_state.transforms_snapshot,
+                                     ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME)
+    odom_T_hand = odom_T_flat_body * math_helpers.SE3Pose.from_proto(flat_body_T_hand)
+    print(f"odom_T_hand: {odom_T_hand}\n{type(odom_T_hand)}")
+
+    duration_seconds = 2
+    arm_command = RobotCommandBuilder.arm_pose_command(
+        odom_T_hand.x, odom_T_hand.y, odom_T_hand.z,
+        odom_T_hand.rot.w, odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z,
+        ODOM_FRAME_NAME, duration_seconds)
+
+    # Make open gripper RobotCommand
+    gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(1.0)
+
+    # Combine arm and gripper commands into 1 RobotCommand
+    robot_command = RobotCommandBuilder.build_synchro_command(gripper_command, arm_command)
+
+    # Send request and hold pose for 'hold_time'
+    cmd_id = robot_command_client.robot_command(robot_command)
+    robot.logger.info("Move arm to pose.")
+    block_until_arm_arrives_with_prints(robot, robot_command_client, cmd_id)
+    # block_until_arm_arrives(robot_command_client, cmd_id)
+
+    hold_until_time = time.time() + hold_time
+    box2conf = {}
+
+    while time.time() < hold_until_time:
+        # Take image
+        image_responses = robot_image_client.get_image_from_sources(['hand_color_image'])
+        # Unpack image
+        image = np.frombuffer(image_responses[0].shot.image.data, dtype=np.uint8)
+        image = cv2.imdecode(image, -1)
+        image_width, image_height = image.shape[0], image.shape[1]
+
+        # Inference model to get bounding box
+        detections = model.predict(image)
+
+        print(detections)
+        print(f"num of detections: ", detections["num_detections"])
+
+        num_detections = int(detections.pop('num_detections'))
+        if num_detections > 0:
+            detections = {key: value[0, :num_detections].numpy() for key, value in detections.items()}
+            boxes = detections['detection_boxes']
+            classes = detections['detection_classes']
+            scores = detections['detection_scores']
+
+            print(f"num of boxes: {len(boxes)}")
+
+            label = classes[0]
+            score = scores[0]
+
+            box = tuple(boxes[0].tolist())
+            box = [box[0] * image_width, box[1] * image_height, box[2] * image_width, box[3] * image_height]
+
+            point1 = np.array([box[1], box[0]])
+            point2 = np.array([box[3], box[0]])
+            point3 = np.array([box[3], box[2]])
+            point4 = np.array([box[1], box[2]])
+
+            vertex1 = (point1[0], point1[1])
+            vertex2 = (point2[0], point2[1])
+            vertex3 = (point3[0], point3[1])
+            vertex4 = (point4[0], point4[1])
+
+            box2conf[(image, (vertex1, vertex2, vertex3, vertex4))] = score
+
+            if config.debug:
+                polygon = np.array([point1, point2, point3, point4], np.int32)
+                polygon = polygon.reshape((-1, 1, 2))
+                cv2.polylines(image, [polygon], True, (0, 255, 0), 2)
+
+                caption = "{}: {:.3f}".format(label, score)
+                left_x = min(point1[0], min(point2[0], min(point3[0], point4[0])))
+                top_y = min(point1[1], min(point2[1], min(point3[1], point4[1])))
+                cv2.putText(image, caption, (int(left_x), int(top_y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+                debug_image_filename = 'network_compute_server_output.jpg'
+                cv2.imwrite(debug_image_filename, image)
+                print('Wrote debug image output to: "' + debug_image_filename + '"')
+
+    robot.logger.info(f"Found {len(image2box)} bounding boxes")
+    return image2box
 
 
 def move_arm(config):
@@ -279,7 +526,7 @@ def move_arm(config):
         #     block_until_arm_arrives(robot_command_client, unstow_command_id, 3.0)
         #     time.sleep(3)
 
-        move_gripper(COORD2GPOSE[6, 1], robot, robot_state_client, robot_command_client)
+        move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[6, 1], 1.0, 25)
 
         # Stow arm
         if robot_state_client.get_robot_state().manipulator_state.stow_state == 2:
@@ -301,7 +548,7 @@ def move_arm(config):
             robot.logger.info("Robot safely powered off")
 
 
-def move_gripper(gripper_pose, robot, robot_state_client, robot_command_client):
+def move_gripper(robot, robot_state_client, robot_command_client, gripper_pose, open_fraction, hold_time):
     """
     Move arm to a spot in front of robot, then open gripper
     """
@@ -327,17 +574,17 @@ def move_gripper(gripper_pose, robot, robot_state_client, robot_command_client):
         ODOM_FRAME_NAME, duration_seconds)
 
     # Make open gripper RobotCommand
-    gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(1.0)
+    gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(open_fraction)
 
     # Combine arm and gripper commands into 1 RobotCommand
     robot_command = RobotCommandBuilder.build_synchro_command(gripper_command, arm_command)
 
-    # Send request
+    # Send request and hold pose for 'hold_time'
     cmd_id = robot_command_client.robot_command(robot_command)
     robot.logger.info("Move arm to pose.")
     block_until_arm_arrives_with_prints(robot, robot_command_client, cmd_id)
     block_until_arm_arrives(robot_command_client, cmd_id)
-    time.sleep(10)
+    time.sleep(hold_time)
     robot.logger.info("Arm move done.")
 
 
@@ -374,6 +621,25 @@ def deg2rad(deg):
     return deg / 180.0 * math.pi
 
 
+def find_center_px(vertices):
+    min_x = math.inf
+    min_y = math.inf
+    max_x = -math.inf
+    max_y = -math.inf
+    for vert in vertices:
+        if vert.x < min_x:
+            min_x = vert.x
+        if vert.y < min_y:
+            min_y = vert.y
+        if vert.x > max_x:
+            max_x = vert.x
+        if vert.y > max_y:
+            max_y = vert.y
+    x = math.fabs(max_x - min_x) / 2.0 + min_x
+    y = math.fabs(max_y - min_y) / 2.0 + min_y
+    return x, y
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     bosdyn.client.util.add_base_arguments(parser)
@@ -381,6 +647,7 @@ def main(argv):
     parser.add_argument("--password", type=str, default="97qp5bwpwf2c", help="Password of Spot")  # dungnydsc8su
     parser.add_argument("--dock_id", required=True, type=int, help="Docking station ID to dock at")
     parser.add_argument("--move", required=True, type=str, help="Move base or arm")
+    parser.add_argument('-d', '--debug', action='store_true', help='Disable writing debug images.')
     parser.add_argument("--time_per_move", type=int, default=25, help="Seconds each move in grid should take")
     parser.add_argument('--dock_after_use', action="store_true", help='Include to dock Spot after operation')
     parser.add_argument('--poweroff_after_use', action="store_true", help='Include to power off Spot after operation')
@@ -390,8 +657,10 @@ def main(argv):
     try:
         if config.move == "base":
             move_base(config)
-        else:
+        elif config.move == "arm":
             move_arm(config)
+        else:
+            nav_grasp(config)
         return True
     except Exception as exc:
         logger = bosdyn.client.util.get_logger()

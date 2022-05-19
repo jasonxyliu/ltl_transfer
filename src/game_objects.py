@@ -65,3 +65,5 @@ class Actions(Enum):
     right = 1  # move right
     down  = 2  # move down
     left  = 3  # move left
+    pick  = 4
+    place = 5
