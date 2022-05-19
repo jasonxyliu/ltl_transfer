@@ -335,7 +335,7 @@ def nav_grasp(config):
         time.sleep(time_full + 2)
 
         cur_loc = poses[0][:2]
-        actions = [Actions.right] * 7 + [Actions.pick]
+        actions = [Actions.right] * 7 + [Actions.pick] + [Actions.left] * 7 + [Actions.down, Actions.down, Actions.place]
         # actions = [
         #            Actions.down, Actions.down,   # to a
         #            Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,  # to a
@@ -353,13 +353,14 @@ def nav_grasp(config):
                 cur_loc = cur_pose[:2]
 
 
-def spot_execute_action(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models, cur_loc, action, goal_prop):
+def spot_execute_action(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
+                        models, cur_loc, action, goal_prop):
     next_pose = navigate(robot, config, robot_command_client, cur_loc, action)
     next_loc = next_pose[:2]
 
-    if goal_prop in PICK_PROPS.keys() and next_loc in PICK_PROPS.items():
+    if goal_prop in PICK_PROPS.keys() and next_loc == PICK_PROPS[goal_prop]:
         pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models[COORD2MODE[cur_loc]], cur_loc)
-    if goal_prop in PLACE_PROPS.keys() and next_loc in PLACE_PROPS.values():
+    if goal_prop in PLACE_PROPS.keys() and next_loc == PLACE_PROPS[goal_prop]:
         place(robot, robot_state_client, robot_command_client, cur_loc, 3)
 
 
