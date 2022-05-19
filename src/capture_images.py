@@ -35,7 +35,7 @@ def main(argv):
     parser.add_argument('--username', type=str, default='user', help='Username of Spot')
     parser.add_argument('--password', type=str, default='97qp5bwpwf2c', help='Password of Spot')  # dungnydsc8su
     parser.add_argument('--image-source', default='hand_color_image', help=f'Get image from source(s). Available image sources: {str(IMG_SOURCES)}')
-    parser.add_argument('--image_dpath', default='./multiobj/images', help='Path to write images to')
+    parser.add_argument('--image_dpath', default='./multiobj/images_test', help='Path to write images to')
     parser.add_argument('--all_hand_cameras', action="store_true", help='Include to capture and save images from all hand camera')
     options = parser.parse_args(argv)
 
@@ -81,10 +81,9 @@ def main(argv):
                     if not os.path.exists(image_saved_path):
                         break
 
-                print(image_saved_path)
-
                 # Save image
                 if img is not None:
+                    print(image_saved_path)
                     cv2.imwrite(image_saved_path, img)
                     print(f'Wrote: {image_saved_path}')
         else:
@@ -113,8 +112,10 @@ def main(argv):
                     break
 
             # Save image
-            cv2.imwrite(image_saved_path, img)
-            print(f'Wrote: {image_saved_path}')
+            if img is not None:
+                print(image_saved_path)
+                cv2.imwrite(image_saved_path, img)
+                print(f'Wrote: {image_saved_path}')
 
         # Wait for some time so we can drive the robot to a new position.
         time.sleep(0.7)
