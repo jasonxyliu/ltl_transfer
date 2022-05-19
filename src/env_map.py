@@ -84,3 +84,6 @@ PLACE_PROPS = {
     "a": (5, 3),
     "b": (1, 4)
 }
+
+
+PLACE_PROPS_INV = {val: key for key, val in PLACE_PROPS.items()}

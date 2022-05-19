@@ -25,13 +25,13 @@ from bosdyn.util import seconds_to_duration
 
 from network_compute_server import TensorFlowObjectDetectionModel
 from game_objects import Actions
-from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE, PICK_PROPS, PLACE_PROPS
+from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE, PICK_PROPS, PLACE_PROPS, PLACE_PROPS_INV
 
 
 MODEL2PATHS = {
     "book_pr": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
                 "multiobj/annotations/label_map.pbtxt"),
-    "juice": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
+    "juice": ("multiobj/exported_models/juice_orange_hand_color/saved_model",
               "multiobj/annotations_juice_hand_color/label_map.pbtxt")
 }
 
@@ -41,12 +41,12 @@ COORD2MODE = {
 }
 
 
-def navigate(robot, config, robot_command_client, cur_loc, action):
+def navigate(robot, config, robot_command_client, cur_loc, action, goal_prop):
     # Initialize a robot command message, which we will build out below
     command = robot_command_pb2.RobotCommand()
 
     # Walk through a sequence of coordinates
-    pose = action2pose(cur_loc, action)
+    pose = action2pose(cur_loc, action, goal_prop)
     print(f"adding pose to command: {pose}")
     point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
     loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
@@ -70,7 +70,7 @@ def navigate(robot, config, robot_command_client, cur_loc, action):
     return pose
 
 
-def action2pose(cur_loc, action):
+def action2pose(cur_loc, action, goal_prop):
     next_x, next_y = cur_loc
 
     if action == Actions.up:
@@ -86,10 +86,10 @@ def action2pose(cur_loc, action):
         next_y += 1
         rot_code = 1
 
-    # if (next_x, next_y) == (5, 3):  # always facing desk_a if it is the destination
-    #     rot_code = 1
+    if goal_prop == 'a' and (next_x, next_y) == PLACE_PROPS['a']:  # always facing desk_a if it is the destination
+        rot_code = 1
 
-    if (next_x, next_y) == (1, 4):  # always facing desk_b if it is the destination
+    if (next_x, next_y) == (1, 4) :  # always facing desk_b if it is the destination
         rot_code = 1
 
     if (next_x, next_y) == (3, 10):  # always facing counter in kitchen
@@ -106,7 +106,7 @@ def navigate_seq(robot, config, robot_command_client, cur_loc, actions):
     command = robot_command_pb2.RobotCommand()
 
     # Walk through a sequence of coordinates
-    poses = plan_trajectory(cur_loc, actions)
+    poses, _ = plan_trajectory(cur_loc, actions)
     for idx, pose in enumerate(poses):
         print(f"adding pose to command: {pose}")
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
@@ -128,7 +128,7 @@ def navigate_seq(robot, config, robot_command_client, cur_loc, actions):
     time_full = config.time_per_move * len(poses)
     robot.logger.info("Send body trajectory command.")
     robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
-    time.sleep(time_full + 2)
+    time.sleep(time_full + 1)
 
 
 def plan_trajectory(cur_loc, actions):
@@ -163,7 +163,7 @@ def plan_trajectory(cur_loc, actions):
 
         traj.append((next_x, next_y, rot_code))
 
-    return traj
+    return traj, (next_x, next_y)
 
 
 def move_base(config):
@@ -195,13 +195,13 @@ def move_base(config):
             robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
             blocking_undock(robot)
             robot.logger.info("Robot undocked and standing")
-            time.sleep(3)
+            time.sleep(1)
         else:
             # Stand if not docked
             robot.logger.info("Commanding robot to stand...")
             blocking_stand(robot_command_client, timeout_sec=10)
             robot.logger.info("Robot standing.")
-            time.sleep(3)
+            time.sleep(1)
 
         # Move to a given xy position
         # transforms = robot_state_client.get_robot_state().kinematic_state.transforms_snapshot
@@ -217,34 +217,24 @@ def move_base(config):
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
         point.pose.angle = yaw_angle(rot_vision)
         point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
-
-        # # Walk through a sequence of coordinates
-        # cur_loc = (3, 3)
-        # # actions = [Actions.right] * 7  # to j
-        # actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down]  # to c
-        # poses = plan_trajectory(cur_loc, actions)
-        # for idx, pose in enumerate(poses):
-        #     print(f"adding pose to command: {pose}")
-        #     point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-        #     loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
-        #     point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
-        #     point.pose.angle = yaw_angle(rot_vision)
-        #     traj_time = (idx + 1) * config.time_per_move
-        #     point.time_since_reference.CopyFrom(seconds_to_duration(traj_time))
-
         # Support frame
         command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
-
         # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
         #                                min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=0))
         # mobility_command = spot_command_pd2.MobilityParams(vel_limit=speed_limit)
         # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
-
         # Send the command using command client
         time_full = config.time_per_move * len(poses)
         robot.logger.info("Send body trajectory command.")
         robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
-        time.sleep(time_full + 2)
+        time.sleep(time_full + 1)
+
+        # cur_loc = poses[0][:2]
+        # actions = [Actions.down, Actions.down]
+        # goal_prop = PLACE_PROPS_INV[plan_trajectory(cur_loc, actions)[1]]
+        # for action in actions:
+        #     cur_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
+        #     cur_loc = cur_pose[:2]
 
         if config.dock_after_use:
             # Dock robot after mission complete
@@ -302,13 +292,13 @@ def nav_grasp(config):
             robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
             blocking_undock(robot)
             robot.logger.info("Robot undocked and standing")
-            time.sleep(3)
+            time.sleep(1)
         else:
             # Stand if not docked
             robot.logger.info("Commanding robot to stand...")
             blocking_stand(robot_command_client, timeout_sec=10)
             robot.logger.info("Robot standing.")
-            time.sleep(3)
+            time.sleep(1)
 
         # Initialize a robot command message, which we will build out below
         command = robot_command_pb2.RobotCommand()
@@ -332,10 +322,12 @@ def nav_grasp(config):
         time_full = config.time_per_move * len(poses)
         robot.logger.info("Send body trajectory command.")
         robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
-        time.sleep(time_full + 2)
+        time.sleep(time_full + 1)
 
         cur_loc = poses[0][:2]
-        actions = [Actions.right] * 7 + [Actions.pick] + [Actions.left] * 7 + [Actions.down, Actions.down, Actions.place]
+        actions = [Actions.down, Actions.down, Actions.place]
+        goal_prop = PLACE_PROPS_INV[plan_trajectory(cur_loc, actions)[1]]
+        # actions = [Actions.right] * 7 + [Actions.pick] + [Actions.left] * 7 + [Actions.down, Actions.down, Actions.place]
         # actions = [
         #            Actions.down, Actions.down,   # to a
         #            Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,  # to a
@@ -349,13 +341,13 @@ def nav_grasp(config):
             elif action == "capture_image":
                 move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[cur_loc[0], cur_loc[1]], 1.0, 10, True)
             else:
-                cur_pose = navigate(robot, config, robot_command_client, cur_loc, action)
+                cur_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
                 cur_loc = cur_pose[:2]
 
 
 def spot_execute_action(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
                         models, cur_loc, action, goal_prop):
-    next_pose = navigate(robot, config, robot_command_client, cur_loc, action)
+    next_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
     next_loc = next_pose[:2]
 
     if goal_prop in PICK_PROPS.keys() and next_loc == PICK_PROPS[goal_prop]:
@@ -380,7 +372,7 @@ def pick(config, robot, robot_state_client, robot_command_client, robot_image_cl
     stow_command_id = robot_command_client.robot_command(stow_command)
     robot.logger.info("Stow command issued")
     block_until_arm_arrives(robot_command_client, stow_command_id, 3.0)
-    time.sleep(3)
+    time.sleep(1)
 
     # Grasp
     pick_vec = geometry_pb2.Vec2(x=center_x, y=center_y)
@@ -395,13 +387,17 @@ def pick(config, robot, robot_state_client, robot_command_client, robot_image_cl
     # Send the request
     cmd_response = robot_manipulation_client.manipulation_api_command(manipulation_api_request=grasp_request)
     # Get feedback from the robot
+    moving_counter = 0
     while True:
         feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(manipulation_cmd_id=cmd_response.manipulation_cmd_id)
         # Send the request
         response = robot_manipulation_client.manipulation_api_feedback_command(manipulation_api_feedback_request=feedback_request)
         print('Current state: ', manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
-        if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
+        if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or \
+            moving_counter > 20 or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
             break
+        if response.current_state == manipulation_api_pb2.MANIP_STATE_MOVING_TO_GRASP:
+            moving_counter += 1
         time.sleep(0.25)
 
     # Carry
@@ -409,18 +405,19 @@ def pick(config, robot, robot_state_client, robot_command_client, robot_image_cl
     carry_command_id = robot_command_client.robot_command(carry_command)
     robot.logger.info("Carry command issued")
     block_until_arm_arrives(robot_command_client, carry_command_id, 3.0)
-    time.sleep(3)
+    time.sleep(1)
 
 
 def place(robot, robot_state_client, robot_command_client, coord, hold_time):
-    move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, 1)
-    move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0]+0.1, coord[1]], 1.0, hold_time)
+    arm_command = move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, 1)
+    arm_command = move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 1, hold_time, arm_command)
+    move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, hold_time, arm_command)
     # Stow
     stow_command = RobotCommandBuilder.arm_stow_command()
     stow_command_id = robot_command_client.robot_command(stow_command)
     robot.logger.info("Stow command issued")
     block_until_arm_arrives(robot_command_client, stow_command_id, 3.0)
-    time.sleep(3)
+    time.sleep(1)
 
 
 def get_boxes(config, robot, robot_state_client, robot_command_client, robot_image_client, gripper_pose, hold_time, model):
@@ -463,7 +460,6 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
     hold_until_time = time.time() + hold_time
     box2conf = {}
     image_resps = []
-
     counter = 0
 
     while time.time() < hold_until_time:
@@ -478,7 +474,7 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
         # Inference model to get bounding box
         detections = model.predict(image)
 
-        print(detections)
+        # print(detections)
         print(f"num of detections: ", detections["num_detections"])
 
         num_detections = int(detections.pop('num_detections'))
@@ -559,13 +555,13 @@ def move_arm(config):
             robot.logger.info("Robot undocking...\nCLEAR AREA in front of docking station.")
             blocking_undock(robot)
             robot.logger.info("Robot undocked and standing")
-            time.sleep(3)
+            time.sleep(1)
         else:
             # Stand if not docked
             robot.logger.info("Commanding robot to stand...")
             blocking_stand(robot_command_client, timeout_sec=10)
             robot.logger.info("Robot standing.")
-            time.sleep(3)
+            time.sleep(1)
 
         # # Unstow arm
         # if robot_state_client.get_robot_state().manipulator_state.stow_state == 1:
@@ -583,7 +579,7 @@ def move_arm(config):
             stow_command_id = robot_command_client.robot_command(stow_command)
             robot.logger.info("Stow command issued")
             block_until_arm_arrives(robot_command_client, stow_command_id, 3.0)
-            time.sleep(3)
+            time.sleep(1)
 
         if config.dock_after_use:
             # Dock robot after mission complete
@@ -597,30 +593,31 @@ def move_arm(config):
             robot.logger.info("Robot safely powered off")
 
 
-def move_gripper(robot, robot_state_client, robot_command_client, gripper_pose, open_fraction, hold_time, collect=False):
+def move_gripper(robot, robot_state_client, robot_command_client, gripper_pose, open_fraction, hold_time, arm_command=None, collect=False):
     """
     Move arm to a spot in front of robot, then open gripper
     """
-    (x, y, z), (qw, qx, qy, qz) = gripper_pose
-    # Make arm pose RobotCommand
-    # Build a position to move arm to (in meters, relative to and expressed in gravity aligned body frame)
-    hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
-    # Rotation as a quaternion
-    flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
-    # Build SE3Pose proto object
-    flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body, rotation=flat_body_Q_hand)
+    if not arm_command:  # else use previous arm_command, only change gripper open
+        (x, y, z), (qw, qx, qy, qz) = gripper_pose
+        # Make arm pose RobotCommand
+        # Build a position to move arm to (in meters, relative to and expressed in gravity aligned body frame)
+        hand_ewrt_flat_body = geometry_pb2.Vec3(x=x, y=y, z=z)
+        # Rotation as a quaternion
+        flat_body_Q_hand = geometry_pb2.Quaternion(w=qw, x=qx, y=qy, z=qz)
+        # Build SE3Pose proto object
+        flat_body_T_hand = geometry_pb2.SE3Pose(position=hand_ewrt_flat_body, rotation=flat_body_Q_hand)
 
-    robot_state = robot_state_client.get_robot_state()
-    odom_T_flat_body = get_a_tform_b(robot_state.kinematic_state.transforms_snapshot,
-                                     ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME)
-    odom_T_hand = odom_T_flat_body * math_helpers.SE3Pose.from_proto(flat_body_T_hand)
-    print(f"odom_T_hand: {odom_T_hand}\n{type(odom_T_hand)}")
+        robot_state = robot_state_client.get_robot_state()
+        odom_T_flat_body = get_a_tform_b(robot_state.kinematic_state.transforms_snapshot,
+                                         ODOM_FRAME_NAME, GRAV_ALIGNED_BODY_FRAME_NAME)
+        odom_T_hand = odom_T_flat_body * math_helpers.SE3Pose.from_proto(flat_body_T_hand)
+        # print(f"odom_T_hand: {odom_T_hand}\n{type(odom_T_hand)}")
 
-    duration_seconds = 2
-    arm_command = RobotCommandBuilder.arm_pose_command(
-        odom_T_hand.x, odom_T_hand.y, odom_T_hand.z,
-        odom_T_hand.rot.w, odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z,
-        ODOM_FRAME_NAME, duration_seconds)
+        duration_seconds = 2
+        arm_command = RobotCommandBuilder.arm_pose_command(
+            odom_T_hand.x, odom_T_hand.y, odom_T_hand.z,
+            odom_T_hand.rot.w, odom_T_hand.rot.x, odom_T_hand.rot.y, odom_T_hand.rot.z,
+            ODOM_FRAME_NAME, duration_seconds)
 
     # Make open gripper RobotCommand
     gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(open_fraction)
@@ -640,6 +637,8 @@ def move_gripper(robot, robot_state_client, robot_command_client, gripper_pose, 
         time.sleep(hold_time)
     robot.logger.info("Arm move done.")
 
+    return arm_command
+
 
 def block_until_arm_arrives_with_prints(robot, command_client, cmd_id):
     """
@@ -648,13 +647,15 @@ def block_until_arm_arrives_with_prints(robot, command_client, cmd_id):
     """
     while True:
         feedback_resp = command_client.robot_command_feedback(cmd_id)
+        pose_dist_to_goal = feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_pos_distance_to_goal
+        rot_dist_to_goal = feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_rot_distance_to_goal
         robot.logger.info(
             "Distance to go: " +
-            f"{feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_pos_distance_to_goal:.2f} meters" +
-            f"{feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.measured_rot_distance_to_goal:.2f}"
+            f"{pose_dist_to_goal:.2f} meters" +
+            f"{rot_dist_to_goal:.2f}"
         )
 
-        if feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_COMPLETE:
+        if (pose_dist_to_goal < 0.01 and rot_dist_to_goal < 0.01) or feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_COMPLETE:
             robot.logger.info("Arm reached goal")
             break
         time.sleep(0.1)
