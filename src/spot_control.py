@@ -24,14 +24,13 @@ from bosdyn.api.spot import robot_command_pb2 as spot_command_pd2
 from bosdyn.util import seconds_to_duration
 
 from network_compute_server import TensorFlowObjectDetectionModel
-from fetch import find_center_px
 from game_objects import Actions
 from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE
 
 
 MODEL2PATHS = {
-    "book_pr": ("../multiobj/exported_models/model_book_pr_hand_gray/saved_model",
-                "../multiobj/annotations/label_map.pbtxt"),
+    "book_pr": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
+                "multiobj/annotations/label_map.pbtxt"),
     "juice": ()
 }
 
@@ -41,6 +40,8 @@ COORD2MODE = {
 
 
 def navigate(robot, config, robot_command_client, cur_loc, action):
+    print("navigate function")
+
     # Initialize a robot command message, which we will build out below
     command = robot_command_pb2.RobotCommand()
 
@@ -85,10 +86,10 @@ def action2pose(cur_loc, action):
         next_y += 1
         rot_code = 1
 
-    # if (next_x, next_y) == (5, 3):  # always facing desk_a if it is the desination
+    # if (next_x, next_y) == (5, 3):  # always facing desk_a if it is the destination
     #     rot_code = 1
 
-    if (next_x, next_y) == (1, 4):  # always facing desk_b if it is the desination
+    if (next_x, next_y) == (1, 4):  # always facing desk_b if it is the destination
         rot_code = 1
 
     if (next_x, next_y) == (3, 10):  # always facing counter in kitchen
@@ -210,7 +211,7 @@ def move_base(config):
         command = robot_command_pb2.RobotCommand()
 
         # Walk to origin
-        poses = [(6, 1, 2)]
+        poses = [(0, 0, 0)]
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
@@ -276,8 +277,8 @@ def nav_grasp(config):
                                     "such as the estop SDK example, to configure E-Stop."
 
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
-    robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
     robot_image_client = robot.ensure_client(ImageClient.default_service_name)
+    robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
     robot_manipulation_client = robot.ensure_client(ManipulationApiClient.default_service_name)
 
     lease_client = robot.ensure_client(bosdyn.client.lease.LeaseClient.default_service_name)
@@ -305,32 +306,51 @@ def nav_grasp(config):
         command = robot_command_pb2.RobotCommand()
 
         # Walk to origin
-        poses = [(3, 3, 0)]
+        poses = [(6, 1, 0)]
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
         point.pose.angle = yaw_angle(rot_vision)
         point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
+        # Support frame
+        command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
 
-        cur_loc = (3, 3)
-        actions = [Actions.left, Actions.left, Actions.down, Actions.down, Actions.down,   # to c
-                   Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,
+        # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
+        #                                min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=0))
+        # mobility_command = spot_command_pd2.MobilityParams(vel_limit=speed_limit)
+        # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
+
+        # Send the command using command client
+        time_full = config.time_per_move * len(poses)
+        robot.logger.info("Send body trajectory command.")
+        robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
+        time.sleep(time_full + 2)
+
+        cur_loc = poses[0][:2]
+        actions = [
+                   # Actions.down, Actions.down,   # to c
+                   # Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,  # to a
+                   # Actions.up, Actions.up,  # to A
+                   Actions.pick,
                    ]
         for action in actions:
-            if actions == Actions.pick:
+            if action == Actions.pick:
                 pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models["book_pr"], cur_loc)
-            elif actions == Actions.place:
-                place(robot, robot_state_client, robot_command_client, robot_manipulation_client, cur_loc, 3)
+            elif action == Actions.place:
+                place(robot, robot_state_client, robot_command_client, cur_loc, 3)
             else:
-                cur_loc = navigate(robot, config, robot_command_client, cur_loc, action)
+                cur_pose = navigate(robot, config, robot_command_client, cur_loc, action)
+                cur_loc = cur_pose[:2]
 
 
 def pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, model, coord):
-    box2conf = get_boxes(robot, robot_state_client, robot_command_client, robot_image_client, COORD2GPOSE[coord[0], coord[1]], 25, model)
+    print("pick function")
+    box2conf, image_resps = get_boxes(config, robot, robot_state_client, robot_command_client, robot_image_client, COORD2GPOSE[coord[0], coord[1]], 25, model)
 
     # Find overlapping region
-    (image, box), conf = sorted(box2conf.items(), key=lambda kv: kv[1])[-1]
-    print(f"most confident box: {box}")
+    box, conf = sorted(box2conf.items(), key=lambda kv: kv[1])[-1]
+    image_resp = image_resps[list(box2conf.keys()).index(box)]
+    print(f"most confident box: {box}, {conf}")
 
     # Pick bounding box center
     center_x, center_y = find_center_px(box)
@@ -345,27 +365,23 @@ def pick(config, robot, robot_state_client, robot_command_client, robot_image_cl
     # Grasp
     pick_vec = geometry_pb2.Vec2(x=center_x, y=center_y)
     grasp = manipulation_api_pb2.PickObjectInImage(
-        pixel_xy=pick_vec, transforms_snapshot_from_camera=image.shot.transforms_snapshot,
-        frame_name_sensor=image.shot.frame_name_image_sensor,
-        camera_model=image.source.pinhole)
-
-    # Ask the robot to pick up the object
+        pixel_xy=pick_vec, transforms_snapshot_for_camera=image_resp.shot.transforms_snapshot,
+        frame_name_image_sensor=image_resp.shot.frame_name_image_sensor,
+        camera_model=image_resp.source.pinhole)
+    grasp.grasp_params.grasp_palm_to_fingertip = 0
+    grasp.grasp_params.grasp_params_frame_name = VISION_FRAME_NAME
+    # Build proto
     grasp_request = manipulation_api_pb2.ManipulationApiRequest(pick_object_in_image=grasp)
     # Send the request
     cmd_response = robot_manipulation_client.manipulation_api_command(manipulation_api_request=grasp_request)
-
     # Get feedback from the robot
     while True:
         feedback_request = manipulation_api_pb2.ManipulationApiFeedbackRequest(manipulation_cmd_id=cmd_response.manipulation_cmd_id)
-
         # Send the request
         response = robot_manipulation_client.manipulation_api_feedback_command(manipulation_api_feedback_request=feedback_request)
-
         print('Current state: ', manipulation_api_pb2.ManipulationFeedbackState.Name(response.current_state))
-
         if response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_SUCCEEDED or response.current_state == manipulation_api_pb2.MANIP_STATE_GRASP_FAILED:
             break
-
         time.sleep(0.25)
 
     # Carry
@@ -376,9 +392,15 @@ def pick(config, robot, robot_state_client, robot_command_client, robot_image_cl
     time.sleep(3)
 
 
-def place(robot, robot_state_client, robot_command_client, robot_manipulation_client, coord, hold_time):
-    move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, hold_time)
+def place(robot, robot_state_client, robot_command_client, coord, hold_time):
+    move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, 1)
     move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0]+0.1, coord[1]], 1.0, hold_time)
+    # Stow
+    stow_command = RobotCommandBuilder.arm_stow_command()
+    stow_command_id = robot_command_client.robot_command(stow_command)
+    robot.logger.info("Stow command issued")
+    block_until_arm_arrives(robot_command_client, stow_command_id, 3.0)
+    time.sleep(3)
 
 
 def get_boxes(config, robot, robot_state_client, robot_command_client, robot_image_client, gripper_pose, hold_time, model):
@@ -420,8 +442,12 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
 
     hold_until_time = time.time() + hold_time
     box2conf = {}
+    image_resps = []
+
+    counter = 0
 
     while time.time() < hold_until_time:
+        print(f"Counter: {counter}")
         # Take image
         image_responses = robot_image_client.get_image_from_sources(['hand_color_image'])
         # Unpack image
@@ -447,6 +473,8 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
             label = classes[0]
             score = scores[0]
 
+            print(label, score)
+
             box = tuple(boxes[0].tolist())
             box = [box[0] * image_width, box[1] * image_height, box[2] * image_width, box[3] * image_height]
 
@@ -460,7 +488,8 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
             vertex3 = (point3[0], point3[1])
             vertex4 = (point4[0], point4[1])
 
-            box2conf[(image, (vertex1, vertex2, vertex3, vertex4))] = score
+            box2conf[(vertex1, vertex2, vertex3, vertex4)] = score
+            image_resps.append(image_responses[0])
 
             if config.debug:
                 polygon = np.array([point1, point2, point3, point4], np.int32)
@@ -472,12 +501,12 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
                 top_y = min(point1[1], min(point2[1], min(point3[1], point4[1])))
                 cv2.putText(image, caption, (int(left_x), int(top_y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-                debug_image_filename = 'network_compute_server_output.jpg'
+                debug_image_filename = f'test_{time.time()}.jpg'
                 cv2.imwrite(debug_image_filename, image)
                 print('Wrote debug image output to: "' + debug_image_filename + '"')
-
-    robot.logger.info(f"Found {len(image2box)} bounding boxes")
-    return image2box
+        counter += 1
+    robot.logger.info(f"Found {len(box2conf)} bounding boxes")
+    return box2conf, image_resps
 
 
 def move_arm(config):
@@ -627,14 +656,15 @@ def find_center_px(vertices):
     max_x = -math.inf
     max_y = -math.inf
     for vert in vertices:
-        if vert.x < min_x:
-            min_x = vert.x
-        if vert.y < min_y:
-            min_y = vert.y
-        if vert.x > max_x:
-            max_x = vert.x
-        if vert.y > max_y:
-            max_y = vert.y
+        x, y = vert[0], vert[1]
+        if x < min_x:
+            min_x = x
+        if y < min_y:
+            min_y = y
+        if x > max_x:
+            max_x = x
+        if y > max_y:
+            max_y = y
     x = math.fabs(max_x - min_x) / 2.0 + min_x
     y = math.fabs(max_y - min_y) / 2.0 + min_y
     return x, y
