@@ -450,19 +450,17 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
     robot_manipulation_client = robot.ensure_client(ManipulationApiClient.default_service_name)
 
-    # Pre-load detector models
+    # Inference detector models to check tf related params
     models = {}
-    for model_name in ["book_pr"]:
+    for model_name in MODEL2PATHS.keys():
         model_dpath, label_fpath = MODEL2PATHS[model_name]
         model = TensorFlowObjectDetectionModel(model_dpath, label_fpath)
         models[model_name] = model
 
-        # Preload tf model
         image_responses = robot_image_client.get_image_from_sources(['hand_color_image'])
-        # Unpack image
         image = np.frombuffer(image_responses[0].shot.image.data, dtype=np.uint8)
         image = cv2.imdecode(image, -1)
-        model.predict(image)
+        model.predict(image)  # check some tf related params as predicting
         print(f"loaded model {model_dpath}")
 
     for task_idx, transfer_task in enumerate(transfer_tasks[2:3]):
@@ -547,7 +545,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
 
                 # Initialize a robot command message, which we will build out below
                 command = robot_command_pb2.RobotCommand()
-                # Walk to origin
+                # Walk to initial location
                 poses = [(3, 3, 0)]
                 point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
                 pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
