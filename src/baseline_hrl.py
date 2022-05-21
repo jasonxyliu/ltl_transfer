@@ -1,15 +1,15 @@
-# Imports
+import time
+import random
 import numpy as np
 import tensorflow as tf
 from schedules import LinearSchedule
 from dfa import *
 from game import *
-import random, time, os, shutil
 from policy_bank import PolicyBank
 from replay_buffer import ReplayBuffer
-from test_utils import Saver
 from tasks import get_option, get_option_night
 from ltl_progression import extract_propositions
+
 
 class MetaController:
     def __init__(self, subpolicies, gamma, use_dfa, alpha=0.7, epsilon=0.1):
