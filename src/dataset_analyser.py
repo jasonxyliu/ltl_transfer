@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Apr  5 12:09:39 2022
-
-@author: ajshah
 """
 from collections import defaultdict
 from dataset_creator import read_train_test_formulas, SET_TYPES, TRAIN_SIZES, TEST_SIZE

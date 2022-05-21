@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Mar 22 12:29:47 2022
-
-@author: ajshah
 """
 import os
 import dill

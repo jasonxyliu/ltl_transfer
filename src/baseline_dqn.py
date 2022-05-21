@@ -1,16 +1,16 @@
-# Imports
+"""
+This baseline solves the problem using standard q-learning over the cross product
+between the LTL instruction and the MDP
+"""
+import time
+import random
 import numpy as np
 import tensorflow as tf
 from schedules import LinearSchedule
 from dfa import *
 from game import *
-import random, time, os.path, shutil
 from network import get_MLP
 
-"""
-This baseline solves the problem using standard q-learning over the cross product
-between the LTL instruction and the MDP
-"""
 
 class BaselineDQN:
     def __init__(self, sess, num_actions, num_features, ltl, learning_params, feature_proxy):
