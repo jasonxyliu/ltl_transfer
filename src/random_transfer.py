@@ -36,8 +36,8 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
     random.seed(run_id)
     random_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
 
-    tf.reset_default_graph()
-    sess.close()
+    #tf.reset_default_graph()
+    #sess.close()
 
     # Log transfer results
     # tester.log_results("Transfer took: %0.2f mins\n" % ((time.time() - time_init)/60))
