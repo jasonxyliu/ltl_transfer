@@ -86,7 +86,10 @@ class Tester:
                 logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
 
             # load pre-computed optimal steps for 'task_type' in 'map_id'
-            optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
+            if train_type == 'random':
+                a=1
+            else:
+                optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
             # I store the results here
             self.results = {}
