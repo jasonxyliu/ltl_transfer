@@ -129,7 +129,7 @@ def random_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps, ru
         run2traj[num_time] = run_traj
     success = success / num_times
     mean_run_time = (time.time() - start_time) / num_times
-    runtime = mean_run_time + precomputation_time
+    runtime = mean_run_time
 
     # log single task result
     data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': precomputation_time}
