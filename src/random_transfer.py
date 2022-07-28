@@ -132,7 +132,7 @@ def random_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps, ru
     runtime = mean_run_time
 
     # log single task result
-    data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime, 'precomp_time': precomputation_time}
+    data = {'transfer_task': transfer_task, 'success': success, 'run2sol': run2sol, 'run2traj': run2traj, 'run2exitcode': run2exitcode, 'runtime': runtime}
     save_pkl(logfilename, data)
 
     print('Finished single worker transfer to task: %s' % str(transfer_task))
