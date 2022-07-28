@@ -87,7 +87,7 @@ class Tester:
 
             # load pre-computed optimal steps for 'task_type' in 'map_id'
             if train_type == 'random':
-                a=1
+                optimal_aux = [10]*50
             else:
                 optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
 
