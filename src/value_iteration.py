@@ -55,18 +55,21 @@ class Transition:
 
 
 def evaluate_optimal_policy(map_array, agent_i, agent_j, consider_night, tasks, task_id, task_type=None):
-    map_height, map_width = len(map_array), len(map_array)
+    map_height, map_width = len(map_array), len(map_array[0])
     sunrise, hour_init, sunset = 5, 12, 21
     actions = [Actions.up, Actions.down, Actions.left, Actions.right]
 
     summary = []
-    for ltl_task in tasks:
+    for task_idx, ltl_task in enumerate(tasks):
+        print(f"Learning {task_idx}: {ltl_task}")
         dfa = DFA(ltl_task)
         # Creating the states
         S = set()
         # adding states without considering 'True' and 'False'
         for i in range(1, map_height-1):
             for j in range(1, map_width-1):
+                if str(map_array[i][j]) == "X":
+                    continue
                 if consider_night:
                     for t in range(24):
                         # I do not include states where is night and the agent is not in the shelter
@@ -125,7 +128,7 @@ def evaluate_optimal_policy(map_array, agent_i, agent_j, consider_night, tasks, 
 
                     T[s][a].add_successor(s2, 1, -1 if s2 != 'False' else -1000)
                     if s2 not in S:
-                        print("Error!")
+                        print(f"Error!\n{s2} not in state space")
 
         # Computing the optimal policy with value iteration
         V = {}

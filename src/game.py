@@ -8,8 +8,8 @@ class GameParams:
     """
     Auxiliary class with the configuration parameters that the Game class needs
     """
-    def __init__(self, file_map, ltl_task, consider_night, init_dfa_state, init_loc):
-        self.file_map = file_map
+    def __init__(self, map_fpath, ltl_task, consider_night, init_dfa_state, init_loc):
+        self.map_fpath = map_fpath
         self.ltl_task = ltl_task
         self.consider_night = consider_night
         self.init_dfa_state = init_dfa_state
@@ -19,7 +19,7 @@ class GameParams:
 class Game:
     def __init__(self, params):
         self.params = params
-        self._load_map(params.file_map)
+        self._load_map(params.map_fpath)
         if params.init_loc:
             self._set_agent_loc(params.init_loc)
         # Adding day and night if need it
@@ -99,7 +99,7 @@ class Game:
         return not(self.sunrise <= self.hour <= self.sunset)
 
     # The following methods create the map ----------------------------------------------
-    def _load_map(self, file_map):
+    def _load_map(self, map_fpath):
         """
         This method adds the following attributes to the game:
             - self.map_array: array containing all the static objects in the map
@@ -108,7 +108,7 @@ class Game:
             - self.map_height: number of rows in every room
             - self.map_width: number of columns in every room
         The inputs:
-            - file_map: path to the map file
+            - map_fpath: path to the map file
         """
         # contains all the actions that the agent can perform
         actions = self._load_actions()
@@ -116,11 +116,11 @@ class Game:
         self.map_array = []
         self.class_ids = {}  # I use the lower case letters to define the features
         self.num_features = 0
-        f = open(file_map)
+        f = open(map_fpath)
         i, j = 0, 0
         for l in f:
             # I don't consider empty lines!
-            if(len(l.rstrip()) == 0): continue
+            if len(l.rstrip()) == 0: continue
 
             # this is not an empty line!
             row = []
@@ -260,8 +260,8 @@ def play(params, max_time):
 if __name__ == '__main__':
     import tasks
     map = "../experiments/maps/map_0.txt"
-    #tasks = get_sequence_of_subtasks
-    #tasks = tasks.get_interleaving_subtasks()
+    # tasks = get_sequence_of_subtasks
+    # tasks = tasks.get_interleaving_subtasks()
     tasks = tasks.get_safety_constraints()
     max_time = 100
     consider_night=True

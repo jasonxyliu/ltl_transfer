@@ -35,7 +35,7 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, tasks_id, train_type, train_size, test_type, edge_matcher, file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, file_results=None):
         if file_results is None:
             # setting the test attributes
             self.edge_matcher = edge_matcher
@@ -43,6 +43,7 @@ class Tester:
             self.testing_params = testing_params
             self.map_id = map_id
             self.tasks_id = tasks_id
+            self.dataset_name = dataset_name
             self.train_type = train_type
             self.train_size = train_size
             self.test_type = test_type
@@ -56,6 +57,15 @@ class Tester:
             elif train_type == "safety":
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
+            elif train_type == 'random':
+                self.experiment = "%s/map_%d" % (train_type, map_id)
+                self.experiment_train = "%s/map_%d" % (train_type, map_id)
+                train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, 'hard', test_type, 50)
+                self.tasks = train_tasks[0:train_size]
+                self.transfer_results_dpath = os.path.join("../results_test", "%s_%s_%s" % (train_type, test_type, edge_matcher), "map_%d" % map_id)
+                os.makedirs(self.transfer_results_dpath, exist_ok=True)
+                self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
+                logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
             else:  # transfer tasks
                 if train_type == 'transfer_sequence':
                     self.tasks = tasks.get_sequence_training_tasks()
@@ -68,7 +78,7 @@ class Tester:
                 else:
                     self.experiment = "%s_%d/map_%d" % (train_type, train_size, map_id)
                     self.experiment_train = "%s_50/map_%d" % (train_type, map_id)
-                    train_tasks, self.transfer_tasks = read_train_test_formulas(train_type, test_type, 50)
+                    train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 50)
                     self.tasks = train_tasks[0:train_size]
                     self.transfer_results_dpath = os.path.join("../results_test", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
@@ -215,8 +225,8 @@ class Saver:
         # save valid agent locations where rollouts start
         id2state = {}
         state2id = {}
-        for x in range(task_aux.map_width):
-            for y in range(task_aux.map_height):
+        for x in range(task_aux.map_height):
+            for y in range(task_aux.map_width):
                 if task_aux.is_valid_agent_loc(x, y):
                     id2state[len(id2state)] = (x, y)
                     state2id[(x, y)] = len(state2id)
