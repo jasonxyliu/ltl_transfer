@@ -103,6 +103,7 @@ def random_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps, ru
         task = Game(tester.get_task_params(transfer_task))
         run_traj = []
         #node2option2prob = {}
+        step = 0
         while not task.ltl_game_over and not task.env_game_over and step <= n_horiz*num_steps:
             cur_node = task.dfa.state
             #next_node = cur_node
