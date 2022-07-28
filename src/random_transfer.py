@@ -93,7 +93,7 @@ def random_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps, ru
     #train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
     task_aux = Game(tester.get_task_params(transfer_task))
-    dfa_graph = dfa2graph(task_aux.dfa)
+    #dfa_graph = dfa2graph(task_aux.dfa)
 
     success, run2sol, run2traj, run2exitcode = 0, defaultdict(list), {}, {}
 
