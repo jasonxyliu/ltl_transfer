@@ -21,7 +21,7 @@ def create_datasets(dataset_name, set_types=SET_TYPES, duplicate_ok=True, train_
         create_dataset(NAME2PROPS[dataset_name], test_set_dpath, 'test', typ, duplicate_ok, [test_size])
 
 
-def create_dataset_directories(dataset_name):
+def create_dataset_directories(dataset_name = 'minecraft'):
     dataset_dpath = os.path.join("../experiments/datasets", dataset_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
     test_set_dpath = os.path.join(dataset_dpath, 'test')
@@ -77,7 +77,7 @@ def sample_dataset_unique_formulas(props, set_type='mixed', n=50):
     return formulas
 
 
-def read_train_test_formulas(dataset_name, train_set_type='mixed', test_set_type='hard', train_size=50, test_size=100):
+def read_train_test_formulas(dataset_name = 'minecraft', train_set_type='mixed', test_set_type='hard', train_size=50, test_size=100):
     dataset_dpath = os.path.join("../experiments/datasets", dataset_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
     test_set_dpath = os.path.join(dataset_dpath, 'test')

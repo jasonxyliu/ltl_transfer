@@ -15,6 +15,7 @@ from dataset_creator import read_train_test_formulas
 from zero_shot_transfer import *
 
 RESULT_DPATH = '../results_test'
+RANDOM_RESULT_DPATH = '../random_results'
 rc = {'axes.labelsize': 28, 'axes.titlesize': 32, 'legend.fontsize': 24, 'xtick.labelsize': 24, 'ytick.labelsize': 22}
 
 
@@ -69,6 +70,58 @@ class Record:
                 inc = len([k for k in r['run2exitcodes'] if r['run2exitcodes'][k] == 'specification_fail'])
                 spec_fails += inc
 
+class RandomRecord:
+
+    def __init__(self, train_type='random', nsteps=500, test_type='hard', edge_matcher='relaxed', map_id=0, n_tasks=100):
+        self.train_type = train_type
+        self.test_type = test_type
+        self.nsteps = nsteps
+        self.edge_matcher = edge_matcher
+        self.map_id = map_id
+        self.n_tasks = n_tasks
+        self.data = self.read_all_records()
+
+    def read_all_records(self):
+        train_type = self.train_type
+        test_type = self.test_type
+        nsteps = self.nsteps
+        map_id = self.map_id
+        n_tasks = self.n_tasks
+        edge_matcher = self.edge_matcher
+        train_tasks, test_tasks = read_train_test_formulas(train_set_type = 'hard', train_size = 50, test_set_type = test_type)
+        train_tasks = train_tasks[0:50]
+
+        records = []
+        result_dpath = os.path.join(RANDOM_RESULT_DPATH, f'{nsteps}_steps', f'random_{self.test_type}_relaxed', f'map_{map_id}')
+        filenames = [os.path.join(result_dpath, f'test_ltl_{i}.pkl') for i in range(n_tasks)]
+
+        for i, f in enumerate(filenames):
+            if os.path.exists(f):
+                with open(f, 'rb') as file:
+                    records.append(dill.load(file))
+            else:
+                records.append({'transfer_task': test_tasks[i], 'success': 0.0, 'run2sol': defaultdict(list), 'run2traj': {}, 'run2exitcode': 'timeout', 'runtime': 0})
+        return records
+
+    @property
+    def success(self):
+        return [r['success'] for r in self.data]
+
+    @property
+    def runtimes(self):
+        return [r['runtime'] for r in self.data if r['run2exitcode'] != 'timeout']
+
+    @property
+    def specification_failure_rate(self):
+        num_times = np.max([len(r['run2exitcode']) for r in self.data])
+        total = len(self.data)
+        spec_fails = 0
+        for r in self.data:
+            if type(r['run2exitcode']) == dict:
+                inc = len([k for k in r['run2exitcode'] if r['run2exitcode'][k] == 'specification_fail'])
+                spec_fails += inc
+        return spec_fails/(len(self.data)*num_times)
+
 
 def get_results(train_type='hard', edge_matcher='relaxed', test_types=None, map_ids=[0], train_sizes=[50]):
     if not test_types:
@@ -107,6 +160,8 @@ def get_results(train_types, test_types, train_sizes, map_ids):
                     results[(train_type, train_size, test_type, 'relaxed', map_id)] = record
     return results
 
+def get_random_results(test_types, nsteps = [500, 1000]):
+    a=1
 
 type_names = {'hard': 'Hard',
               'soft': 'Soft',
