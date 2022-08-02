@@ -7,3 +7,5 @@ src/run_transfer*
 *.pyc
 datasets
 results
+results_test
+random_results

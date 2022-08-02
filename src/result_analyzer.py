@@ -62,13 +62,25 @@ class Record:
 
     @property
     def specification_failure_rate(self):
-        num_times = np.max([len(r['run2exitcode']) for r in records])
+        num_times = np.max([len(r['run2exitcode']) for r in self.data])
         total = len(self.data)
         spec_fails = 0
         for r in self.data:
-            if type(r['run2exitcodes']) == dict:
-                inc = len([k for k in r['run2exitcodes'] if r['run2exitcodes'][k] == 'specification_fail'])
+            if type(r['run2exitcode']) == dict:
+                inc = len([k for k in r['run2exitcode'] if r['run2exitcode'][k] == 'specification_fail'])
                 spec_fails += inc
+        return spec_fails/(len(self.data)*num_times)
+    
+    @property
+    def mean_successful_path_length(self):
+        pathlengths = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                for k in d['run2exitcode']:
+                    if d['run2exitcode'][k] == 0:
+                        flat_traj = [l for sublist in d['run2traj'][k] for l in sublist]
+                        pathlengths.append(len(flat_traj))
+        return np.mean(pathlengths)
 
 class RandomRecord:
 
@@ -121,6 +133,17 @@ class RandomRecord:
                 inc = len([k for k in r['run2exitcode'] if r['run2exitcode'][k] == 'specification_fail'])
                 spec_fails += inc
         return spec_fails/(len(self.data)*num_times)
+    
+    @property
+    def mean_successful_path_length(self):
+        pathlengths = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                for k in d['run2exitcode']:
+                    if d['run2exitcode'][k] == 0:
+                        #flat_traj = [l for sublist in d['run2traj'][k] for l in sublist]
+                        pathlengths.append(len(d['run2traj'][k]))
+        return np.mean(pathlengths)
 
 
 def get_results(train_type='hard', edge_matcher='relaxed', test_types=None, map_ids=[0], train_sizes=[50]):
@@ -154,9 +177,9 @@ def get_results(train_types, test_types, train_sizes, map_ids):
         for test_type in test_types:
             for train_size in train_sizes:
                 for map_id in map_ids:
-                    record = Record(train_type, train_size, test_type, 'rigid')
+                    record = Record(train_type, train_size, test_type, 'rigid', map_id=map_id)
                     results[(train_type, train_size, test_type, 'rigid', map_id)] = record
-                    record = Record(train_type, train_size, test_type, 'relaxed')
+                    record = Record(train_type, train_size, test_type, 'relaxed', map_id=map_id)
                     results[(train_type, train_size, test_type, 'relaxed', map_id)] = record
     return results
 
@@ -260,7 +283,7 @@ def plot_fig3A():
     train_types = ['mixed']
     test_types = ['hard', 'soft', 'soft_strict', 'no_orders', 'mixed']
     train_sizes = [5, 10, 15, 20, 30, 40, 50]
-    map_ids = [0]
+    map_ids = [0,1,5,6]
     CI = 0.95
     data = create_data_table(get_results(train_types, test_types, train_sizes, map_ids))
     
@@ -313,7 +336,7 @@ def plot_fig3B():
     train_types = ['mixed']
     test_types = ['hard', 'soft', 'soft_strict', 'no_orders', 'mixed']
     train_sizes = [5, 10, 15, 20, 30, 40, 50]
-    map_ids = [0]
+    map_ids = [0,1,5,6]
     CI = 0.95
     data = create_data_table(get_results(train_types, test_types, train_sizes, map_ids))
     
