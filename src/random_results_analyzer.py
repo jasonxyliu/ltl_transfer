@@ -64,6 +64,8 @@ def create_data_table(random_results, mixed_results, ltl2action_results = None):
             entry['Success Rate'] = k['num_successes']/(k['num_successes'] + k['num_incompletes'] + k['num_spec_fails'])
             entry['Path Lengths' ] =0
             entry['Specification Violation Rate'] = k['num_spec_fails']/(k['num_successes'] + k['num_incompletes'] + k['num_spec_fails'])
+            data[i] = entry
+            i = i+1
     
     data = pd.DataFrame.from_dict(data, orient = 'index')
     return data        
