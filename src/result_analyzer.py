@@ -53,12 +53,30 @@ class Record:
         return records
 
     @property
+    def mean_successful_runtimes(self):
+        runtimes = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                if d['run2exitcode'][0] == 0:
+                    runtimes.append(d['precomp_time'])
+        return np.mean(runtimes)
+    
+    @property
     def success(self):
         return [r['success'] for r in self.data]
 
     @property
     def runtimes(self):
         return [r['runtime'] for r in self.data if r['run2exitcode'] != 'timeout']
+    
+    @property
+    def mean_successful_runtimes(self):
+        runtimes = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                if d['run2exitcode'][0] == 0:
+                    runtimes.append(d['runtime'])
+        return np.mean(runtimes)
 
     @property
     def specification_failure_rate(self):
@@ -122,6 +140,15 @@ class RandomRecord:
     @property
     def runtimes(self):
         return [r['runtime'] for r in self.data if r['run2exitcode'] != 'timeout']
+    
+    @property
+    def mean_successful_runtimes(self):
+        runtimes = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                if d['run2exitcode'][0] == 0:
+                    runtimes.append(d['runtime'])
+        return np.mean(runtimes)
 
     @property
     def specification_failure_rate(self):
