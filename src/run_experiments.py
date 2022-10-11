@@ -132,7 +132,7 @@ if __name__ == "__main__":
         "soft",
         "no_orders",
     ]
-    relabel_methods = ["cluster", "parallel"]
+    relabel_methods = ["cluster", "local"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
     parser.add_argument('--algo', default='lpopl', type=str,

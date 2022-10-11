@@ -23,7 +23,7 @@ from game import *
 from test_utils import Loader, save_pkl, load_pkl, save_json
 from run_single_worker import single_worker_rollouts
 
-RELABEL_CHUNK_SIZE = 441
+RELABEL_CHUNK_SIZE = 20
 TRANSFER_CHUNK_SIZE = 100
 
 
@@ -66,8 +66,8 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
         print(os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl"))
         if relabel_method == 'cluster':  # use mpi
             relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
-        if relabel_method == 'parallel':  # use Python multiprocessing
-            relabel_parallel(tester, saver, curriculum, run_id, policy_bank)
+        if relabel_method == 'local':  # use Python multiprocessing
+            relabel_local(tester, saver, curriculum, run_id, policy_bank)
 
     # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
     # zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
@@ -145,7 +145,7 @@ def run_single_worker_cluster(algo, classifier_dpath, run_id, ltl_id, state_id, 
     return 0
 
 
-def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
+def relabel_local(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100):
     """
     A worker runs n_rollouts from a specific location for each LTL formula in policy_bank
     """
