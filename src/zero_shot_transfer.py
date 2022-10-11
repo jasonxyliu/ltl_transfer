@@ -23,7 +23,7 @@ from game import *
 from test_utils import Loader, save_pkl, load_pkl, save_json
 from run_single_worker import single_worker_rollouts
 
-RELABEL_CHUNK_SIZE = 20
+RELABEL_CHUNK_SIZE = 441
 TRANSFER_CHUNK_SIZE = 100
 
 
@@ -69,9 +69,11 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
         if relabel_method == 'local':  # use Python multiprocessing
             relabel_local(tester, saver, curriculum, run_id, policy_bank)
 
-    # policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
-    # zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
-    # zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
+    if relabel_method == 'cluster':
+        zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
+    if relabel_method == 'local':
+        policy2edge2loc2prob = construct_initiation_set_classifiers(saver.classifier_dpath, policy_bank, tester.train_size)
+        zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2loc2prob, num_times, curriculum.num_steps)
 
     tf.reset_default_graph()
     sess.close()
