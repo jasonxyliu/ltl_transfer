@@ -29,9 +29,11 @@ To run zero-shot transfer on a local machine
 
     python3 run_experiments.py --algo=zero_shot_transfer --train_type=mixed --train_size=50 --test_type=soft --map=0 --relabel_method=parallel
 
+Reduce ```RELABEL_CHUNK_SIZE``` in ``zero_shot_transfer.py`` if run the above Python script slows down your machine too much. It controls how many parallel processes are running at a time.
+
 To run zero-shot transfer on a cluster
 
-    python3 run_experiments.py --algo=zero_shot_transfer --train_type=mixed --train_size=50 --test_tasks=soft --map=0 --relabel_method=cluster
+    python3 run_experiments.py --algo=zero_shot_transfer --train_type=mixed --train_size=50 --test_type=soft --map=0 --relabel_method=cluster
 
 
 ## Running examples (old instructions from [LPOPL repo](https://bitbucket.org/RToroIcarte/lpopl/src/master/) )
