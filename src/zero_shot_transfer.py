@@ -188,7 +188,7 @@ def relabel_parallel(tester, saver, curriculum, run_id, policy_bank, n_rollouts=
                 #     continue
                 if task_aux.is_valid_agent_loc(x, y):
                     # create command to run a single worker
-                    args = ("--algo=%s --train_type=%d --train_size=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d  --dataset_name=%s" % (
+                    args = ("--algo=%s --train_type=%s --train_size=%d --map_id=%d --run_id=%d --ltl_id=%d --state_id=%d --n_rollouts=%d --max_depth=%d  --dataset_name=%s" % (
                             saver.alg_name, tester.train_type, tester.train_size, tester.map_id, run_id, ltl_id, state2id[(x, y)], n_rollouts, curriculum.num_steps, tester.dataset_name))
                     worker_commands.append("python3 run_single_worker.py %s" % args)
             if worker_commands:
