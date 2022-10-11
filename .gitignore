@@ -6,4 +6,4 @@ src/__pycache__
 src/run_transfer*
 *.pyc
 datasets
-results
+.idea/
