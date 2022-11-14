@@ -1,6 +1,7 @@
 # LTL-Transfer
 
-This work shows ways to reuse policies trained to solve a set of training tasks, specified by linear temporal logic (LTL), to solve novel LTL tasks in a zero-shot manner. Please see the following paper for more details.
+This work shows ways to reuse policies trained to solve a set of training tasks, specified by linear temporal logic (LTL), to solve novel LTL tasks in a zero-shot manner.
+Please see the following paper for more details.
 
 Skill Transfer for Temporally-Extended Task Specifications [[Liu, Shah, Rosen, Konidaris, Tellex 2022]](https://arxiv.org/abs/2206.05096)
 
@@ -9,9 +10,9 @@ Skill Transfer for Temporally-Extended Task Specifications [[Liu, Shah, Rosen, K
 
 You might clone this repository by running:
 
-    git clone https://bitbucket.org/RToroIcarte/lpopl.git
+    git clone https://github.com/jasonxyliu/ltl_transfer.git
 
-LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy](http://www.numpy.org/), [tensorflow](https://www.tensorflow.org/), and [sympy](http://www.sympy.org). 
+Training state-centric policies with LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy](http://www.numpy.org/), [tensorflow](https://www.tensorflow.org/), and [sympy](http://www.sympy.org).
 Python 3.7 should also work.
 
 Transfer Learning requires [dill](https://dill.readthedocs.io/en/latest/), [NetworkX](https://networkx.org/), [Matplotlib](https://matplotlib.org/), and [mpi4py](https://mpi4py.readthedocs.io/en/stable/) if use on a cluster.
