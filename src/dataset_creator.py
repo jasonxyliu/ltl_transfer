@@ -9,7 +9,7 @@ import numpy as np
 from formula_sampler import sample_formula
 
 
-NAME2PROPS = {
+ENV2PROPS = {
     "minecraft": ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 's'),
     "spot": ('a', 'b', 'c', 'd', 'j', 'p')
 }
@@ -18,16 +18,16 @@ TRAIN_SIZES = (10, 20, 30, 40, 50)
 TEST_SIZE = 100
 
 
-def create_datasets(dataset_name, set_types=SET_TYPES, duplicate_ok=True, train_sizes=TRAIN_SIZES, test_size=TEST_SIZE):
-    train_set_dpath, test_set_dpath = create_dataset_directories(dataset_name)
+def create_datasets(env_name, set_types=SET_TYPES, duplicate_ok=True, train_sizes=TRAIN_SIZES, test_size=TEST_SIZE):
+    train_set_dpath, test_set_dpath = create_dataset_directories(env_name)
     for typ in set_types:
-        create_dataset(NAME2PROPS[dataset_name], train_set_dpath, 'train', typ, duplicate_ok, train_sizes)
+        create_dataset(ENV2PROPS[env_name], train_set_dpath, 'train', typ, duplicate_ok, train_sizes)
     for typ in set_types:
-        create_dataset(NAME2PROPS[dataset_name], test_set_dpath, 'test', typ, duplicate_ok, [test_size])
+        create_dataset(ENV2PROPS[env_name], test_set_dpath, 'test', typ, duplicate_ok, [test_size])
 
 
-def create_dataset_directories(dataset_name):
-    dataset_dpath = os.path.join("../experiments/datasets", dataset_name)
+def create_dataset_directories(env_name):
+    dataset_dpath = os.path.join("../experiments/datasets", env_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
     test_set_dpath = os.path.join(dataset_dpath, 'test')
     if not os.path.exists(dataset_dpath):
@@ -82,8 +82,8 @@ def sample_dataset_unique_formulas(props, set_type='mixed', n=50):
     return formulas
 
 
-def read_train_test_formulas(dataset_name, train_set_type='mixed', test_set_type='hard', train_size=50, test_size=100):
-    dataset_dpath = os.path.join("../experiments/datasets", dataset_name)
+def read_train_test_formulas(env_name, train_set_type='mixed', test_set_type='hard', train_size=50, test_size=100):
+    dataset_dpath = os.path.join("../experiments/datasets", env_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
     test_set_dpath = os.path.join(dataset_dpath, 'test')
 
@@ -99,5 +99,5 @@ def read_train_test_formulas(dataset_name, train_set_type='mixed', test_set_type
 
 
 if __name__ == '__main__':
-    create_datasets(dataset_name="spot", set_types=["soft_strict"], duplicate_ok=False)
-    # filter_datasets(dataset_name="spot", set_types=["soft_strict"], filters=[])
+    create_datasets(env_name="spot", set_types=["soft_strict"], duplicate_ok=False)
+    # filter_datasets(env_name="spot", set_types=["soft_strict"], filters=[])
