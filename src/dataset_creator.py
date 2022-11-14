@@ -6,8 +6,13 @@ Created on Tue Mar 22 12:29:47 2022
 import os
 import dill
 import numpy as np
-from formula_sampler import sample_formula, NAME2PROPS
+from formula_sampler import sample_formula
 
+
+NAME2PROPS = {
+    "minecraft": ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 's'),
+    "spot": ('a', 'b', 'c', 'd', 'j', 'p')
+}
 SET_TYPES = ('hard', 'soft', 'soft_strict', 'no_orders', 'mixed')
 TRAIN_SIZES = (10, 20, 30, 40, 50)
 TEST_SIZE = 100

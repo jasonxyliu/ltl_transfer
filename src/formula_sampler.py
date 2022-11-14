@@ -2,13 +2,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 
-NAME2PROPS = {
-    "minecraft": ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 's'),
-    "spot": ('a', 'b', 'c', 'd', 'j', 'p')
-}
 
-
-def sample_formula(props=NAME2PROPS["minecraft"], orders=True, order_type='mixed'):
+def sample_formula(props, orders=True, order_type='mixed'):
     clauses = []
 
     # sample waypoints to be visited
