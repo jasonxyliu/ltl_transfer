@@ -3,11 +3,11 @@
 import numpy as np
 
 
-def sample_formula(props, orders=True, order_type='mixed'):
+def sample_formula(props, orders=True, order_type='mixed', formula_size=5):
     clauses = []
 
     # sample waypoints to be visited
-    visit_props = sample_waypoints(props)
+    visit_props = sample_waypoints(props, formula_size)
     clauses.extend([eventually(p) for p in sorted(visit_props)])
 
     # If orders are allowed, create ordering formula clauses
@@ -26,7 +26,10 @@ def sample_formula(props, orders=True, order_type='mixed'):
 
 
 '''Formula template samplers'''
-def sample_waypoints(props):
+def sample_waypoints(props, formula_size):
+    """
+    Randomly sample 'formula_size' propositions.
+    """
     visit_waypoints = []
     props = list(np.random.permutation(props))
     props = [str(x) for x in props]
@@ -34,8 +37,8 @@ def sample_waypoints(props):
         for p in props:
             if np.random.binomial(1, 0.5):
                 visit_waypoints.append(p)
-    if len(visit_waypoints) > 5:
-        visit_waypoints = visit_waypoints[0:5]  # need to clip the dfa size
+    if len(visit_waypoints) > formula_size:
+        visit_waypoints = visit_waypoints[0:formula_size]  # need to clip the dfa size
     return visit_waypoints
 
 
