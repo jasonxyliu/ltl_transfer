@@ -43,6 +43,9 @@ def sample_waypoints(props, formula_size):
 
 
 def sample_sequences(visit_waypoints):
+    """
+    Randomly generate sequences of propositions.
+    """
     sequences = []
     new_seq = [visit_waypoints[0]]
 
@@ -72,14 +75,16 @@ def seq2clauses(sequences, order_type='mixed'):
                 clauses.append(soft_order(seq))
             elif seq_order == 'soft_strict':
                 clauses.append(soft_order_strict(seq))
-            else:
+            else:  # mixed order
                 orders = seq2orders([seq])
                 clauses.extend(orders2clauses(orders, seq_order))
     return clauses
 
 
 def seq2orders(sequences):
-    # return binary orders from each sequence
+    """
+    Create binary orders of propositions for each proposition sequence.
+    """
     orders = []
     for seq in sequences:
         for (i, p) in enumerate(seq):
@@ -88,6 +93,9 @@ def seq2orders(sequences):
 
 
 def orders2clauses(orders, order_type='mixed'):
+    """
+    Turn every binary order of propositions into clause with specified 'order_type'.
+    """
     clauses = []
     for order in orders:
         if order_type == 'mixed':
@@ -114,8 +122,10 @@ def order2clause(p1, p2, order_type):
 
 
 def conjunctions(clauses):
-    """ Combines all the clauses separated with 'and's. Note that this codebase only allows for
-    binary conjunctions, and not a list of conjunctions as in the PUnS codebase """
+    """
+    Combines all the clauses separated with 'and's.
+    Note that this codebase only allows for binary conjunctions, and not a list of conjunctions as in the PUnS codebase.
+    """
     if len(clauses) == 2:
         return ('and', clauses[0], clauses[1])
     else:
