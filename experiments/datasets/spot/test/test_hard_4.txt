@@ -1,0 +1,4 @@
+0: ('and', ('until', ('not', 'a'), 'c'), ('and', ('until', ('not', 'j'), 'a'), ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))))
+1: ('and', ('until', ('not', 'b'), 'j'), ('and', ('until', ('not', 'c'), 'b'), ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a'))))
+2: ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'a')))))))
+3: ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'b')))))))
