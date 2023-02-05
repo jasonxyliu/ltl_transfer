@@ -110,9 +110,10 @@ def create_dataset_spot_simple(formulas, savepath, set_name, set_type, size):
 
 
 def spot_train():
+    # a: desk_a; b: desk_b; c: bookshelf; j: juice bottle
     return [
-        ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')),
-        ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))
+        ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')),  # !a U c & Fa
+        ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))  # !b U j & Fb
     ]
 
 
@@ -120,15 +121,23 @@ def spot_test():
     return [
         # ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')),
         # ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')),
+        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'a'))))))),  # F(c & F(a & F(j & Fa)))
+        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'b'))))))),  # F(c & F(b & F(j & Fb)))
+
+        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'b'))))))),
+        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'a'))))))),
+        ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'a'))))))),
+        ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'b'))))))),
+        ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'b'))))))),
+        ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'a'))))))),
+
         ('and', ('until', ('not', 'a'), 'c'), ('and', ('until', ('not', 'j'), 'a'), ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')))),
         ('and', ('until', ('not', 'b'), 'j'), ('and', ('until', ('not', 'c'), 'b'), ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')))),
-        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'a'))))))),
-        ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'b')))))))
 
     ]
 
 
 if __name__ == '__main__':
-    create_datasets_spot_simple("spot", 'hard', 2, 4)
+    create_datasets_spot_simple("spot", 'hard', 2, 10)
     # create_datasets(dataset_name="spot", set_types=["hard"], duplicate_ok=False)
     # filter_datasets(dataset_name="spot", set_types=["soft_strict"], filters=[])

@@ -1,0 +1,18 @@
+(self_edge, outgoing_edge) 0: ('!a&!c', 'c&!a')
+ltl: ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a'))
+
+(self_edge, outgoing_edge) 1: ('!a&!c', 'a&!c')
+ltl: ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a'))
+
+(self_edge, outgoing_edge) 2: ('!a', 'a')
+ltl: ('until', 'True', 'a')
+
+(self_edge, outgoing_edge) 3: ('!b&!j', 'b&!j')
+ltl: ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))
+
+(self_edge, outgoing_edge) 4: ('!b&!j', 'j&!b')
+ltl: ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))
+
+(self_edge, outgoing_edge) 5: ('!b', 'b')
+ltl: ('until', 'True', 'b')
+
