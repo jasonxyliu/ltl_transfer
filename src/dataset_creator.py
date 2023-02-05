@@ -126,15 +126,16 @@ def spot_test():
         ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'a'))))))),  # F(c & F(a & F(j & Fa)))
         ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'b'))))))),  # F(c & F(b & F(j & Fb)))
 
-        ('and', ('until', ('not', 'a'), 'c'), ('and', ('until', ('not', 'j'), 'a'), ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')))),
-        ('and', ('until', ('not', 'b'), 'j'), ('and', ('until', ('not', 'c'), 'b'), ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')))),
-
         ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'b'))))))),
         ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'a'))))))),
         ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'a'))))))),
         ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'b'))))))),
         ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'b'))))))),
         ('until', 'True', ('and', 'j', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'a'))))))),
+
+        ('and', ('until', ('not', 'a'), 'c'), ('and', ('until', ('not', 'j'), 'a'), ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')))),
+        ('and', ('until', ('not', 'b'), 'j'), ('and', ('until', ('not', 'c'), 'b'), ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')))),
+
     ]
 
 
