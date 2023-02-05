@@ -1,0 +1,256 @@
+== Transfer Task 0: ('and', ('until', ('not', 'a'), 'c'), ('and', ('until', ('not', 'j'), 'a'), ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))))
+0 0 {'edge_label': '!a&!b&!c&!j'}
+0 -1 {'edge_label': 'a&!c|b&!j|j&!a'}
+0 1 {'edge_label': 'c&!a&!b&!j'}
+0 2 {'edge_label': 'a&c&!b&!j'}
+0 3 {'edge_label': 'a&c&j&!b'}
+0 4 {'edge_label': 'a&b&c&j'}
+1 1 {'edge_label': '!a&!b&!j'}
+1 2 {'edge_label': 'a&!b&!j'}
+1 -1 {'edge_label': 'b&!j|j&!a'}
+1 3 {'edge_label': 'a&j&!b'}
+1 4 {'edge_label': 'a&b&j'}
+2 2 {'edge_label': '!b&!j'}
+2 -1 {'edge_label': 'b&!j'}
+2 3 {'edge_label': 'j&!b'}
+2 4 {'edge_label': 'b&j'}
+3 3 {'edge_label': '!b'}
+3 4 {'edge_label': 'b'}
+4 4 {'edge_label': 'True'}
+-1 -1 {'edge_label': 'True'}
+
+training edges: dict_keys([('!a&!c', 'c&!a'), ('!a&!c', 'a&!c'), ('!b', 'b'), ('!b&!j', 'b&!j'), ('!b&!j', 'j&!b'), ('!a', 'a')])
+DFA graph disconnected after removing infeasible edges
+
+== Transfer Task 1: ('and', ('until', ('not', 'b'), 'j'), ('and', ('until', ('not', 'c'), 'b'), ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a'))))
+0 0 {'edge_label': '!a&!b&!c&!j'}
+0 -1 {'edge_label': 'a&!c|b&!j|c&!b'}
+0 1 {'edge_label': 'j&!a&!b&!c'}
+0 2 {'edge_label': 'b&j&!a&!c'}
+0 3 {'edge_label': 'b&c&j&!a'}
+0 4 {'edge_label': 'a&b&c&j'}
+1 1 {'edge_label': '!a&!b&!c'}
+1 -1 {'edge_label': 'a&!c|c&!b'}
+1 2 {'edge_label': 'b&!a&!c'}
+1 3 {'edge_label': 'b&c&!a'}
+1 4 {'edge_label': 'a&b&c'}
+2 2 {'edge_label': '!a&!c'}
+2 -1 {'edge_label': 'a&!c'}
+2 3 {'edge_label': 'c&!a'}
+2 4 {'edge_label': 'a&c'}
+3 3 {'edge_label': '!a'}
+3 4 {'edge_label': 'a'}
+4 4 {'edge_label': 'True'}
+-1 -1 {'edge_label': 'True'}
+
+training edges: dict_keys([('!a&!c', 'c&!a'), ('!a&!c', 'a&!c'), ('!b', 'b'), ('!b&!j', 'b&!j'), ('!b&!j', 'j&!b'), ('!a', 'a')])
+DFA graph disconnected after removing infeasible edges
+
+== Transfer Task 2: ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'a')))))))
+0 0 {'edge_label': '!c'}
+0 1 {'edge_label': 'c&!a'}
+0 2 {'edge_label': 'a&c&!j'}
+0 3 {'edge_label': 'a&c&j'}
+1 1 {'edge_label': '!a'}
+1 2 {'edge_label': 'a&!j'}
+1 3 {'edge_label': 'a&j'}
+2 2 {'edge_label': '!j'}
+2 4 {'edge_label': 'j&!a'}
+2 3 {'edge_label': 'a&j'}
+4 4 {'edge_label': '!a'}
+4 3 {'edge_label': 'a'}
+3 3 {'edge_label': 'True'}
+-1 -1 {'edge_label': 'True'}
+
+training edges: dict_keys([('!a&!c', 'c&!a'), ('!a&!c', 'a&!c'), ('!b', 'b'), ('!b&!j', 'b&!j'), ('!b&!j', 'j&!b'), ('!a', 'a')])
+took 0.00 mins to remove infeasible edges
+
+New DFA graph
+0 0 {'edge_label': '!c'}
+0 1 {'edge_label': 'c&!a'}
+1 1 {'edge_label': '!a'}
+1 2 {'edge_label': 'a&!j'}
+1 3 {'edge_label': 'a&j'}
+2 2 {'edge_label': '!j'}
+2 4 {'edge_label': 'j&!a'}
+2 3 {'edge_label': 'a&j'}
+4 4 {'edge_label': '!a'}
+4 3 {'edge_label': 'a'}
+3 3 {'edge_label': 'True'}
+-1 -1 {'edge_label': 'True'}
+
+dfa start: 0; goal: [3]
+feasible paths: [[0, 1, 2, 4, 3], [0, 1, 2, 3], [0, 1, 3]]
+
+** Run 0. Transfer Task 2: ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'j', ('until', 'True', 'a')))))))
+
+current node: 0
+candidate options: 1, {(('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')), '!a&!c', 'c&!a'): 1.0}
+
+executing option edge: (!a&!c, c&!a)
+from policy 2: ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a'))
+cur_loc: (3, 3)
+step 0: dfa_state: 0; (3, 3); Actions.left; 0
+step 1: dfa_state: 0; (3, 2); Actions.left; 0
+step 2: dfa_state: 0; (3, 1); Actions.down; 0
+step 3: dfa_state: 0; (4, 1); Actions.down; 0
+step 4: dfa_state: 0; (5, 1); Actions.down; 0
+option changed loc: True; option_reward: 0
+
+
+current node: 1
+candidate options: 2, {(('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')), '!a&!c', 'a&!c'): 0.0, (('until', 'True', 'a'), '!a', 'a'): 1.0}
+
+executing option edge: (!a, a)
+from policy 3: ('until', 'True', 'a')
+cur_loc: (6, 1)
+step 0: dfa_state: 1; (6, 1); Actions.up; 0
+step 1: dfa_state: 1; (5, 1); Actions.right; 0
+step 2: dfa_state: 1; (5, 2); Actions.right; 0
+option changed loc: True; option_reward: 0
+
+
+current node: 2
+candidate options: 1, {(('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')), '!b&!j', 'j&!b'): 1.0}
+
+executing option edge: (!b&!j, j&!b)
+from policy 4: ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))
+cur_loc: (5, 3)
+step 0: dfa_state: 2; (5, 3); Actions.up; 0
+step 1: dfa_state: 2; (4, 3); Actions.up; 0
+step 2: dfa_state: 2; (3, 3); Actions.right; 0
+step 3: dfa_state: 2; (3, 4); Actions.right; 0
+step 4: dfa_state: 2; (3, 5); Actions.right; 0
+step 5: dfa_state: 2; (3, 6); Actions.right; 0
+step 6: dfa_state: 2; (3, 7); Actions.right; 0
+step 7: dfa_state: 2; (3, 8); Actions.right; 0
+step 8: dfa_state: 2; (3, 9); Actions.right; 0
+option changed loc: True; option_reward: 0
+
+
+current node: 4
+candidate options: 2, {(('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')), '!a&!c', 'a&!c'): 0.0, (('until', 'True', 'a'), '!a', 'a'): 1.0}
+
+executing option edge: (!a, a)
+from policy 3: ('until', 'True', 'a')
+cur_loc: (3, 10)
+step 0: dfa_state: 4; (3, 10); Actions.left; 0
+step 1: dfa_state: 4; (3, 9); Actions.left; 0
+step 2: dfa_state: 4; (3, 8); Actions.left; 0
+step 3: dfa_state: 4; (3, 7); Actions.left; 0
+step 4: dfa_state: 4; (3, 6); Actions.left; 0
+step 5: dfa_state: 4; (3, 5); Actions.left; 0
+step 6: dfa_state: 4; (3, 4); Actions.left; 0
+step 7: dfa_state: 4; (3, 3); Actions.down; 0
+step 8: dfa_state: 4; (4, 3); Actions.down; 1
+option changed loc: True; option_reward: 1
+
+current node: 3
+
+
+== Transfer Task 3: ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'b')))))))
+0 0 {'edge_label': '!c'}
+0 1 {'edge_label': 'c&!b'}
+0 2 {'edge_label': 'b&c&!j'}
+0 3 {'edge_label': 'b&c&j'}
+1 1 {'edge_label': '!b'}
+1 2 {'edge_label': 'b&!j'}
+1 3 {'edge_label': 'b&j'}
+2 2 {'edge_label': '!j'}
+2 4 {'edge_label': 'j&!b'}
+2 3 {'edge_label': 'b&j'}
+4 4 {'edge_label': '!b'}
+4 3 {'edge_label': 'b'}
+3 3 {'edge_label': 'True'}
+-1 -1 {'edge_label': 'True'}
+
+training edges: dict_keys([('!a&!c', 'c&!a'), ('!a&!c', 'a&!c'), ('!b', 'b'), ('!b&!j', 'b&!j'), ('!b&!j', 'j&!b'), ('!a', 'a')])
+took 0.00 mins to remove infeasible edges
+
+New DFA graph
+0 0 {'edge_label': '!c'}
+0 1 {'edge_label': 'c&!b'}
+0 2 {'edge_label': 'b&c&!j'}
+0 3 {'edge_label': 'b&c&j'}
+1 1 {'edge_label': '!b'}
+1 2 {'edge_label': 'b&!j'}
+1 3 {'edge_label': 'b&j'}
+2 2 {'edge_label': '!j'}
+2 4 {'edge_label': 'j&!b'}
+4 4 {'edge_label': '!b'}
+4 3 {'edge_label': 'b'}
+3 3 {'edge_label': 'True'}
+-1 -1 {'edge_label': 'True'}
+
+dfa start: 0; goal: [3]
+feasible paths: [[0, 1, 2, 4, 3], [0, 1, 3], [0, 2, 4, 3], [0, 3]]
+
+** Run 0. Transfer Task 3: ('until', 'True', ('and', 'c', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'j', ('until', 'True', 'b')))))))
+
+current node: 0
+candidate options: 1, {(('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a')), '!a&!c', 'c&!a'): 1.0}
+
+executing option edge: (!a&!c, c&!a)
+from policy 2: ('and', ('until', ('not', 'a'), 'c'), ('until', 'True', 'a'))
+cur_loc: (3, 3)
+step 0: dfa_state: 0; (3, 3); Actions.left; 0
+step 1: dfa_state: 0; (3, 2); Actions.left; 0
+step 2: dfa_state: 0; (3, 1); Actions.down; 0
+step 3: dfa_state: 0; (4, 1); Actions.down; 0
+step 4: dfa_state: 0; (5, 1); Actions.down; 0
+option changed loc: True; option_reward: 0
+
+
+current node: 1
+candidate options: 2, {(('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')), '!b&!j', 'b&!j'): 0.0, (('until', 'True', 'b'), '!b', 'b'): 1.0}
+
+executing option edge: (!b, b)
+from policy 5: ('until', 'True', 'b')
+cur_loc: (6, 1)
+step 0: dfa_state: 1; (6, 1); Actions.up; 0
+step 1: dfa_state: 1; (5, 1); Actions.right; 0
+step 2: dfa_state: 1; (5, 2); Actions.right; 0
+step 3: dfa_state: 1; (5, 3); Actions.up; 0
+step 4: dfa_state: 1; (4, 3); Actions.up; 0
+step 5: dfa_state: 1; (3, 3); Actions.right; 0
+step 6: dfa_state: 1; (3, 4); Actions.up; 0
+step 7: dfa_state: 1; (2, 4); Actions.up; 0
+option changed loc: True; option_reward: 0
+
+
+current node: 2
+candidate options: 1, {(('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')), '!b&!j', 'j&!b'): 0.0}
+
+executing option edge: (!b&!j, j&!b)
+from policy 4: ('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b'))
+cur_loc: (1, 4)
+step 0: dfa_state: 2; (1, 4); Actions.down; 0
+step 1: dfa_state: 2; (2, 4); Actions.down; 0
+step 2: dfa_state: 2; (3, 4); Actions.right; 0
+step 3: dfa_state: 2; (3, 5); Actions.right; 0
+step 4: dfa_state: 2; (3, 6); Actions.right; 0
+step 5: dfa_state: 2; (3, 7); Actions.right; 0
+step 6: dfa_state: 2; (3, 8); Actions.right; 0
+step 7: dfa_state: 2; (3, 9); Actions.right; 0
+option changed loc: True; option_reward: 0
+
+
+current node: 4
+candidate options: 2, {(('and', ('until', ('not', 'b'), 'j'), ('until', 'True', 'b')), '!b&!j', 'b&!j'): 0.0, (('until', 'True', 'b'), '!b', 'b'): 1.0}
+
+executing option edge: (!b, b)
+from policy 5: ('until', 'True', 'b')
+cur_loc: (3, 10)
+step 0: dfa_state: 4; (3, 10); Actions.left; 0
+step 1: dfa_state: 4; (3, 9); Actions.left; 0
+step 2: dfa_state: 4; (3, 8); Actions.left; 0
+step 3: dfa_state: 4; (3, 7); Actions.left; 0
+step 4: dfa_state: 4; (3, 6); Actions.left; 0
+step 5: dfa_state: 4; (3, 5); Actions.left; 0
+step 6: dfa_state: 4; (3, 4); Actions.up; 0
+step 7: dfa_state: 4; (2, 4); Actions.up; 1
+option changed loc: True; option_reward: 1
+
+current node: 3
+
+
