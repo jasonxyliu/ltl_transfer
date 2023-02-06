@@ -210,31 +210,36 @@ def move_base(config):
         # Initialize a robot command message, which we will build out below
         command = robot_command_pb2.RobotCommand()
 
-        # # Walk to origin
-        # poses = [(3, 3, 0)]
-        # point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
-        # pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
-        # point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
-        # point.pose.angle = yaw_angle(rot_vision)
-        # point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
-        # # Support frame
-        # command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
-        # # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
-        # #                                min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=0))
-        # # mobility_command = spot_command_pd2.MobilityParams(vel_limit=speed_limit)
-        # # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
-        # # Send the command using command client
-        # time_full = config.time_per_move * len(poses)
-        # robot.logger.info("Send body trajectory command.")
-        # robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
-        # time.sleep(time_full + 1)
+        # Walk to origin
+        poses = [(3, 3, 0)]
+        point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+        pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
+        point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
+        point.pose.angle = yaw_angle(rot_vision)
+        point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
+        # Support frame
+        command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
+        # speed_limit = SE2VelocityLimit(max_vel=SE2Velocity(linear=Vec2(x=2, y=2), angular=0),
+        #                                min_vel=SE2Velocity(linear=Vec2(x=-2, y=-2), angular=0))
+        # mobility_command = spot_command_pd2.MobilityParams(vel_limit=speed_limit)
+        # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
+        # Send the command using command client
+        time_full = config.time_per_move * len(poses)
+        robot.logger.info("Send body trajectory command.")
+        robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
+        time.sleep(time_full + 1)
 
-        # cur_loc = poses[0][:2]
-        # actions = [Actions.down, Actions.down]
-        # goal_prop = PLACE_PROPS_INV[plan_trajectory(cur_loc, actions)[1]]
-        # for action in actions:
-        #     cur_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
-        #     cur_loc = cur_pose[:2]
+        cur_loc = poses[0][:2]
+        actions = [
+            Actions.down, Actions.left, Actions.down, Actions.left, Actions.down,
+            Actions.up, Actions.right, Actions.right,
+            Actions.up, Actions.up, Actions.right, Actions.right, Actions.right, Actions.right, Actions.right, Actions.right, Actions.right,
+            Actions.left, Actions.left, Actions.left, Actions.left, Actions.left, Actions.left, Actions.left, Actions.down, Actions.down,
+        ]
+        goal_prop = PLACE_PROPS_INV[plan_trajectory(cur_loc, actions)[1]]
+        for action in actions:
+            cur_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
+            cur_loc = cur_pose[:2]
 
         if config.dock_after_use:
             # Initialize a robot command message, which we will build out below
