@@ -413,7 +413,7 @@ def zero_shot_transfer(tester, loader, policy_bank, run_id, sess, policy2edge2lo
     transfer_tasks = tester.get_transfer_tasks()
     train_edges, edge2ltls = get_training_edges(policy_bank, policy2edge2loc2prob)
 
-    for task_idx, transfer_task in enumerate(transfer_tasks[2:]):
+    for task_idx, transfer_task in enumerate(transfer_tasks):
         tester.log_results(f"== Transfer Task {task_idx}: {str(transfer_task)}")
         print(f"== Transfer Task {task_idx}: {str(transfer_task)}\n")
 
