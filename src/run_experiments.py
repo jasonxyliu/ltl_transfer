@@ -2,7 +2,7 @@ import argparse
 import baseline_dqn
 import baseline_hrl
 import lpopl
-import zero_shot_transfer
+import transfer
 from test_utils import TestingParameters, Tester, Saver
 from curriculum import CurriculumLearner
 
@@ -86,7 +86,7 @@ def run_experiment(alg_name, map_id, tasks_id, dataset_name, train_type, train_s
 
     # Relabel state-centric options learn by LPOPL then zero-shot transfer
     if alg_name == "zero_shot_transfer":
-        zero_shot_transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
+        transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
 
 def run_multiple_experiments(alg, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
@@ -99,7 +99,7 @@ def run_multiple_experiments(alg, tasks_id, dataset_name, train_type, train_size
         run_experiment(alg, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
 
 
-def run_single_experiment(alg, tasks_id, dataset_name, train_type, train_size, test_type, map_id, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
+def run_single_experiment(alg, map_id, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
     num_times = 1  # each algo was run 3 times per map in the paper
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     tasks_id = train_types.index(args.train_type)
     map_id = args.map
     if map_id > -1:
-        run_single_experiment(args.algo, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type, map_id,
+        run_single_experiment(args.algo, map_id, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
                               args.total_steps, args.incremental_steps, args.run_id,
                               args.relabel_method, args.transfer_num_times, args.edge_matcher)
     else:
