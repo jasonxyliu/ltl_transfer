@@ -8,9 +8,9 @@ class GameParams:
     """
     Auxiliary class with the configuration parameters that the Game class needs
     """
-    def __init__(self, map_fpath, stochastic_transition, ltl_task, consider_night, init_dfa_state, init_loc):
+    def __init__(self, map_fpath, transition_type, ltl_task, consider_night, init_dfa_state, init_loc):
         self.map_fpath = map_fpath
-        self.stochastic_transition = stochastic_transition
+        self.transition_type = transition_type
         self.ltl_task = ltl_task
         self.consider_night = consider_night
         self.init_dfa_state = init_dfa_state
@@ -21,7 +21,7 @@ class Game:
     def __init__(self, params):
         self.params = params
         self._load_map(params.map_fpath)
-        self.stochastic_transition = params.stochastic_transition
+        self.transition_type = params.transition_type
         if params.init_loc:
             self._set_agent_loc(params.init_loc)
         # Adding day and night if need it
@@ -44,10 +44,12 @@ class Game:
         self.hour = (self.hour + 1) % 24
 
         # Getting new position after executing action
-        if self.stochastic_transition:
+        if self.transition_type == "stochastic":
             ni, nj = self._get_next_position_stochastic(action)
-        else:
+        elif self.transition_type == "deterministic":
             ni, nj = self._get_next_position(action)
+        else:
+            raise TypeError(f"[ERROR] Unknown transition function type: {self.transition_type}")
 
         # Interacting with the objects that is in the next position
         action_succeeded = self.map_array[ni][nj].interact(agent)
