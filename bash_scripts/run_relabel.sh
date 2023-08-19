@@ -24,9 +24,9 @@ state_id=${state_ids[$i]}
 n_rollouts=100
 max_depth=100
 
-#export PATH=/users/ashah137/anaconda/lpopl/bin:$PATH
-module load anaconda/3-5.2.0
-source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
+module load anaconda/2022.05
+source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
 conda activate lpopl
+
 python3 run_single_worker.py --algo=$algo --task_id=$task_id --map_id=$map_id --run_id=$run_id --ltl_id=%ltl_id --state_id=%state_id --n_rollouts=%n_rollouts --max_depth=%max_depth
 cp -r ../tmp/* ~/data/shared/ltl-transfer/tmp/

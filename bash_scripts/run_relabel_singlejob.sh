@@ -18,8 +18,8 @@ edge_matcher="relaxed"
 run_id=0
 relabel_method="cluster"
 
-module load anaconda/2020.02
-source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
+module load anaconda/2022.05
+source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
 conda activate lpopl
 module load mpi/openmpi_4.0.5_gcc_10.2_slurm20 gcc/10.2 cuda/11.1.1
 

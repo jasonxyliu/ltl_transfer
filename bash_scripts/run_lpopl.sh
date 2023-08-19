@@ -22,8 +22,8 @@ task=${tasks[$k]}
 maps=( 0 1 2 3 4 5 6 7 8 9)
 map=${maps[$m]}
 
-# export PATH=/users/xliu53/anaconda/lpopl/bin:$PATH
-module load anaconda/3-5.2.0
-source /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
+module load anaconda/2022.05
+source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
 conda activate lpopl
-python3 run_experiments.py --algorithm=$algo --tasks=$task --map=$map
+
+python3 $(dirname `pwd`)/run_experiments.py --algorithm=$algo --tasks=$task --map=$map
