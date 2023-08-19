@@ -61,7 +61,7 @@ class Game:
 
     def _get_next_position(self, action):
         """
-        Returns the position where the agent would be if we execute action
+        Returns deterministically the position where the agent would be if we execute action
         """
         agent = self.agent
         ni, nj = agent.i, agent.j
@@ -71,6 +71,29 @@ class Game:
         if action == Actions.down : ni+=1
         if action == Actions.left : nj-=1
         if action == Actions.right: nj+=1
+
+        return ni, nj
+
+    def _get_next_position_stochastic(self, action, main_prob=0.8):
+        """
+        Returns stochastically the position where the agent would be if we execute action.
+        """
+        agent = self.agent
+        ni, nj = agent.i, agent.j
+        side_prob = (1 - main_prob) / 3
+
+        if action == Actions.up: probs = [main_prob, side_prob, side_prob, side_prob]
+        if action == Actions.down: probs = [side_prob, main_prob, side_prob, side_prob]
+        if action == Actions.left: probs = [side_prob, side_prob, main_prob, side_prob]
+        if action == Actions.right: probs = [side_prob, side_prob, side_prob, main_prob]
+
+        stochastic_action = np.random.choice([Actions.up, Actions.down, Actions.left, Actions.right], p=probs)
+
+        # OBS: Invalid actions behave as NO-OP
+        if stochastic_action == Actions.up: ni -= 1
+        if stochastic_action == Actions.down: ni += 1
+        if stochastic_action == Actions.left: nj -= 1
+        if stochastic_action == Actions.right: nj += 1
 
         return ni, nj
 
