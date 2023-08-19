@@ -35,13 +35,14 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, stochastic_transition, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, file_results=None):
         if file_results is None:
             # setting the test attributes
             self.edge_matcher = edge_matcher
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.map_id = map_id
+            self.stochastic_transition = stochastic_transition
             self.tasks_id = tasks_id
             self.dataset_name = dataset_name
             self.train_type = train_type
@@ -110,7 +111,7 @@ class Tester:
         return self.transfer_tasks
 
     def get_task_params(self, ltl_task, init_dfa_state=None, init_loc=None):
-        return GameParams(self.map, ltl_task, self.consider_night, init_dfa_state, init_loc)
+        return GameParams(self.map, self.stochastic_transition, ltl_task, self.consider_night, init_dfa_state, init_loc)
 
     def run_test(self, step, sess, test_function, *test_args):
         # 'test_function' parameters should be (sess, task_params, learning_params, testing_params, *test_args)

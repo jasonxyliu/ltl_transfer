@@ -52,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print):
+def run_experiment(alg_name, map_id, stochastic_transition, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print):
     # configuration of testing params
     testing_params = TestingParameters()
 
@@ -60,7 +60,7 @@ def run_experiment(alg_name, map_id, tasks_id, dataset_name, train_type, train_s
     learning_params = LearningParameters()
 
     # Setting the experiment
-    tester = Tester(learning_params, testing_params, map_id, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher)
+    tester = Tester(learning_params, testing_params, map_id, stochastic_transition, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher)
 
     # Setting the curriculum learner
     curriculum = CurriculumLearner(tester.tasks, r_good=r_good, total_steps=total_steps)
@@ -99,7 +99,7 @@ def run_multiple_experiments(alg, tasks_id, dataset_name, train_type, train_size
         run_experiment(alg, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
 
 
-def run_single_experiment(alg, map_id, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
+def run_single_experiment(alg, map_id, stochastic_transition, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
     num_times = 1  # each algo was run 3 times per map in the paper
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
@@ -145,6 +145,8 @@ if __name__ == "__main__":
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
+    parser.add_argument('--stochastic_transition', default=True, type=bool,
+                        help='whether to use stochastic or deterministic transition.')
     parser.add_argument('--total_steps', default=500000, type=int,
                         help='This parameter indicated the increment to the total training steps')
     parser.add_argument('--incremental_steps', default=150000, type=int,
@@ -171,7 +173,7 @@ if __name__ == "__main__":
     tasks_id = train_types.index(args.train_type)
     map_id = args.map
     if map_id > -1:
-        run_single_experiment(args.algo, map_id, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
+        run_single_experiment(args.algo, map_id, args.stochastic_transition, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
                               args.total_steps, args.incremental_steps, args.run_id,
                               args.relabel_method, args.transfer_num_times, args.edge_matcher)
     else:
