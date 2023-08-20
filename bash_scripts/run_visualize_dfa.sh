@@ -13,4 +13,4 @@ module load anaconda/2022.05
 source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
 conda activate lpopl
 
-python visualize_dfa_graph.py
+python src/visualize_dfa_graph.py

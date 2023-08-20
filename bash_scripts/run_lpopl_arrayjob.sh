@@ -32,4 +32,4 @@ module load anaconda/2022.05
 source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
 conda activate lpopl
 
-python $(dirname `pwd`)/run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --map=$map --total_steps=$total_steps --save_dpath=$save_dpath
+python src/run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --map=$map --total_steps=$total_steps --save_dpath=$save_dpath
