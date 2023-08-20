@@ -52,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print):
+def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print):
     # configuration of learning params
     learning_params = LearningParameters()
 
@@ -82,30 +82,30 @@ def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, tr
 
     # LPOPL
     if alg_name == "lpopl":
-        lpopl.run_experiments(tester, curriculum, saver, num_times, increment_steps, show_print)
+        lpopl.run_experiments(tester, curriculum, saver, num_times, incremental_steps, show_print)
 
     # Relabel state-centric options learn by LPOPL then zero-shot transfer
     if alg_name == "zero_shot_transfer":
         transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
 
-def run_multiple_experiments(alg, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
+def run_multiple_experiments(alg, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
     num_times = 3
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
         print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-        run_experiment(alg, transition_type, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
+        run_experiment(alg, transition_type, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
 
 
-def run_single_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
+def run_single_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
     num_times = 1  # each algo was run 3 times per map in the paper
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-    run_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
+    run_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
 
 
 if __name__ == "__main__":

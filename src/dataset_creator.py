@@ -26,8 +26,8 @@ def create_datasets(env_name, set_types=SET_TYPES, duplicate_ok=True, train_size
         create_dataset(ENV2PROPS[env_name], test_set_dpath, 'test', typ, duplicate_ok, [test_size])
 
 
-def create_dataset_directories(env_name):
-    dataset_dpath = os.path.join("../experiments/datasets", env_name)
+def create_dataset_directories(save_dpath, env_name):
+    dataset_dpath = os.path.join(save_dpath, "experiments", "datasets", env_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
     test_set_dpath = os.path.join(dataset_dpath, 'test')
     if not os.path.exists(dataset_dpath):
@@ -82,8 +82,8 @@ def sample_dataset_unique_formulas(props, set_type='mixed', n=50):
     return formulas
 
 
-def read_train_test_formulas(env_name, train_set_type='mixed', test_set_type='hard', train_size=50, test_size=100):
-    dataset_dpath = os.path.join("../experiments/datasets", env_name)
+def read_train_test_formulas(dataset_dpath, env_name, train_set_type='mixed', test_set_type='hard', train_size=50, test_size=100):
+    dataset_dpath = os.path.join(dataset_dpath, "experiments", "datasets", env_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
     test_set_dpath = os.path.join(dataset_dpath, 'test')
 
@@ -99,5 +99,5 @@ def read_train_test_formulas(env_name, train_set_type='mixed', test_set_type='ha
 
 
 if __name__ == '__main__':
-    create_datasets(env_name="spot", set_types=["soft_strict"], duplicate_ok=False)
+    create_datasets(save_dpath="..", env_name="spot", set_types=["soft_strict"], duplicate_ok=False)
     # filter_datasets(env_name="spot", set_types=["soft_strict"], filters=[])

@@ -71,8 +71,8 @@ class Tester:
                 else:
                     self.experiment = f"{train_type}_{train_size}/map_{map_id}"
                     self.experiment_train = f"{train_type}_50/map_{map_id}"
-                    train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 50)
-                    self.tasks = train_tasks[0:train_size]
+                    train_tasks, self.transfer_tasks = read_train_test_formulas(save_dpath, dataset_name, train_type, test_type, 50)
+                    self.tasks = train_tasks[0: train_size]
                     self.transfer_results_dpath = os.path.join(save_dpath, "results_icra24", self.transition_type, f"{train_type}_{train_size}_{test_type}_{edge_matcher}", f"map_{map_id}")
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
