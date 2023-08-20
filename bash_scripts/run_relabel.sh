@@ -27,7 +27,7 @@ save_dpath="$HOME/data/shared/ltl-transfer"
 
 module load anaconda/2022.05
 source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
-conda activate lpopl
+conda activate ltl_transfer
 
 python3 src/run_single_worker.py --algo=$algo --task_id=$task_id --map_id=$map_id --run_id=$run_id --ltl_id=%ltl_id --state_id=%state_id --n_rollouts=%n_rollouts --max_depth=%max_depth --save_dpath=$save_dpath
 cp -r ../tmp/* ~/data/shared/ltl-transfer/tmp/

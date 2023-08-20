@@ -11,6 +11,6 @@ export PYTHONUNBUFFERED=TRUE
 
 module load anaconda/2022.05
 source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
-conda activate lpopl
+conda activate ltl_transfer
 
 python src/visualize_dfa_graph.py
