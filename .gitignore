@@ -1,9 +1,11 @@
-
-results/
-tmp/*
-src/sbatch_out/*
+results*/
+tmp*/
+src/sbatch_out/
+sbatch_out/
 src/__pycache__
-src/run_transfer*
-*.pyc
+bash_scripts/run_relabel_singlejob_*
 datasets
 .idea/
+*.pyc
+*.out
+*.err
