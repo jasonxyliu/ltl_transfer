@@ -153,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_depth", default=100, type=int,
                         help="This parameter indicated maximum depth of a rollout")
     parser.add_argument('--save_dpath', default='..', type=str,
-                        help='path to directory to save')
+                        help='path to directory to save options and results')
     parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot'],
                         help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()

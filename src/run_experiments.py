@@ -53,11 +53,11 @@ class LearningParameters:
 
 
 def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print):
-    # configuration of testing params
-    testing_params = TestingParameters()
-
     # configuration of learning params
     learning_params = LearningParameters()
+
+    # configuration of testing params
+    testing_params = TestingParameters()
 
     # Setting the experiment
     tester = Tester(learning_params, testing_params, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, save_dpath)
@@ -148,21 +148,21 @@ if __name__ == "__main__":
     parser.add_argument('--transition_type', default="stochastic", type=str, choices=['stochastic', 'deterministic'],
                         help='whether to use stochastic or deterministic transition.')
     parser.add_argument('--total_steps', default=500000, type=int,
-                        help='This parameter indicated the increment to the total training steps')
+                        help='This parameter indicated the total training steps to learn all tasks')
     parser.add_argument('--incremental_steps', default=150000, type=int,
                         help='This parameter indicated the increment to the total training steps')
     parser.add_argument('--run_id', default=0, type=int,
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
     # parser.add_argument('--load_trained', action="store_true",
     #                     help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
-    parser.add_argument('--relabel_method', default='cluster', type=str,
-                        help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
+    parser.add_argument('--relabel_method', default='cluster', type=str, choices=["cluster", "local"],
+                        help='This parameter indicated which method is used to relabel state-centric options')
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
     parser.add_argument('--edge_matcher', default='relaxed', type=str, choices=['rigid', 'relaxed'],
                         help='This parameter indicated the number of times to run a transfer experiment')
     parser.add_argument('--save_dpath', default='..', type=str,
-                        help='path to directory to save')
+                        help='path to directory to save options and results')
     parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot'],
                         help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
