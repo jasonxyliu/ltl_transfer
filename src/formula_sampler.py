@@ -7,7 +7,7 @@ def sample_formula(props, orders=True, order_type='mixed', formula_size=5):
     clauses = []
 
     # sample waypoints to be visited
-    visit_props = sample_waypoints(props, formula_size)
+    visit_props = sample_waypoints(props, formula_size)  # radnom.choices([str(x) for x in props], k=formula_size)
     clauses.extend([eventually(p) for p in sorted(visit_props)])
 
     # If orders are allowed, create ordering formula clauses
@@ -38,7 +38,7 @@ def sample_waypoints(props, formula_size):
             if np.random.binomial(1, 0.5):
                 visit_waypoints.append(p)
     if len(visit_waypoints) > formula_size:
-        visit_waypoints = visit_waypoints[0:formula_size]  # need to clip the dfa size
+        visit_waypoints = visit_waypoints[0: formula_size]  # need to clip the dfa size
     return visit_waypoints
 
 
@@ -87,8 +87,8 @@ def seq2orders(sequences):
     """
     orders = []
     for seq in sequences:
-        for (i, p) in enumerate(seq):
-            orders.extend([[p, p2] for p2 in seq[i+1::]])
+        for idx, prop in enumerate(seq):
+            orders.extend([[prop, prop2] for prop2 in seq[idx+1::]])
     return orders
 
 
@@ -124,7 +124,7 @@ def order2clause(p1, p2, order_type):
 def conjunctions(clauses):
     """
     Combines all the clauses separated with 'and's.
-    Note that this codebase only allows for binary conjunctions, and not a list of conjunctions as in the PUnS codebase.
+    Note that this codebase only allows for binary conjunctions, not a list of conjunctions as in the PUnS codebase.
     """
     if len(clauses) == 2:
         return ('and', clauses[0], clauses[1])

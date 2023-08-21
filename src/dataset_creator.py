@@ -6,6 +6,7 @@ Created on Tue Mar 22 12:29:47 2022
 import os
 import dill
 import numpy as np
+
 from formula_sampler import sample_formula
 
 
@@ -18,26 +19,19 @@ TRAIN_SIZES = (10, 20, 30, 40, 50)
 TEST_SIZE = 100
 
 
-def create_datasets(env_name, set_types=SET_TYPES, duplicate_ok=True, train_sizes=TRAIN_SIZES, test_size=TEST_SIZE):
-    train_set_dpath, test_set_dpath = create_dataset_directories(env_name)
-    for typ in set_types:
-        create_dataset(ENV2PROPS[env_name], train_set_dpath, 'train', typ, duplicate_ok, train_sizes)
-    for typ in set_types:
-        create_dataset(ENV2PROPS[env_name], test_set_dpath, 'test', typ, duplicate_ok, [test_size])
-
-
-def create_dataset_directories(save_dpath, env_name):
+def create_datasets(save_dpath, env_name, props, set_types=SET_TYPES, duplicate_ok=True, train_sizes=TRAIN_SIZES, test_size=TEST_SIZE):
     dataset_dpath = os.path.join(save_dpath, "experiments", "datasets", env_name)
     train_set_dpath = os.path.join(dataset_dpath, 'training')
+    os.makedirs(train_set_dpath, exist_ok=True)
     test_set_dpath = os.path.join(dataset_dpath, 'test')
-    if not os.path.exists(dataset_dpath):
-        os.mkdir(dataset_dpath)
-        os.mkdir(train_set_dpath)
-        os.mkdir(test_set_dpath)
-    return train_set_dpath, test_set_dpath
+    os.makedirs(test_set_dpath, exist_ok=True)
+
+    for typ in set_types:
+        create_dataset(props, train_set_dpath, 'train', typ, duplicate_ok, train_sizes)
+        create_dataset(props, test_set_dpath, 'test', typ, duplicate_ok, [test_size])
 
 
-def create_dataset(props, savepath, set_name='train', set_type='mixed', duplicate_ok=True, sizes=TRAIN_SIZES):
+def create_dataset(props, save_dpath, set_name='train', set_type='mixed', duplicate_ok=True, sizes=TRAIN_SIZES):
     n_formulas = np.max(sizes)
     if duplicate_ok:
         formulas = sample_dataset_formulas(props=props, set_type=set_type, n=n_formulas)
@@ -46,17 +40,17 @@ def create_dataset(props, savepath, set_name='train', set_type='mixed', duplicat
 
     for size in sizes:
         filename = f'{set_name}_{set_type}_{size}.pkl'
-        with open(os.path.join(savepath, filename), 'wb') as file:
-            dill.dump(formulas[0:size], file)
+        with open(os.path.join(save_dpath, filename), 'wb') as file:
+            dill.dump(formulas[0: size], file)
         human_readable_filename = f'{set_name}_{set_type}_{size}.txt'
-        with open(os.path.join(savepath, human_readable_filename), 'w') as file:
-            for idx, formula in enumerate(formulas[0:size]):
+        with open(os.path.join(save_dpath, human_readable_filename), 'w') as file:
+            for idx, formula in enumerate(formulas[0: size]):
                 file.write(f"{idx}: {str(formula)}\n")
 
 
 def sample_dataset_formulas(props, set_type='mixed', n=50):
     """
-    Allowed to sample duplicated LTL formulas into the dataset
+    Allowed to sample duplicated LTL formulas into the dataset.
     """
     if set_type == 'no_orders':
         formulas = [sample_formula(props=props, orders=False)[0] for _ in range(n)]
@@ -67,7 +61,7 @@ def sample_dataset_formulas(props, set_type='mixed', n=50):
 
 def sample_dataset_unique_formulas(props, set_type='mixed', n=50):
     """
-    Only sample unique LTL formulas into the dataset
+    Only sample unique LTL formulas into the dataset.
     """
     formulas = []
     num_samples_sofar = 0
@@ -99,5 +93,5 @@ def read_train_test_formulas(dataset_dpath, env_name, train_set_type='mixed', te
 
 
 if __name__ == '__main__':
-    create_datasets(save_dpath="..", env_name="spot", set_types=["soft_strict"], duplicate_ok=False)
-    # filter_datasets(env_name="spot", set_types=["soft_strict"], filters=[])
+    env_name = "spot"
+    create_datasets(save_dpath="..", env_name=env_name, props=ENV2PROPS[env_name], set_types=["soft_strict"], duplicate_ok=False)
