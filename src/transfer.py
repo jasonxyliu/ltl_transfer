@@ -61,14 +61,15 @@ def run_experiments(tester, curriculum, saver, run_id, relabel_method, num_times
         save_json(os.path.join(saver.classifier_dpath, "ltl2id_%d.json" % tester.train_size), ltl2id_json)
 
     # Relabel state-centric options to transition-centric options if not already done it
-    if not os.path.exists(os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl")):
-        print("RELABEL")
-        print(os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl"))
+    aggregate_rollout_results_fpath = os.path.join(saver.classifier_dpath, "aggregated_rollout_results.pkl")
+    if not os.path.exists(aggregate_rollout_results_fpath):
+        print(f"RELABEL\n{aggregate_rollout_results_fpath}")
         if relabel_method == 'cluster':  # use mpi
             relabel_cluster(tester, saver, curriculum, run_id, policy_bank)
         if relabel_method == 'local':  # use Python multiprocessing
             relabel_local(tester, saver, curriculum, run_id, policy_bank)
 
+    # Transfer transition-centric options to solve novel test tasks
     if relabel_method == 'cluster':
         zero_shot_transfer_cluster(tester, loader, saver, run_id, num_times, curriculum.num_steps, learning_params, curriculum)
     if relabel_method == 'local':
@@ -88,7 +89,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     """
     A worker runs n_rollouts from a specific location for all LTL formulas in policy_bank
     """
-    print('RELABELING STATE CENTRIC OPTIONS')
+    print('RELABELING STATE CENTRIC OPTIONS (cluster)')
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
 
     id2ltls = {}
@@ -151,6 +152,7 @@ def relabel_local(tester, saver, curriculum, run_id, policy_bank, n_rollouts=100
     """
     A worker runs n_rollouts from a specific location for each LTL formula in policy_bank
     """
+    print('RELABELING STATE CENTRIC OPTIONS (local)')
     task_aux = Game(tester.get_task_params(tester.get_LTL_tasks()[0]))
 
     id2ltls = {}
@@ -368,7 +370,7 @@ def zero_shot_transfer_single_task(transfer_task, ltl_idx, num_times, num_steps,
                                     option2prob[(ltl, train_self_edge, train_out_edge)] = prob
                     node2option2prob[cur_node] = option2prob
 
-                while node2option2prob[cur_node] and cur_node == next_node:
+                while node2option2prob[cur_node] and cur_node == next_node:  # greedy: only look at best next option
                     # Find best edge to target based on rollout success probability from current location
                     best_policy, best_self_edge, best_out_edge = sorted(node2option2prob[cur_node].items(), key=lambda kv: kv[1])[-1][0]
                     # Overwrite empty policy by policy with tf model then load its weights when need to execute it
