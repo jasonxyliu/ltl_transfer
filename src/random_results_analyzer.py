@@ -27,7 +27,20 @@ typ2string = {'hard':'Hard','soft':'Soft','no_orders':'No Orders','mixed': 'Mixe
 ltl2action_files = [f'results_Transfer_test_{typ}_100.json' for typ in ['hard','soft','soft-strict','no-orders','mixed']]
 typ2string2 = {'hard':'Hard','soft':'Soft','no-orders':'No Orders','mixed': 'Mixed', 'soft-strict': 'Strict Soft'}
 
-def create_data_table(random_results, mixed_results, ltl2action_results = None):
+
+def get_lpopl_data2(test_types = None):
+    if test_types is None:
+        test_types = ['hard','soft','soft_strict','no_orders','mixed']
+    data = {}
+    data[('hard')] = {'success_rate': 0.05 , 'failure_rate': 0}
+    data[('soft')] = {'success_rate': 0.06 , 'failure_rate': 0}
+    data[('soft_strict')] = {'success_rate': 0.08 , 'failure_rate': 0}
+    data[('no_orders')] = {'success_rate': 0.27 , 'failure_rate': 0}
+    data[('mixed')] = {'success_rate': 0.12 , 'failure_rate': 0}
+    data = dict((k, data[k]) for k in test_types)
+    return data
+
+def create_data_table(random_results, mixed_results, ltl2action_results = None, lpopl_results = None):
     #random_results = get_random_results()
     #mixed_results = get_mixed_50_results()
     
@@ -66,17 +79,33 @@ def create_data_table(random_results, mixed_results, ltl2action_results = None):
             entry['Specification Violation Rate'] = k['num_spec_fails']/(k['num_successes'] + k['num_incompletes'] + k['num_spec_fails'])
             data[i] = entry
             i = i+1
+    if lpopl_results is not None:
+        for k in lpopl_results:
+            entry = {}
+            entry['Transfer Method'] = 'LPOPL'
+            entry['Test Type'] = typ2string[k]
+            entry['Map ID'] = 0
+            entry['Success Rate'] = lpopl_results[k]['success_rate']
+            entry['Path Lengths'] = 0
+            entry['Specification Violation Rate'] = 0
+            data[i] = entry
+            i=i+1
     
     data = pd.DataFrame.from_dict(data, orient = 'index')
     return data        
 
 def plot_random_success_rate():
-    random_results = get_random_results()
+    random_results = get_random_results(num_steps = [500])
     mixed_results = get_mixed_50_results(map_ids = [0])
-    data = create_data_table(random_results, mixed_results)
+    ltl2action_results = get_ltl2action_results()
+    lpopl_results = get_lpopl_data2()
+    data = create_data_table(random_results, mixed_results, ltl2action_results, lpopl_results)
+    data = data.loc[data['Transfer Method']!= 'LTL Transfer Constrained']
     with sns.plotting_context('poster', rc=rc):
-        plt.figure(figsize = [12,8])
-        sns.barplot(data = data, x = 'Test Type', y = 'Success Rate', hue = 'Transfer Method')
+        plt.figure(figsize = [10,8])
+        hue_order = ['LTL Transfer Relaxed','LTL2Action','LPOPL','Random Policy 500 steps']
+        g = sns.barplot(data = data, x = 'Test Type', y = 'Success Rate', hue = 'Transfer Method', hue_order = hue_order, ci=None)
+        g.legend_.remove()
     plt.savefig('figures/random_success_rate.jpg',dpi=400, bbox_inches='tight')
 
 def plot_path_lengths():
@@ -84,26 +113,34 @@ def plot_path_lengths():
     mixed_results = get_mixed_50_results()
     data = create_data_table(random_results, mixed_results)
     with sns.plotting_context('poster', rc=rc):
-        plt.figure(figsize = [12,8])
+        plt.figure(figsize = [10,8])
         sns.barplot(data = data, x = 'Test Type', y = 'Path Lengths', hue = 'Transfer Method')
         plt.ylim(0,1000)
     plt.savefig('figures/random_path_lengths.jpg',dpi=400, bbox_inches='tight')
     
 def plot_spec_failure_rate():
-    random_results = get_random_results(test_types = ['hard','mixed'])
+    random_results = get_random_results(num_steps = [500], test_types = ['hard','mixed'])
     mixed_results = get_mixed_50_results(test_types = ['hard','mixed'])
-    data = create_data_table(random_results, mixed_results)
+    ltl2action_data = get_ltl2action_results(test_types = ['hard','mixed'])
+    lpopl_data = get_lpopl_data2(test_types = ['hard','mixed'])
+    
+    data = create_data_table(random_results, mixed_results, ltl2action_data, lpopl_data)
+    data = data.loc[data['Transfer Method']!= 'LTL Transfer Constrained']
     with sns.plotting_context('poster', rc=rc):
-        plt.figure(figsize = [12,8])
-        sns.barplot(data = data, x = 'Test Type', y = 'Specification Violation Rate', hue = 'Transfer Method')
+        plt.figure(figsize = [10,8])
+        hue_order = ['LTL Transfer Relaxed','LTL2Action','LPOPL','Random Policy 500 steps']
+        g = sns.barplot(data = data, x = 'Test Type', y = 'Specification Violation Rate', hue = 'Transfer Method', ci=None, hue_order = hue_order)
+        #g = sns.barplot(data = data, x = 'Test Type', y = 'Success Rate', hue = 'Transfer Method', ci=None)
+        g.legend_.set_title(None)
     plt.savefig('figures/random_failure_rate.jpg',dpi=400, bbox_inches='tight')
 
 
 
 
-def get_ltl2action_results():
+def get_ltl2action_results(test_types = None):
     results = []
-    test_types = ['hard','soft','soft-strict','no-orders','mixed']
+    if test_types is None:
+        test_types = ['hard','soft','soft-strict','no-orders','mixed']
     ltl2action_files = [f'results_Transfer_test_{typ}_100.json' for typ in test_types]
     files = [os.path.join('..','LTL2ActionResults',f) for f in ltl2action_files]
     for (f,typ) in zip(files, test_types):
@@ -117,8 +154,12 @@ def get_ltl2action_results():
     
 
 if __name__ == '__main__':
-    #data = create_data_table()
-    #plot_random_success_rate()
-    #plot_path_lengths()
-    #plot_spec_failure_rate()
+    random_results = get_random_results()
+    mixed_results = get_mixed_50_results()
+    ltl2action_results = get_ltl2action_results()
+    lpopl_results = get_lpopl_data2()
+    data = create_data_table(random_results, mixed_results, ltl2action_results, lpopl_results)
+    plot_random_success_rate()
+    plot_path_lengths()
+    plot_spec_failure_rate()
     a=1

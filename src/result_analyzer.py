@@ -16,7 +16,7 @@ from zero_shot_transfer import *
 
 RESULT_DPATH = '../results_test'
 RANDOM_RESULT_DPATH = '../random_results'
-rc = {'axes.labelsize': 28, 'axes.titlesize': 32, 'legend.fontsize': 24, 'xtick.labelsize': 24, 'ytick.labelsize': 22}
+rc = {'axes.labelsize': 24, 'axes.titlesize': 32, 'legend.fontsize': 18, 'legend.title_fontsize': 18, 'xtick.labelsize': 20, 'ytick.labelsize': 20}
 
 
 class Record:
@@ -336,7 +336,7 @@ def plot_fig3A():
         # sns.lineplot(data=data, x='Size', y='Success Rate', hue='Transfer Method', style='Transfer Method', dashes=False, markers=True, hue_order=matchers)
         
         # Create the line plots
-        sns.lineplot(data=data, x='Size', y='Success Rate', hue='Test Set', style='Test Set', dashes=False, markers=True, hue_order=test_types)
+        sns.lineplot(data=data, x='Size', y='Success Rate', hue='Test Set', style='Test Set', dashes=False, markers=True, hue_order=test_types, ci=None)
         
         # Create the error bars
         for m in test_types:
@@ -355,7 +355,7 @@ def plot_fig3A():
         plt.xlim(0, 55)
         plt.xlabel('Training Set Size')
         plt.legend(loc='upper right')
-        plt.savefig('figures/fig_3a.png', dpi=400, bbox_inches='tight')
+        plt.savefig('figures/fig_3a.jpg', dpi=400, bbox_inches='tight')
 
 
 def plot_fig3B():
@@ -363,7 +363,7 @@ def plot_fig3B():
     train_types = ['mixed']
     test_types = ['hard', 'soft', 'soft_strict', 'no_orders', 'mixed']
     train_sizes = [5, 10, 15, 20, 30, 40, 50]
-    map_ids = [0,1,5,6]
+    map_ids = [0,]
     CI = 0.95
     data = create_data_table(get_results(train_types, test_types, train_sizes, map_ids))
     
@@ -408,7 +408,7 @@ def plot_fig3B():
         plt.xlim(0, 55)
         plt.xlabel('Training Set Size')
         plt.legend(loc='lower right')
-        plt.savefig('figures/fig_3b.png', dpi=400, bbox_inches='tight')
+        plt.savefig('figures/fig_3b.jpg', dpi=400, bbox_inches='tight')
 
 
 def fig_4A():
