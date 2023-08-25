@@ -2,7 +2,7 @@ import argparse
 import baseline_dqn
 import baseline_hrl
 import lpopl
-import zero_shot_transfer
+import transfer
 from test_utils import TestingParameters, Tester, Saver
 from curriculum import CurriculumLearner
 
@@ -52,15 +52,15 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print):
-    # configuration of testing params
-    testing_params = TestingParameters()
-
+def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print):
     # configuration of learning params
     learning_params = LearningParameters()
 
+    # configuration of testing params
+    testing_params = TestingParameters()
+
     # Setting the experiment
-    tester = Tester(learning_params, testing_params, map_id, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher)
+    tester = Tester(learning_params, testing_params, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, save_dpath)
 
     # Setting the curriculum learner
     curriculum = CurriculumLearner(tester.tasks, r_good=r_good, total_steps=total_steps)
@@ -82,30 +82,30 @@ def run_experiment(alg_name, map_id, tasks_id, dataset_name, train_type, train_s
 
     # LPOPL
     if alg_name == "lpopl":
-        lpopl.run_experiments(tester, curriculum, saver, num_times, increment_steps, show_print)
+        lpopl.run_experiments(tester, curriculum, saver, num_times, incremental_steps, show_print)
 
     # Relabel state-centric options learn by LPOPL then zero-shot transfer
     if alg_name == "zero_shot_transfer":
-        zero_shot_transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
+        transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
 
-def run_multiple_experiments(alg, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
+def run_multiple_experiments(alg, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
     num_times = 3
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
         print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-        run_experiment(alg, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
+        run_experiment(alg, transition_type, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
 
 
-def run_single_experiment(alg, tasks_id, dataset_name, train_type, train_size, test_type, map_id, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher):
+def run_single_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
     num_times = 1  # each algo was run 3 times per map in the paper
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-    run_experiment(alg, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, increment_steps, run_id, relabel_method, transfer_num_times, edge_matcher, show_print)
+    run_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
 
 
 if __name__ == "__main__":
@@ -132,7 +132,7 @@ if __name__ == "__main__":
         "soft",
         "no_orders",
     ]
-    relabel_methods = ["cluster", "parallel"]
+    relabel_methods = ["cluster", "local"]
 
     parser = argparse.ArgumentParser(prog="run_experiments", description='Runs a multi-task RL experiment over a gridworld domain that is inspired by Minecraft.')
     parser.add_argument('--algo', default='zero_shot_transfer', type=str,
@@ -145,21 +145,25 @@ if __name__ == "__main__":
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=20, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--total_steps', default=10000, type=int,
-                        help='This parameter indicated the total training steps')
-    parser.add_argument('--incremental_steps', default=0, type=int,
-                        help='This parameter indicated the increment to the total training steps')
+    parser.add_argument('--transition_type', default="stochastic", type=str, choices=['stochastic', 'deterministic'],
+                        help='whether to use stochastic or deterministic transition.')
+    parser.add_argument('--total_steps', default=500000, type=int,
+                        help='This parameter indicated the total training steps to learn all tasks')
+    parser.add_argument('--incremental_steps', default=150000, type=int,
+                        help='This parameter indicated the increment to the total training steps for additional training')
     parser.add_argument('--run_id', default=0, type=int,
                         help='This parameter indicated the policy bank saved after which run will be used for transfer')
     # parser.add_argument('--load_trained', action="store_true",
     #                     help='This parameter indicated whether to load trained policy models. Include it in command line to load trained policies')
-    parser.add_argument('--relabel_method', default='parallel', type=str, choices=['cluster', 'parallel'],
-                        help='This parameter indicated which method is used to relabel state-centric options. The options are: ' + str(relabel_methods))
+    parser.add_argument('--relabel_method', default='cluster', type=str, choices=["cluster", "local"],
+                        help='This parameter indicated which method is used to relabel state-centric options')
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
     parser.add_argument('--edge_matcher', default='relaxed', type=str, choices=['rigid', 'relaxed'],
-                        help='This parameter indicated the edge match criterion')
-    parser.add_argument('--dataset_name', default='spot', type=str, choices=['minecraft', 'spot'],
+                        help='This parameter indicated the number of times to run a transfer experiment')
+    parser.add_argument('--save_dpath', default='..', type=str,
+                        help='path to directory to save options and results')
+    parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot'],
                         help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
@@ -171,10 +175,10 @@ if __name__ == "__main__":
     tasks_id = train_types.index(args.train_type)
     map_id = args.map
     if map_id > -1:
-        run_single_experiment(args.algo, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type, map_id,
+        run_single_experiment(args.algo, map_id, args.transition_type, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
                               args.total_steps, args.incremental_steps, args.run_id,
-                              args.relabel_method, args.transfer_num_times, args.edge_matcher)
+                              args.relabel_method, args.transfer_num_times, args.edge_matcher, args.save_dpath)
     else:
-        run_multiple_experiments(args.algo, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
+        run_multiple_experiments(args.algo, args.transition_type, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
                                  args.total_steps, args.incremental_steps, args.run_id,
-                                 args.relabel_method, args.transfer_num_times, args.edge_matcher)
+                                 args.relabel_method, args.transfer_num_times, args.edge_matcher, args.save_dpath)

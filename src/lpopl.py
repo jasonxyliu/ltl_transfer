@@ -14,7 +14,7 @@ from game import *
 from test_utils import Loader, load_pkl
 
 
-def run_experiments(tester, curriculum, saver, num_times, increment_steps, show_print):
+def run_experiments(tester, curriculum, saver, num_times, incremental_steps, show_print):
     time_init = time.time()
     tester_original = tester
     curriculum_original = curriculum
@@ -37,7 +37,7 @@ def run_experiments(tester, curriculum, saver, num_times, increment_steps, show_
         if os.path.exists(run_dpath) and os.path.exists(curriculum_fpath):
             curriculum = load_pkl(curriculum_fpath)
             learning_params.learning_starts += curriculum.total_steps  # recollect 'replay_buffer'
-            curriculum.incremental_learning(increment_steps)
+            curriculum.incremental_learning(incremental_steps)
         else:
             curriculum = curriculum_original
 

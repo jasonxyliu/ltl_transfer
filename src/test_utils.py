@@ -38,20 +38,22 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, save_dpath, file_results=None):
         if file_results is None:
             # setting the test attributes
-            self.edge_matcher = edge_matcher
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.map_id = map_id
+            self.transition_type = transition_type
             self.tasks_id = tasks_id
             self.dataset_name = dataset_name
             self.train_type = train_type
             self.train_size = train_size
             self.test_type = test_type
-            self.experiment = "%s/map_%d" % (train_type, map_id)
-            self.map = "../experiments/maps/map_%d.txt" % map_id
+            self.edge_matcher = edge_matcher
+            self.save_dpath = save_dpath
+            self.experiment = f"{train_type}/map_{map_id}"
+            self.map = f"{save_dpath}/experiments/maps/map_{map_id}.txt"
             self.consider_night = False
             if dataset_name == "spot":
                 self.experiment = f"spot/{train_type}/map_{map_id}"
@@ -70,23 +72,23 @@ class Tester:
                 if train_type == 'transfer_sequence':
                     self.tasks = tasks.get_sequence_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
-                    self.transfer_results_dpath = os.path.join("../results/minecraft", train_type, "map_%d" % map_id)
+                    self.transfer_results_dpath = os.path.join(save_dpath, "results", train_type, f"map_{map_id}")
                 elif train_type == 'transfer_interleaving':
                     self.tasks = tasks.get_interleaving_training_tasks()
                     self.transfer_tasks = tasks.get_transfer_tasks()
-                    self.transfer_results_dpath = os.path.join("../results/minecraft", train_type, "map_%d" % map_id)
+                    self.transfer_results_dpath = os.path.join(save_dpath, "results", train_type, f"map_{map_id}")
                 else:
-                    self.experiment = "%s_%d/map_%d" % (train_type, train_size, map_id)
-                    self.experiment_train = "%s_50/map_%d" % (train_type, map_id)
-                    train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, train_type, test_type, 50)
-                    self.tasks = train_tasks[0:train_size]
-                    self.transfer_results_dpath = os.path.join("../results_test/minecraft", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
-            os.makedirs(self.transfer_results_dpath, exist_ok=True)
-            self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
-            logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
+                    self.experiment = f"{train_type}_{train_size}/map_{map_id}"
+                    self.experiment_train = f"{train_type}_50/map_{map_id}"
+                    train_tasks, self.transfer_tasks = read_train_test_formulas(save_dpath, dataset_name, train_type, test_type, 50)
+                    self.tasks = train_tasks[0: train_size]
+                    self.transfer_results_dpath = os.path.join(save_dpath, "results_icra24", self.transition_type, f"{train_type}_{train_size}_{test_type}_{edge_matcher}", f"map_{map_id}")
+                os.makedirs(self.transfer_results_dpath, exist_ok=True)
+                self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
+                logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
 
             # load pre-computed optimal steps for 'task_type' in 'map_id'
-            optimal_aux = _get_optimal_values('../experiments/optimal_policies/map_%d.txt' % map_id, tasks_id)
+            optimal_aux = _get_optimal_values(f'{save_dpath}/experiments/optimal_policies/map_{map_id}.txt', tasks_id)
 
             # I store the results here
             self.results = {}
@@ -119,7 +121,7 @@ class Tester:
         return self.transfer_tasks
 
     def get_task_params(self, ltl_task, init_dfa_state=None, init_loc=None):
-        return GameParams(self.map, ltl_task, self.consider_night, init_dfa_state, init_loc)
+        return GameParams(self.map, self.transition_type, ltl_task, self.consider_night, init_dfa_state, init_loc)
 
     def run_test(self, step, sess, test_function, *test_args):
         # 'test_function' parameters should be (sess, task_params, learning_params, testing_params, *test_args)
@@ -180,7 +182,7 @@ class Saver:
         self.alg_name = alg_name
         self.tester = tester
 
-        self.exp_dir = os.path.join("../tmp", tester.experiment_train)
+        self.exp_dir = os.path.join(tester.save_dpath, "options", tester.transition_type,  tester.experiment_train)
         os.makedirs(self.exp_dir, exist_ok=True)
 
         self.train_dpath = os.path.join(self.exp_dir, "train_data")
@@ -195,7 +197,7 @@ class Saver:
         self.file_out = os.path.join(self.exp_dir, alg_name + ".json")  # tasks_id>=3, store training results for transfer
 
     def save_train_data(self, curriculum, run_id):
-        run_dpath = os.path.join(self.train_dpath, "run_%d" % run_id)
+        run_dpath = os.path.join(self.train_dpath, f"run_{run_id}")
         os.makedirs(run_dpath, exist_ok=True)
         # save tester
         save_pkl(os.path.join(run_dpath, "tester.pkl"), self.tester)
@@ -204,7 +206,7 @@ class Saver:
 
     def save_policy_bank(self, policy_bank, run_id):
         tf_saver = tf.train.Saver()
-        policy_bank_prefix = os.path.join(self.policy_dpath, "run_%d" % run_id, "policy_bank")
+        policy_bank_prefix = os.path.join(self.policy_dpath, f"run_{run_id}", "policy_bank")
         tf_saver.save(policy_bank.sess, policy_bank_prefix)
 
     def save_results(self):
@@ -258,7 +260,7 @@ class Saver:
             "edge2hits": edge2hits,
             "n_rollouts": n_rollouts,
         }
-        worker_fpath = os.path.join(self.classifier_dpath, "ltl%d_state%d-%d_" % (ltl_id, state[0], state[1]))
+        worker_fpath = os.path.join(self.classifier_dpath, f"ltl{ltl_id}_state{state[0]}-{state[1]}_")
         save_pkl(worker_fpath+"rollout_results_parallel.pkl", rollout_results)
         save_json(worker_fpath + "rollout_results_parallel.json", rollout_results)
 
@@ -275,7 +277,7 @@ class Loader:
         self.saver = saver
 
     def load_policy_bank(self, run_idx, sess):
-        run_dpath = os.path.join(self.saver.policy_dpath, "run_%d" % run_idx)  # where all tf model are saved
+        run_dpath = os.path.join(self.saver.policy_dpath, f"run_{run_idx}")  # where all tf model are saved
         # saver = tf.train.import_meta_graph(run_dpath+"policy_bank.meta")
         saver = tf.train.Saver()
         saver.restore(sess, tf.train.latest_checkpoint(run_dpath))
@@ -288,11 +290,11 @@ def get_precentiles_str(a):
     return p25, p50, p75
 
 
-def transfer_metrics(train_type, train_size, test_type, map_id, num_times, edge_matcher):
+def transfer_metrics(train_type, train_size, test_type, map_id, num_times, edge_matcher, save_dpath):
     """
     Compute evaluation metrics for zero-shot transfer
     """
-    results_dpath = os.path.join("../results_test", "%s_%d_%s_%s" % (train_type, train_size, test_type, edge_matcher), "map_%d" % map_id)
+    results_dpath = os.path.join(save_dpath, "results_icra24", f"{train_type}_{train_size}_{test_type}_{edge_matcher}", f"map_{map_id}")
     results = read_json(os.path.join(results_dpath, "zero_shot_transfer_results.json"))
     task2success = results["task2success"]
     success_rates = []
@@ -309,20 +311,20 @@ def transfer_metrics(train_type, train_size, test_type, map_id, num_times, edge_
 
     metrics_fpath = os.path.join(results_dpath, "zero_shot_transfer_metrics.txt")
     with open(metrics_fpath, "w") as wfile:
-        wfile.write("%s_%d_%s\n" % (train_type, train_size, test_type))
+        wfile.write(f"{train_type}_{train_size}_{test_type}\n")
         wfile.write("%0.2f += %0.2f\n" % (mean, std))
         wfile.write(p25 + "\t" + p50 + "\t" + p75 + "\n")
-        wfile.write("total number of successes in %d runs: %d\n" % (num_times, num_success))  # some test types may not have 100 unique tasks
-        wfile.write("number of unique test tasks in test type %s: %d" % (test_type, num_tasks))
+        wfile.write(f"total number of successes in {num_times} runs: {num_success}\n")  # some test types may not have 100 unique tasks
+        wfile.write(f"number of unique test tasks in test type {test_type}: {num_tasks}")
 
 
-def export_results(algorithm, task_type):
+def export_results(algorithm, task_type, transition_type, save_dpath):
     for map_type, maps in [("random", range(0, 5)), ("adversarial", range(5, 10))]:
         # Computing the summary of the results
         normalized_rewards = None
         for map_id in maps:
-            result = "../tmp/%s/map_%d/%s.json" % (task_type, map_id, algorithm)
-            tester = Tester(None, None, None, None, None, None, None, result)
+            result = f"{save_dpath}/options/{transition_type}/{task_type}/map_{map_id}/{algorithm}.json"
+            tester = Tester(None, None, None, None, None, None, None, None, None, None, result)
             ret = tester.export_results()
             if normalized_rewards is None:
                 normalized_rewards = ret
@@ -330,9 +332,9 @@ def export_results(algorithm, task_type):
                 for j in range(len(normalized_rewards)):
                     normalized_rewards[j][1] = np.append(normalized_rewards[j][1], ret[j][1])
         # Saving the results
-        folders_out = "../results/%s/%s" % (task_type, map_type)
+        folders_out = f"{save_dpath}/results_icra24/{transition_type}/{task_type}/{map_type}"
         if not os.path.exists(folders_out): os.makedirs(folders_out)
-        file_out = "%s/%s.txt" % (folders_out, algorithm)
+        file_out = f"{folders_out}/{algorithm}.txt"
         f_out = open(file_out, "w")
         for step in range(len(normalized_rewards)):
             print(normalized_rewards[step][0], normalized_rewards[step][1])
@@ -367,7 +369,7 @@ def aggregate_transfer_results(results_dpath, num_tasks):
     fnames = os.listdir(results_dpath)
 
     for task_id in range(num_tasks):
-        if "test_ltl_%d.txt" % task_id not in fnames:
+        if f"test_ltl_{task_id}.txt" not in fnames:
             print(task_id)
 
 
@@ -408,10 +410,14 @@ if __name__ == "__main__":
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
+    parser.add_argument('--transition_type', default="stochastic", type=str, choices=['stochastic', 'deterministic'],
+                        help='whether to use stochastic or deterministic transition.')
     parser.add_argument('--transfer_num_times', default=1, type=int,
                         help='This parameter indicated the number of times to run a transfer experiment')
     parser.add_argument('--edge_matcher', default='rigid', type=str, choices=['rigid', 'relaxed'],
                         help='This parameter indicated the number of times to run a transfer experiment')
+    parser.add_argument('--save_dpath', default='..', type=str,
+                        help='path to directory to save')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.train_type not in train_types: raise NotImplementedError(
@@ -420,5 +426,5 @@ if __name__ == "__main__":
         "Test tasks " + str(args.test_type) + " hasn't been defined yet")
     if not (-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    # export_results(args.algo, args.train_type)
-    transfer_metrics(args.train_type, args.train_size, args.test_type, args.map, args.transfer_num_times, args.edge_matcher)
+    # export_results(args.algo, args.train_type, args.transition_type, args.save_dpath)
+    transfer_metrics(args.train_type, args.train_size, args.test_type, args.map, args.transfer_num_times, args.edge_matcher, args.save_dpath)

@@ -1,25 +1,19 @@
-# LPOPL
+# LTL-Transfer
 
-This project studies how to teach multiple tasks to a Reinforcement Learning (RL) agent. To this end, we use Linear Temporal Logic (LTL) as a language for specifying multiple tasks in a manner that supports the composition of learned skills. We also propose a novel algorithm that exploits LTL progression and off-policy RL to speed up learning without compromising convergence guarantees. A detailed description of our approach can be found in the following paper ([link](http://www.cs.toronto.edu/~rntoro/docs/LPOPL.pdf)):
+This work shows ways to reuse policies trained to solve a set of training tasks, specified by linear temporal logic (LTL), to solve novel LTL tasks in a zero-shot manner.
+Please see the following paper for more details.
 
-    @inproceedings{tor-etal-aamas18,
-        author = {Toro Icarte, Rodrigo and Klassen, Toryn Q. and Valenzano, Richard and McIlraith, Sheila A.},
-        title     = {Teaching Multiple Tasks to an RL Agent using LTL},
-        booktitle = {Proceedings of the 17th International Conference on Autonomous Agents and MultiAgent Systems (AAMAS)},
-        year      = {2018},
-        note      = {to appear}
-    }
-
-This code is meant to be a clean and usable version of our approach, called LPOPL. If you find any bugs or have questions about it, please let us know. We'll be happy to help you!
+Skill Transfer for Temporally-Extended Task Specifications [[Liu, Shah, Rosen, Konidaris, Tellex 2022]](https://arxiv.org/abs/2206.05096)
 
 
 ## Installation instructions
 
 You might clone this repository by running:
 
-    git clone https://bitbucket.org/RToroIcarte/lpopl.git
+    git clone https://github.com/jasonxyliu/ltl_transfer.git
 
-LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy](http://www.numpy.org/), [tensorflow](https://www.tensorflow.org/), and [sympy](http://www.sympy.org). 
+Training state-centric policies with LPOPL requires [Python3.5](https://www.python.org/) with three libraries: [numpy](http://www.numpy.org/), [tensorflow](https://www.tensorflow.org/), and [sympy](http://www.sympy.org).
+Python 3.7 should also work.
 
 Transfer Learning requires [dill](https://dill.readthedocs.io/en/latest/), [NetworkX](https://networkx.org/), [Matplotlib](https://matplotlib.org/), and [mpi4py](https://mpi4py.readthedocs.io/en/stable/) if use on a cluster.
 
@@ -27,23 +21,38 @@ Visualization requires [pillow](https://pillow.readthedocs.io/en/stable/index.ht
 
 Install all dependencies in a conda environment by running the following command
 
-    conda create -n ltl_transfer numpy sympy dill networkx matplotlib pillow tensorflow=1  # tensorflow 1.15
+    conda create -n ltl_transfer python=3.7 numpy sympy dill networkx matplotlib pillow tensorflow=1  # tensorflow 1.15
 
 ## Running examples
+Navigation into *src* folder then run *run_experiments.py*.
+
+To run LPOPL to learn state-centric policies
+
+    python3 run_experiments.py --algo=lpopl --train_type=mixed --train_size=50 --map=0
+
+To run zero-shot transfer on a local machine
+
+    python run_experiments.py --algo=zero_shot_transfer --train_type=mixed --train_size=50 --test_type=soft --map=0 --relabel_method=local
+
+Reduce ```RELABEL_CHUNK_SIZE``` to 21 in ``zero_shot_transfer.py`` if run the above Python script slows down your machine too much. It controls how many parallel processes are running at a time.
+
+To run zero-shot transfer on a cluster
+
+    python run_experiments.py --algo=zero_shot_transfer --train_type=mixed --train_size=50 --test_type=soft --map=0 --relabel_method=cluster
+
+
+## Running examples (old instructions from [LPOPL repo](https://bitbucket.org/RToroIcarte/lpopl/src/master/) )
 
 To run LPOPL and our three baselines, move to the *src* folder and execute *run_experiments.py*. This code receives 3 parameters: The RL algorithm to use (which might be "dqn-l", "hrl-e", "hrl-l", or "lpopl"), the tasks to solve (which might be "sequence", "interleaving", "safety"), and the map (which is an integer between -1 and 9). Maps 0 to 4 were randomly generated. Maps 5 to 9 are adversarial maps. Select '--map=-1' to run experiments over the 10 maps with three trials per map. For instance, the following command solves the 10 *sequence tasks* over map 0 using LPOPL:
 
-    python3 run_experiments.py --algo=lpopl --tasks=sequence --map=0
+    python3 run_experiments.py --algo=lpopl --train_type=sequence --map=0
 
 The results will be printed and saved in './tmp'. After running LPOPL over all the maps, you might run *test_util.py* (which also receives the algorithm and task parameters) to compute the average performance across the 10 maps:
 
-    python3 test_utils.py --algo=lpopl --tasks=sequence
+    python3 test_utils.py --algo=lpopl --train_type=sequence
 
 The overall results will be saved in the './results' folder.
 
-To run zero-shot transfer
-
-    python3 run_experiments.py --algo=zero_shot_transfer --tasks=mixed --train_size=50 --test_tasks=soft --map=0 --relabel_method=parallel
 
 ## Visualization
 
@@ -63,5 +72,6 @@ It is also possible to automatically look for adversarial maps for the Hierarchi
     python3 map_generator.py --adversarial --num_adv_maps=5 --num_eval_maps=1000
 
 ## Acknowledgments
+Our implementation is developed on top of the LPOPL [codebase](https://bitbucket.org/RToroIcarte/lpopl/src/master/) 
 
-Our implementation of LPOPL is based on the DQN baseline code provided by [OpenAI](https://github.com/openai/baselines). We encourage you to check out their repository. They are doing really cool RL stuff too :)
+Please let us know if you spot any bug or have any question. We are happy to help!

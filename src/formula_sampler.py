@@ -2,18 +2,12 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 
-NAME2PROPS = {
-    "minecraft": ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 's'),
-    "spot": ('a', 'b', 'c', 'j'),
-    # "spot": ('a', 'b', 'c', 'd', 'j', 'p')
-}
 
-
-def sample_formula(props=NAME2PROPS["minecraft"], orders=True, order_type='mixed'):
+def sample_formula(props, orders=True, order_type='mixed', formula_size=5):
     clauses = []
 
     # sample waypoints to be visited
-    visit_props = sample_waypoints(props)
+    visit_props = sample_waypoints(props, formula_size)  # radnom.choices([str(x) for x in props], k=formula_size)
     clauses.extend([eventually(p) for p in sorted(visit_props)])
 
     # If orders are allowed, create ordering formula clauses
@@ -32,7 +26,10 @@ def sample_formula(props=NAME2PROPS["minecraft"], orders=True, order_type='mixed
 
 
 '''Formula template samplers'''
-def sample_waypoints(props):
+def sample_waypoints(props, formula_size):
+    """
+    Randomly sample 'formula_size' propositions.
+    """
     visit_waypoints = []
     props = list(np.random.permutation(props))
     props = [str(x) for x in props]
@@ -40,12 +37,15 @@ def sample_waypoints(props):
         for p in props:
             if np.random.binomial(1, 0.5):
                 visit_waypoints.append(p)
-    if len(visit_waypoints) > 5:
-        visit_waypoints = visit_waypoints[0:5]  # need to clip the dfa size
+    if len(visit_waypoints) > formula_size:
+        visit_waypoints = visit_waypoints[0: formula_size]  # need to clip the dfa size
     return visit_waypoints
 
 
 def sample_sequences(visit_waypoints):
+    """
+    Randomly generate sequences of propositions.
+    """
     sequences = []
     new_seq = [visit_waypoints[0]]
 
@@ -75,22 +75,27 @@ def seq2clauses(sequences, order_type='mixed'):
                 clauses.append(soft_order(seq))
             elif seq_order == 'soft_strict':
                 clauses.append(soft_order_strict(seq))
-            else:
+            else:  # mixed order
                 orders = seq2orders([seq])
                 clauses.extend(orders2clauses(orders, seq_order))
     return clauses
 
 
 def seq2orders(sequences):
-    # return binary orders from each sequence
+    """
+    Create binary orders of propositions for each proposition sequence.
+    """
     orders = []
     for seq in sequences:
-        for (i, p) in enumerate(seq):
-            orders.extend([[p, p2] for p2 in seq[i+1::]])
+        for idx, prop in enumerate(seq):
+            orders.extend([[prop, prop2] for prop2 in seq[idx+1::]])
     return orders
 
 
 def orders2clauses(orders, order_type='mixed'):
+    """
+    Turn every binary order of propositions into clause with specified 'order_type'.
+    """
     clauses = []
     for order in orders:
         if order_type == 'mixed':
@@ -117,8 +122,10 @@ def order2clause(p1, p2, order_type):
 
 
 def conjunctions(clauses):
-    """ Combines all the clauses separated with 'and's. Note that this codebase only allows for
-    binary conjunctions, and not a list of conjunctions as in the PUnS codebase """
+    """
+    Combines all the clauses separated with 'and's.
+    Note that this codebase only allows for binary conjunctions, not a list of conjunctions as in the PUnS codebase.
+    """
     if len(clauses) == 2:
         return ('and', clauses[0], clauses[1])
     else:
