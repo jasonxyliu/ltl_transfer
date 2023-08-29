@@ -10,11 +10,11 @@
 export PYTHONUNBUFFERED=TRUE
 
 algo="lpopl"
-train_type="mixed"
+train_type="hard"
 train_size=50
-map=1
+map=0
 total_steps=500000
-incremental_steps=150000
+incremental_steps=200000
 save_dpath="$HOME/data/shared/ltl-transfer"
 
 module load anaconda/2022.05

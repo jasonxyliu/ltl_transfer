@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -n 119
 #SBATCH --mem=99G
-#SBATCH -t 5:00:00
-#SBATCH --array=0-3
+#SBATCH -t 199:00:00
+#SBATCH --array=0-15
 
 # Use '%A' for array-job ID, '%J' for job ID and '%a' for task ID
 #SBATCH -e sbatch_out/arrayjob-%A-%a.err
@@ -17,7 +17,9 @@ k=`expr $j % 1`
 l=`expr $j / 1`
 m=`expr $l % 4`
 n=`expr $l / 4`
-o=`expr $n % 1`
+o=`expr $n % 4`
+p=`expr $n / 4`
+q=`expr $p % 1`
 
 algo="zero_shot_transfer"
 
@@ -32,8 +34,11 @@ train_size=${train_sizes[$k]}
 maps=( 0 1 5 6 )  # 0 1 5 6
 map=${maps[$m]}
 
+probs=( 0.9 0.7 0.6 0.5 )  # 1.0 0.9 0.8 0.7 0.6 0.5
+prob=${probs[$o]}
+
 edge_matchers=( "relaxed" )  # "relaxed" "rigid"
-edge_matcher=${edge_matchers[$o]}
+edge_matcher=${edge_matchers[$q]}
 
 run_id=0
 relabel_method="cluster"
@@ -45,5 +50,3 @@ conda activate ltl_transfer
 module load mpi/openmpi_4.1.1_gcc_10.2_slurm22
 
 srun --mpi=pmix python -m mpi4py.futures src/run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --test_type=$test_type --map=$map --run_id=$run_id --relabel_method=$relabel_method --edge_matcher=$edge_matcher --save_dpath=$save_dpath
-# cp -r ../tmp/* ~/data_gdk/shared/ltl-transfer/tmp/
-# cp -r ../results/* ~/data_gdk/shared/ltl-transfer/results/

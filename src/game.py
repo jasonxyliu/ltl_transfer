@@ -8,9 +8,10 @@ class GameParams:
     """
     Auxiliary class with the configuration parameters that the Game class needs
     """
-    def __init__(self, map_fpath, transition_type, ltl_task, consider_night, init_dfa_state, init_loc):
+    def __init__(self, map_fpath, transition_type, prob, ltl_task, consider_night, init_dfa_state, init_loc):
         self.map_fpath = map_fpath
         self.transition_type = transition_type
+        self.prob = prob
         self.ltl_task = ltl_task
         self.consider_night = consider_night
         self.init_dfa_state = init_dfa_state
@@ -21,7 +22,6 @@ class Game:
     def __init__(self, params):
         self.params = params
         self._load_map(params.map_fpath)
-        self.transition_type = params.transition_type
         if params.init_loc:
             self._set_agent_loc(params.init_loc)
         # Adding day and night if need it
@@ -44,12 +44,12 @@ class Game:
         self.hour = (self.hour + 1) % 24
 
         # Getting new position after executing action
-        if self.transition_type == "stochastic":
-            ni, nj = self._get_next_position_stochastic(action)
-        elif self.transition_type == "deterministic":
+        if self.params.transition_type == "stochastic":
+            ni, nj = self._get_next_position_stochastic(action, self.params.prob)
+        elif self.params.transition_type == "deterministic":
             ni, nj = self._get_next_position(action)
         else:
-            raise TypeError(f"[ERROR] Unknown transition function type: {self.transition_type}")
+            raise TypeError(f"[ERROR] Unknown transition function type: {self.params.transition_type}")
 
         # Interacting with the objects that is in the next position
         action_succeeded = self.map_array[ni][nj].interact(agent)
@@ -81,7 +81,7 @@ class Game:
 
         return ni, nj
 
-    def _get_next_position_stochastic(self, action, main_prob=0.8):
+    def _get_next_position_stochastic(self, action, main_prob):
         """
         Returns stochastically the position where the agent would be if we execute action.
         """

@@ -52,7 +52,7 @@ class LearningParameters:
         self.target_network_update_freq = target_network_update_freq
 
 
-def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print):
+def run_experiment(alg_name, map_id, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print):
     # configuration of learning params
     learning_params = LearningParameters()
 
@@ -60,7 +60,7 @@ def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, tr
     testing_params = TestingParameters()
 
     # Setting the experiment
-    tester = Tester(learning_params, testing_params, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, save_dpath)
+    tester = Tester(learning_params, testing_params, map_id, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, save_dpath)
 
     # Setting the curriculum learner
     curriculum = CurriculumLearner(tester.tasks, r_good=r_good, total_steps=total_steps)
@@ -89,27 +89,27 @@ def run_experiment(alg_name, map_id, transition_type, tasks_id, dataset_name, tr
         transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
 
-def run_multiple_experiments(alg, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
+def run_multiple_experiments(alg, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
     num_times = 3
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
     for map_id in range(10):
-        print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-        run_experiment(alg, transition_type, map_id, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
+        print("Running r_good: %0.2f; alg: %s; map_id: %d; transition_type: %s; stochasticity: %0.2f; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, transition_type, prob, train_type, train_size, test_type, edge_matcher))
+        run_experiment(alg, map_id, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
 
 
-def run_single_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
+def run_single_experiment(alg, map_id, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
     num_times = 1  # each algo was run 3 times per map in the paper
     r_good    = 0.5 if tasks_id == 2 else 0.9
     show_print = True
 
-    print("Running r_good: %0.2f; alg: %s; map_id: %d; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, train_type, train_size, test_type, edge_matcher))
-    run_experiment(alg, map_id, transition_type, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
+    print("Running r_good: %0.2f; alg: %s; map_id: %d; transition_type: %s; stochasticity: %0.2f; train_type: %s; train_size: %d; test_type: %s; edge_mather: %s" % (r_good, alg, map_id, transition_type, prob, train_type, train_size, test_type, edge_matcher))
+    run_experiment(alg, map_id, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, num_times, r_good, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath, show_print)
 
 
 if __name__ == "__main__":
-    # EXAMPLE: python run_experiments.py --algo=zero_shot_transfer --train_type=no_orders --train_size=50 --test_type=soft --map=0 --run_id=0 --relabel_method=cluster --transfer_num_times=1
+    # EXAMPLE: python run_experiments.py --algo=zero_shot_transfer --train_type=no_orders --train_size=50 --test_type=soft --map=0 --transition_type=stochastic --prob=0.8 --run_id=0 --relabel_method=cluster --transfer_num_times=1
 
     # Getting params
     algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
@@ -147,6 +147,8 @@ if __name__ == "__main__":
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
     parser.add_argument('--transition_type', default="stochastic", type=str, choices=['stochastic', 'deterministic'],
                         help='whether to use stochastic or deterministic transition.')
+    parser.add_argument('--prob', default=1.0, type=float,
+                        help='transition stochasticity')
     parser.add_argument('--total_steps', default=500000, type=int,
                         help='This parameter indicated the total training steps to learn all tasks')
     parser.add_argument('--incremental_steps', default=150000, type=int,
@@ -175,10 +177,10 @@ if __name__ == "__main__":
     tasks_id = train_types.index(args.train_type)
     map_id = args.map
     if map_id > -1:
-        run_single_experiment(args.algo, map_id, args.transition_type, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
+        run_single_experiment(args.algo, map_id, args.transition_type, args.prob, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
                               args.total_steps, args.incremental_steps, args.run_id,
                               args.relabel_method, args.transfer_num_times, args.edge_matcher, args.save_dpath)
     else:
-        run_multiple_experiments(args.algo, args.transition_type, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
+        run_multiple_experiments(args.algo, args.transition_type, args.prob, tasks_id, args.dataset_name, args.train_type, args.train_size, args.test_type,
                                  args.total_steps, args.incremental_steps, args.run_id,
                                  args.relabel_method, args.transfer_num_times, args.edge_matcher, args.save_dpath)
