@@ -60,6 +60,15 @@ class Tester:
             elif train_type == "safety":
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
+            elif train_type == 'random':
+                self.experiment = "%s/map_%d" % (train_type, map_id)
+                self.experiment_train = "%s/map_%d" % (train_type, map_id)
+                train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, 'hard', test_type, 50)
+                self.tasks = train_tasks[0:train_size]
+                self.transfer_results_dpath = os.path.join("../results_test", "%s_%s_%s" % (train_type, test_type, edge_matcher), "map_%d" % map_id)
+                os.makedirs(self.transfer_results_dpath, exist_ok=True)
+                self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
+                logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
             else:  # transfer tasks
                 if train_type == 'transfer_sequence':
                     self.tasks = tasks.get_sequence_training_tasks()

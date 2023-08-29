@@ -15,7 +15,8 @@ from dataset_creator import read_train_test_formulas
 from zero_shot_transfer import *
 
 RESULT_DPATH = '../results_test'
-rc = {'axes.labelsize': 28, 'axes.titlesize': 32, 'legend.fontsize': 24, 'xtick.labelsize': 24, 'ytick.labelsize': 22}
+RANDOM_RESULT_DPATH = '../random_results'
+rc = {'axes.labelsize': 24, 'axes.titlesize': 32, 'legend.fontsize': 18, 'legend.title_fontsize': 18, 'xtick.labelsize': 20, 'ytick.labelsize': 20}
 
 
 class Record:
@@ -52,22 +53,124 @@ class Record:
         return records
 
     @property
+    def mean_successful_runtimes(self):
+        runtimes = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                if d['run2exitcode'][0] == 0:
+                    runtimes.append(d['precomp_time'])
+        return np.mean(runtimes)
+    
+    @property
     def success(self):
         return [r['success'] for r in self.data]
 
     @property
     def runtimes(self):
         return [r['runtime'] for r in self.data if r['run2exitcode'] != 'timeout']
+    
+    @property
+    def mean_successful_runtimes(self):
+        runtimes = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                if d['run2exitcode'][0] == 0:
+                    runtimes.append(d['runtime'])
+        return np.mean(runtimes)
 
     @property
     def specification_failure_rate(self):
-        num_times = np.max([len(r['run2exitcode']) for r in records])
+        num_times = np.max([len(r['run2exitcode']) for r in self.data])
         total = len(self.data)
         spec_fails = 0
         for r in self.data:
-            if type(r['run2exitcodes']) == dict:
-                inc = len([k for k in r['run2exitcodes'] if r['run2exitcodes'][k] == 'specification_fail'])
+            if type(r['run2exitcode']) == dict:
+                inc = len([k for k in r['run2exitcode'] if r['run2exitcode'][k] == 'specification_fail'])
                 spec_fails += inc
+        return spec_fails/(len(self.data)*num_times)
+    
+    @property
+    def mean_successful_path_length(self):
+        pathlengths = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                for k in d['run2exitcode']:
+                    if d['run2exitcode'][k] == 0:
+                        flat_traj = [l for sublist in d['run2traj'][k] for l in sublist]
+                        pathlengths.append(len(flat_traj))
+        return np.mean(pathlengths)
+
+class RandomRecord:
+
+    def __init__(self, train_type='random', nsteps=500, test_type='hard', edge_matcher='relaxed', map_id=0, n_tasks=100):
+        self.train_type = train_type
+        self.test_type = test_type
+        self.nsteps = nsteps
+        self.edge_matcher = edge_matcher
+        self.map_id = map_id
+        self.n_tasks = n_tasks
+        self.data = self.read_all_records()
+
+    def read_all_records(self):
+        train_type = self.train_type
+        test_type = self.test_type
+        nsteps = self.nsteps
+        map_id = self.map_id
+        n_tasks = self.n_tasks
+        edge_matcher = self.edge_matcher
+        train_tasks, test_tasks = read_train_test_formulas(train_set_type = 'hard', train_size = 50, test_set_type = test_type)
+        train_tasks = train_tasks[0:50]
+
+        records = []
+        result_dpath = os.path.join(RANDOM_RESULT_DPATH, f'{nsteps}_steps', f'random_{self.test_type}_relaxed', f'map_{map_id}')
+        filenames = [os.path.join(result_dpath, f'test_ltl_{i}.pkl') for i in range(n_tasks)]
+
+        for i, f in enumerate(filenames):
+            if os.path.exists(f):
+                with open(f, 'rb') as file:
+                    records.append(dill.load(file))
+            else:
+                records.append({'transfer_task': test_tasks[i], 'success': 0.0, 'run2sol': defaultdict(list), 'run2traj': {}, 'run2exitcode': 'timeout', 'runtime': 0})
+        return records
+
+    @property
+    def success(self):
+        return [r['success'] for r in self.data]
+
+    @property
+    def runtimes(self):
+        return [r['runtime'] for r in self.data if r['run2exitcode'] != 'timeout']
+    
+    @property
+    def mean_successful_runtimes(self):
+        runtimes = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                if d['run2exitcode'][0] == 0:
+                    runtimes.append(d['runtime'])
+        return np.mean(runtimes)
+
+    @property
+    def specification_failure_rate(self):
+        num_times = np.max([len(r['run2exitcode']) for r in self.data])
+        total = len(self.data)
+        spec_fails = 0
+        for r in self.data:
+            if type(r['run2exitcode']) == dict:
+                inc = len([k for k in r['run2exitcode'] if r['run2exitcode'][k] == 'specification_fail'])
+                spec_fails += inc
+        return spec_fails/(len(self.data)*num_times)
+    
+    @property
+    def mean_successful_path_length(self):
+        pathlengths = []
+        for d in self.data:
+            if type(d['run2exitcode']) == dict:
+                for k in d['run2exitcode']:
+                    if d['run2exitcode'][k] == 0:
+                        #flat_traj = [l for sublist in d['run2traj'][k] for l in sublist]
+                        pathlengths.append(len(d['run2traj'][k]))
+        return np.mean(pathlengths)
 
 
 def get_results(train_type='hard', edge_matcher='relaxed', test_types=None, map_ids=[0], train_sizes=[50]):
@@ -101,12 +204,14 @@ def get_results(train_types, test_types, train_sizes, map_ids):
         for test_type in test_types:
             for train_size in train_sizes:
                 for map_id in map_ids:
-                    record = Record(train_type, train_size, test_type, 'rigid')
+                    record = Record(train_type, train_size, test_type, 'rigid', map_id=map_id)
                     results[(train_type, train_size, test_type, 'rigid', map_id)] = record
-                    record = Record(train_type, train_size, test_type, 'relaxed')
+                    record = Record(train_type, train_size, test_type, 'relaxed', map_id=map_id)
                     results[(train_type, train_size, test_type, 'relaxed', map_id)] = record
     return results
 
+def get_random_results(test_types, nsteps = [500, 1000]):
+    a=1
 
 type_names = {'hard': 'Hard',
               'soft': 'Soft',
@@ -205,7 +310,7 @@ def plot_fig3A():
     train_types = ['mixed']
     test_types = ['hard', 'soft', 'soft_strict', 'no_orders', 'mixed']
     train_sizes = [5, 10, 15, 20, 30, 40, 50]
-    map_ids = [0]
+    map_ids = [0,1,5,6]
     CI = 0.95
     data = create_data_table(get_results(train_types, test_types, train_sizes, map_ids))
     
@@ -231,7 +336,7 @@ def plot_fig3A():
         # sns.lineplot(data=data, x='Size', y='Success Rate', hue='Transfer Method', style='Transfer Method', dashes=False, markers=True, hue_order=matchers)
         
         # Create the line plots
-        sns.lineplot(data=data, x='Size', y='Success Rate', hue='Test Set', style='Test Set', dashes=False, markers=True, hue_order=test_types)
+        sns.lineplot(data=data, x='Size', y='Success Rate', hue='Test Set', style='Test Set', dashes=False, markers=True, hue_order=test_types, ci=None)
         
         # Create the error bars
         for m in test_types:
@@ -250,7 +355,7 @@ def plot_fig3A():
         plt.xlim(0, 55)
         plt.xlabel('Training Set Size')
         plt.legend(loc='upper right')
-        plt.savefig('figures/fig_3a.png', dpi=400, bbox_inches='tight')
+        plt.savefig('figures/fig_3a.jpg', dpi=400, bbox_inches='tight')
 
 
 def plot_fig3B():
@@ -258,7 +363,7 @@ def plot_fig3B():
     train_types = ['mixed']
     test_types = ['hard', 'soft', 'soft_strict', 'no_orders', 'mixed']
     train_sizes = [5, 10, 15, 20, 30, 40, 50]
-    map_ids = [0]
+    map_ids = [0,]
     CI = 0.95
     data = create_data_table(get_results(train_types, test_types, train_sizes, map_ids))
     
@@ -303,7 +408,7 @@ def plot_fig3B():
         plt.xlim(0, 55)
         plt.xlabel('Training Set Size')
         plt.legend(loc='lower right')
-        plt.savefig('figures/fig_3b.png', dpi=400, bbox_inches='tight')
+        plt.savefig('figures/fig_3b.jpg', dpi=400, bbox_inches='tight')
 
 
 def fig_4A():

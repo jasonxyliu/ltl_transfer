@@ -3,6 +3,7 @@ import baseline_dqn
 import baseline_hrl
 import lpopl
 import transfer
+import random_transfer
 from test_utils import TestingParameters, Tester, Saver
 from curriculum import CurriculumLearner
 
@@ -88,6 +89,10 @@ def run_experiment(alg_name, map_id, transition_type, prob, tasks_id, dataset_na
     if alg_name == "zero_shot_transfer":
         transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
+    # Random actions baseline
+    if alg_name == "random_transfer":
+        random_transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
+
 
 def run_multiple_experiments(alg, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, total_steps, incremental_steps, run_id, relabel_method, transfer_num_times, edge_matcher, save_dpath):
     num_times = 3
@@ -112,7 +117,7 @@ if __name__ == "__main__":
     # EXAMPLE: python run_experiments.py --algo=zero_shot_transfer --train_type=no_orders --train_size=50 --test_type=soft --map=0 --transition_type=stochastic --prob=0.8 --run_id=0 --relabel_method=cluster --transfer_num_times=1
 
     # Getting params
-    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer"]
+    algos = ["dqn-l", "hrl-e", "hrl-l", "lpopl", "zero_shot_transfer", "random_transfer"]
     train_types = [
         "sequence",
         "interleaving",
