@@ -1,1 +1,0 @@
-{"num_successes": 9903, "num_incompletes": 97, "num_spec_fails": 0, "frames": 62015.0, "num_frames_mean": 6.2015, "num_frames_std": 8.379063059197012, "num_frames_min": 1.0, "num_frames_max": 76.0, "average_discounted_return": 0.6491649215773343, "return_mean": 0.9903, "return_std": 0.0980097444135021, "return_min": 0.0, "return_max": 1.0}
