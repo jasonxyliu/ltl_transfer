@@ -23,7 +23,7 @@ train_type=${train_types[$i]}
 maps=( 0 1 5 6 )
 map=${maps[$k]}
 
-probs=( 0.9 0.7 0.6 0.5 )
+probs=( 0.9 0.8 0.7 0.6 0.5 )
 prob=${probs[$m]}
 
 algo="lpopl"

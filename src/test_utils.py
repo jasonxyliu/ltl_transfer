@@ -35,13 +35,13 @@ def _get_optimal_values(file, experiment):
 
 
 class Tester:
-    def __init__(self, learning_params, testing_params, map_id, transition_type, prob, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, save_dpath, file_results=None):
+    def __init__(self, learning_params, testing_params, map_id, prob, tasks_id, dataset_name, train_type, train_size, test_type, edge_matcher, save_dpath, file_results=None):
         if file_results is None:
             # setting the test attributes
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.map_id = map_id
-            self.transition_type = transition_type
+            self.transition_type = "stochastic" if prob == 1.0 else "deterministic"
             self.prob = prob
             self.tasks_id = tasks_id
             self.dataset_name = dataset_name
@@ -122,7 +122,7 @@ class Tester:
         return self.transfer_tasks
 
     def get_task_params(self, ltl_task, init_dfa_state=None, init_loc=None):
-        return GameParams(self.map, self.transition_type, self.prob, ltl_task, self.consider_night, init_dfa_state, init_loc)
+        return GameParams(self.map, self.prob, ltl_task, self.consider_night, init_dfa_state, init_loc)
 
     def run_test(self, step, sess, test_function, *test_args):
         # 'test_function' parameters should be (sess, task_params, learning_params, testing_params, *test_args)
@@ -319,7 +319,8 @@ def transfer_metrics(train_type, train_size, test_type, map_id, prob, num_times,
         wfile.write(f"number of unique test tasks in test type {test_type}: {num_tasks}")
 
 
-def export_results(algorithm, task_type, transition_type, prob, save_dpath):
+def export_results(algorithm, task_type, prob, save_dpath):
+    transition_type = "stochastic" if prob == 1.0 else "deterministic"
     for map_type, maps in [("random", range(0, 5)), ("adversarial", range(5, 10))]:
         # Computing the summary of the results
         normalized_rewards = None
@@ -411,8 +412,6 @@ if __name__ == "__main__":
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
-    parser.add_argument('--transition_type', default="stochastic", type=str, choices=['stochastic', 'deterministic'],
-                        help='whether to use stochastic or deterministic transition.')
     parser.add_argument('--prob', default=1.0, type=float,
                         help='transition stochasticity')
     parser.add_argument('--transfer_num_times', default=1, type=int,
@@ -429,5 +428,5 @@ if __name__ == "__main__":
         "Test tasks " + str(args.test_type) + " hasn't been defined yet")
     if not (-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
 
-    # export_results(args.algo, args.train_type, args.transition_type, args.save_dpath)
+    # export_results(args.algo, args.train_type, self.prob, args.save_dpath)
     transfer_metrics(args.train_type, args.train_size, args.test_type, args.map, args.prob, args.transfer_num_times, args.edge_matcher, args.save_dpath)
