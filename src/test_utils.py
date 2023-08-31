@@ -41,7 +41,7 @@ class Tester:
             self.learning_params = learning_params
             self.testing_params = testing_params
             self.map_id = map_id
-            self.transition_type = "stochastic" if prob == 1.0 else "deterministic"
+            self.transition_type = "deterministic" if prob == 1.0 else "stochastic"
             self.prob = prob
             self.tasks_id = tasks_id
             self.dataset_name = dataset_name
@@ -61,11 +61,11 @@ class Tester:
                 self.tasks = tasks.get_safety_constraints()
                 self.consider_night = True
             elif train_type == 'random':
-                self.experiment = "%s/map_%d" % (train_type, map_id)
-                self.experiment_train = "%s/map_%d" % (train_type, map_id)
+                self.experiment = f"{train_type}/map_{map_id}"
+                self.experiment_train = f"{train_type}/map_{map_id}"
                 train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, 'hard', test_type, 50)
-                self.tasks = train_tasks[0:train_size]
-                self.transfer_results_dpath = os.path.join("../results_test", "%s_%s_%s" % (train_type, test_type, edge_matcher), "map_%d" % map_id)
+                self.tasks = train_tasks[0: train_size]
+                self.transfer_results_dpath = os.path.join("..", "results_test", f"{train_type}_{test_type}_{edge_matcher}", f"map_{map_id}")
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
                 logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
@@ -183,7 +183,7 @@ class Saver:
         self.alg_name = alg_name
         self.tester = tester
 
-        self.exp_dir = os.path.join(tester.save_dpath, "options", tester.transition_type,  tester.experiment_train)
+        self.exp_dir = os.path.join(tester.save_dpath, "options", tester.transition_type, tester.experiment_train)
         os.makedirs(self.exp_dir, exist_ok=True)
 
         self.train_dpath = os.path.join(self.exp_dir, "train_data")
