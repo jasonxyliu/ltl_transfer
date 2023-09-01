@@ -142,6 +142,8 @@ if __name__ == "__main__":
                         help="This parameter indicated the ID of map to run rollouts")
     parser.add_argument('--transition_type', default="stochastic", type=str, choices=['stochastic', 'deterministic'],
                         help='whether to use stochastic or deterministic transition.')
+    parser.add_argument('--prob', default=1.0, type=float,
+                        help='probability of intended action succeeding')
     parser.add_argument("--run_id", default=0, type=int,
                         help="This parameter indicated the ID of the training run when models are saved")
     parser.add_argument("--ltl_id", default=9, type=int,
@@ -160,6 +162,7 @@ if __name__ == "__main__":
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.train_type not in id2tasks.values(): raise NotImplementedError("Tasks " + str(args.train_type) + " hasn't been defined yet")
     if not (-1 <= args.map_id < 21): raise NotImplementedError("The map must be a number between -1 and 9")
+    transition_type = "deterministic" if args.prob == 1.0 else "stochastic"
 
-    classifier_dpath = os.path.join(args.save_dpath, "options", args.transition_type, args.dataset_name, f"{args.train_type}_{args.train_size}", f"map_{args.map_id}", "classifier")
+    classifier_dpath = os.path.join(args.save_dpath, "options", transition_type, args.dataset_name, f"{args.train_type}_{args.train_size}", f"map_{args.map_id}", f"prob_{args.prob}", "classifier")
     single_worker_rollouts(args.algo, classifier_dpath, args.run_id, args.ltl_id, args.state_id, args.n_rollouts, args.max_depth)
