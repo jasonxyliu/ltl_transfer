@@ -105,6 +105,8 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     if os.path.exists(os.path.join(saver.classifier_dpath, "completed_ltls.pkl")):
         old_list = load_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"))
         completed_ltls.extend(old_list)
+    nltls_to_complete = len(id2ltls) - len(completed_ltls)
+    print(f"Total LTLs: {len(id2ltls)}. Completed LTLs: {len(completed_ltls)}")
 
     for idx, ltl in enumerate(policy_bank.get_LTL_policies()):
         ltl_id = policy_bank.get_id(ltl)
@@ -112,7 +114,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
             continue  # Check if this formula was already compiled. If so continue to next formula
 
         start_time_ltl = time.time()
-        print("index %s. Starting LTL: %s, %s" % (idx, ltl_id, ltl))
+        print(f"Index {idx}/{nltls_to_complete}. Starting LTL: {ltl_id}, {ltl}")
 
         for chunk_id, locs in enumerate(loc_chunks):
             args = []
