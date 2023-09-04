@@ -12,33 +12,40 @@ from formula_sampler import sample_formula
 
 ENV2PROPS = {
     "minecraft": ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 's'),
-    "spot": ('a', 'b', 'c', 'd', 'j', 'p')
+    "spot": ('a', 'b', 'c', 'd', 'k', 's')
+    # "spot": ('a', 'b', 'c', 'd', 'j', 'p')
 }
 SET_TYPES = ('hard', 'soft', 'soft_strict', 'no_orders', 'mixed')
 TRAIN_SIZES = (10, 20, 30, 40, 50)
 TEST_SIZE = 100
 
 
-def create_datasets(save_dpath, env_name, props, set_types=SET_TYPES, duplicate_ok=True, train_sizes=TRAIN_SIZES, test_size=TEST_SIZE):
+def create_datasets(save_dpath, env_name, props, set_types, duplicate_ok=False, train_sizes=None, test_size=None):
     dataset_dpath = os.path.join(save_dpath, "experiments", "datasets", env_name)
-    train_set_dpath = os.path.join(dataset_dpath, 'training')
-    os.makedirs(train_set_dpath, exist_ok=True)
-    test_set_dpath = os.path.join(dataset_dpath, 'test')
-    os.makedirs(test_set_dpath, exist_ok=True)
 
-    for typ in set_types:
-        create_dataset(props, train_set_dpath, 'train', typ, duplicate_ok, train_sizes)
-        create_dataset(props, test_set_dpath, 'test', typ, duplicate_ok, [test_size])
+    if train_sizes:
+        train_set_dpath = os.path.join(dataset_dpath, 'training')
+        os.makedirs(train_set_dpath, exist_ok=True)
+
+        for typ in set_types:
+            create_dataset(props, train_set_dpath, 'train', typ, duplicate_ok, train_sizes)
+
+    if test_size:
+        test_set_dpath = os.path.join(dataset_dpath, 'test')
+        os.makedirs(test_set_dpath, exist_ok=True)
+
+        for typ in set_types:
+            create_dataset(props, test_set_dpath, 'test', typ, duplicate_ok, [test_size])
 
 
-def create_dataset(props, save_dpath, set_name='train', set_type='mixed', duplicate_ok=True, sizes=TRAIN_SIZES):
-    n_formulas = np.max(sizes)
+def create_dataset(props, save_dpath, set_name, set_type, duplicate_ok, set_sizes):
+    n_formulas = np.max(set_sizes)
     if duplicate_ok:
         formulas = sample_dataset_formulas(props=props, set_type=set_type, n=n_formulas)
     else:
         formulas = sample_dataset_unique_formulas(props=props, set_type=set_type, n=n_formulas)
 
-    for size in sizes:
+    for size in set_sizes:
         filename = f'{set_name}_{set_type}_{size}.pkl'
         with open(os.path.join(save_dpath, filename), 'wb') as file:
             dill.dump(formulas[0: size], file)
@@ -138,4 +145,5 @@ def spot_test():
 
 if __name__ == '__main__':
     env_name = "spot"
-    create_datasets(save_dpath="..", env_name=env_name, props=ENV2PROPS[env_name], set_types=["soft_strict"], duplicate_ok=False)
+    create_datasets(save_dpath=os.path.join(os.path.expanduser('~'), "data", "shared", "ltl-transfer"), env_name=env_name, props=ENV2PROPS[env_name],
+                    set_types=["mixed"], duplicate_ok=False, train_sizes=[50])

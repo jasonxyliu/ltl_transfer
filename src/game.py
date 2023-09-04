@@ -8,9 +8,9 @@ class GameParams:
     """
     Auxiliary class with the configuration parameters that the Game class needs
     """
-    def __init__(self, map_fpath, transition_type, ltl_task, consider_night, init_dfa_state, init_loc):
+    def __init__(self, map_fpath, prob, ltl_task, consider_night, init_dfa_state, init_loc):
         self.map_fpath = map_fpath
-        self.transition_type = transition_type
+        self.prob = prob
         self.ltl_task = ltl_task
         self.consider_night = consider_night
         self.init_dfa_state = init_dfa_state
@@ -21,7 +21,6 @@ class Game:
     def __init__(self, params):
         self.params = params
         self._load_map(params.map_fpath)
-        self.transition_type = params.transition_type
         if params.init_loc:
             self._set_agent_loc(params.init_loc)
         # Adding day and night if need it
@@ -44,12 +43,7 @@ class Game:
         self.hour = (self.hour + 1) % 24
 
         # Getting new position after executing action
-        if self.transition_type == "stochastic":
-            ni, nj = self._get_next_position_stochastic(action)
-        elif self.transition_type == "deterministic":
-            ni, nj = self._get_next_position(action)
-        else:
-            raise TypeError(f"[ERROR] Unknown transition function type: {self.transition_type}")
+        ni, nj = self._get_next_position(action, self.params.prob)
 
         # Interacting with the objects that is in the next position
         action_succeeded = self.map_array[ni][nj].interact(agent)
@@ -66,35 +60,22 @@ class Game:
         # we continue playing
         return reward
 
-    def _get_next_position(self, action):
+    def _get_next_position(self, action, main_prob):
         """
-        Returns deterministically the position where the agent would be if we execute action
-        """
-        agent = self.agent
-        ni, nj = agent.i, agent.j
-
-        # OBS: Invalid actions behave as NO-OP
-        if action == Actions.up   : ni-=1
-        if action == Actions.down : ni+=1
-        if action == Actions.left : nj-=1
-        if action == Actions.right: nj+=1
-
-        return ni, nj
-
-    def _get_next_position_stochastic(self, action, main_prob=0.8):
-        """
-        Returns stochastically the position where the agent would be if we execute action.
+        Returns deterministically or stochastically the position where the agent would be if we execute action.
         """
         agent = self.agent
         ni, nj = agent.i, agent.j
-        side_prob = (1 - main_prob) / 3
 
-        if action == Actions.up: probs = [main_prob, side_prob, side_prob, side_prob]
-        if action == Actions.down: probs = [side_prob, main_prob, side_prob, side_prob]
-        if action == Actions.left: probs = [side_prob, side_prob, main_prob, side_prob]
-        if action == Actions.right: probs = [side_prob, side_prob, side_prob, main_prob]
-
-        stochastic_action = np.random.choice([Actions.up, Actions.down, Actions.left, Actions.right], p=probs)
+        if main_prob == 1.0:  # deterministic transition
+            stochastic_action = action
+        else:  # stochastic transition
+            side_prob = (1 - main_prob) / 3
+            if action == Actions.up: probs = [main_prob, side_prob, side_prob, side_prob]
+            if action == Actions.down: probs = [side_prob, main_prob, side_prob, side_prob]
+            if action == Actions.left: probs = [side_prob, side_prob, main_prob, side_prob]
+            if action == Actions.right: probs = [side_prob, side_prob, side_prob, main_prob]
+            stochastic_action = np.random.choice([Actions.up, Actions.down, Actions.left, Actions.right], p=probs)
 
         # OBS: Invalid actions behave as NO-OP
         if stochastic_action == Actions.up: ni -= 1
