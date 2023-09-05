@@ -135,7 +135,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
                         print("Command failed: ", retval, arg)
                         retval = run_single_worker_cluster(*arg)
                 print("relabel chunk %s took: %0.2f mins, with %d states" % (chunk_id, (time.time() - start_time_chunk) / 60, args_len))
-        print("Completed LTL %s took: %0.2f mins" % (ltl_id, (time.time() - start_time_ltl) / 60))
+        print("Completed LTL %s took: %0.2f mins\n" % (ltl_id, (time.time() - start_time_ltl) / 60))
         completed_ltls.append(ltl_id)
         save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), completed_ltls)
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
