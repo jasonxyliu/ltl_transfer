@@ -89,7 +89,7 @@ def run_experiment(alg_name, map_id, prob, tasks_id, dataset_name, train_type, t
     if alg_name == "zero_shot_transfer":
         transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
-    # Random actions baseline
+    # Random policy baseline
     if alg_name == "random_transfer":
         random_transfer.run_experiments(tester, curriculum, saver, run_id, relabel_method, transfer_num_times)
 
