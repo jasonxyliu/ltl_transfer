@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -n 32
+#SBATCH -n 19
 #SBATCH --mem=99G
 #SBATCH -t 199:00:00
 #SBATCH --array=0-3
@@ -36,4 +36,4 @@ module load anaconda/2022.05
 source /oscar/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
 conda activate ltl_transfer
 
-python src/run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --map=$map --prob=$prob --total_steps=$total_steps ---incremental_steps=$incremental_steps -save_dpath=$save_dpath
+python src/run_experiments.py --algo=$algo --train_type=$train_type --train_size=$train_size --map=$map --prob=$prob --total_steps=$total_steps --incremental_steps=$incremental_steps --save_dpath=$save_dpath
