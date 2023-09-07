@@ -57,7 +57,7 @@ class Empty(Entity):
         return self.label
 
 
-class Actions(Enum):
+class Action(Enum):
     """
     Enum with the actions that the agent can execute
     """
