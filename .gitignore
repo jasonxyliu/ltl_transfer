@@ -5,6 +5,7 @@ src/sbatch_out/
 src/__pycache__
 src/*.pyc
 bash_scripts/run_relabel_singlejob_*
+bash_scripts/run_lpopl_singlejob_*
 .idea/
 *.out
 *.err
