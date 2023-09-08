@@ -108,7 +108,8 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
     nltls_to_complete = len(id2ltls) - len(completed_ltls)
     print(f"Total LTLs: {len(id2ltls)}. Completed LTLs: {len(completed_ltls)}")
 
-    for idx, ltl in enumerate(policy_bank.get_LTL_policies()):
+    idx = 0
+    for ltl in policy_bank.get_LTL_policies():
         ltl_id = policy_bank.get_id(ltl)
         if ltl_id in completed_ltls:
             continue  # Check if this formula was already compiled. If so continue to next formula
@@ -139,6 +140,7 @@ def relabel_cluster(tester, saver, curriculum, run_id, policy_bank, n_rollouts=1
         completed_ltls.append(ltl_id)
         save_pkl(os.path.join(saver.classifier_dpath, "completed_ltls.pkl"), completed_ltls)
         save_json(os.path.join(saver.classifier_dpath, "completed_ltls.json"), completed_ltls)
+        idx += 1
     aggregate_rollout_results(task_aux, saver, policy_bank, n_rollouts)
 
 
