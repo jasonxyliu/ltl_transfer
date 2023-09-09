@@ -20,6 +20,7 @@ class GameParams:
 class Game:
     def __init__(self, params):
         self.params = params
+        self.prob = params.prob
         self._load_map(params.map_fpath)
         if params.init_loc:
             self._set_agent_loc(params.init_loc)
@@ -43,7 +44,7 @@ class Game:
         self.hour = (self.hour + 1) % 24
 
         # Getting new position after executing action
-        ni, nj = self._get_next_position(action, self.params.prob)
+        ni, nj = self._get_next_position(action)
 
         # Interacting with the objects that is in the next position
         action_succeeded = self.map_array[ni][nj].interact(agent)
@@ -60,12 +61,13 @@ class Game:
         # we continue playing
         return reward
 
-    def _get_next_position(self, action, main_prob):
+    def _get_next_position(self, action):
         """
         Returns deterministically or stochastically the position where the agent would be if we execute action.
         """
         agent = self.agent
         ni, nj = agent.i, agent.j
+        main_prob = self.prob
 
         if main_prob == 1.0:  # deterministic transition
             stochastic_action = action
