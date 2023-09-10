@@ -218,16 +218,60 @@ def _get_formula(truth_assignments, propositions):
 
 
 if __name__ == "__main__":
-    # test if output DFA has self-edge (0, 0)
+    # Test if output DFA has self-edge (0, 0)
     # DFA state and progressed state should be equal if LTLs are simplified, but complete simplify_logic not implemented
     # ltl_formula = ('and', ('until','True', 'a'), ('and', ('until', 'True', 'b'), ('and', ('until', 'True', 'c'), ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', 'c'))))))))
-    ltl_formula = ('and', ('until', 'True', 'a'), ('and', ('until', 'True', 'c'), ('and', ('until', 'True', 'd'), ('and', ('until', 'True', 's'), ('until', 'True', ('and', 'c', ('until', 'True', 's')))))))
+    # ltl_formula = ('and', ('until', 'True', 'a'), ('and', ('until', 'True', 'c'), ('and', ('until', 'True', 'd'), ('and', ('until', 'True', 's'), ('until', 'True', ('and', 'c', ('until', 'True', 's')))))))
     # ltl_formula = ('and', ('until', 'True', 's'), ('until', 'True', ('and', 'c', ('until', 'True', 's'))))
 
-    initial_state, accepting_states, ltl2state, edges = get_dfa(ltl_formula)
-    print(initial_state)
-    print(accepting_states)
-    for ltl, state in ltl2state.items():
-        print(state, ltl)
-    for edge in edges:
-        print(edge)
+    # initial_state, accepting_states, ltl2state, edges = get_dfa(ltl_formula)
+    # print(initial_state)
+    # print(accepting_states)
+    # for ltl, state in ltl2state.items():
+    #     print(state, ltl)
+    # for edge in edges:
+    #     print(edge)
+
+    # Test manually defined test tasks for Spot demos
+    test_tasks = [
+        ('and', ('until', 'True', 'a'), ('until', 'True', 'b')),  # Fa & Fb
+        ('and', ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')), ('until', 'True', 'd')),  # Fa & Fb & Fc & Fd
+        ('until', 'True', 'a'),  # Fa
+        ('and', ('until', 'True', 'b'), ('until', 'True', 'a')),  # Fb & Fa
+        ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')),  # Fa & Fb & Fc
+
+        ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(a & F(b & F(c & Fd))))
+        ('until', 'True', ('and', 's', ('until', 'True', 'a'))),  # F(s & Fa): fetch and deliver
+        ('until', 'True', ('and', 'a', ('until', 'True', 'b'))),  # F(a & Fb)
+        ('until', 'True', ('and', 'b', ('until', 'True', 'a'))),  # F(b & Fa)
+        ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', 'c'))))),  # F(a & F(b & Fc))
+        ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(b & F(a & F(c & Fd))))
+        ('until', 'True', ('and', 'k', ('until', 'True', 'b'))),  # F(k & Fb): fetch and deliver
+
+        ('until', 'True', ('and', 'a', ('next', ('until', 'True', 'b')))),  # F(a & XFb)
+        ('until', 'True', ('and', 's', ('next', ('until', 'True', 'a')))),  # F(s & XFa): fetch and deliver
+        ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'a')))),  # F(b & XFa)
+        ('until', 'True', ('and', 'a', ('next', ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'c'))))))),  # F(a & XF(b & XFc))
+        ('until', 'True', ('and', 'k', ('next', ('until', 'True', 'b')))),  # F(k & XFb): fetch and deliver
+
+        ('and', ('and', ('until', ('not', 'b'), 'a'), ('until', ('not', 'c'), 'b')), ('until', 'True', 'c')),  # !b U a & !c U b & Fc
+        ('and', ('until', ('not', 'a'), 's'), ('until', 'True', 'a')),  # !a U s & Fa: fetch and deliver
+        ('and', ('until', ('not', 'b'), 'a'), ('until', 'True', 'b')),  # !b U a & Fb
+        ('and', ('until', ('not', 'a'), 'b'), ('until', 'True', 'a')),  # !a U b & Fa
+        ('and', ('until', ('not', 'b'), 'k'), ('until', 'True', 'b')),  # !b U k & Fb: fetch and deliver
+
+        ('and', ('until', 'True', 'a'), ('until', 'True', ('and', 'b', ('until', 'True', 'c')))),  # Fa & F(b & Fc)
+        ('and', ('until', 'True', 'a'), ('and', ('until', ('not', 'c'), 'b'), ('until', 'True', 'c'))),  # Fa & !c U b & Fc
+        ('and', ('until', 'True', 'a'), ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'c'))))),  # Fa & F(b & XFc)
+    ]
+
+    for ltl_formula in test_tasks:
+        initial_state, accepting_states, ltl2state, edges = get_dfa(ltl_formula)
+        print(initial_state)
+        print(accepting_states)
+        for ltl, state in ltl2state.items():
+            print(state, ltl)
+        for edge in edges:
+            print(edge)
+
+        # breakpoint()
