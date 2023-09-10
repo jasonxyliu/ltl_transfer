@@ -3,8 +3,8 @@ import os
 import argparse
 import time
 import math
-import cv2
 import numpy as np
+import cv2
 import tensorflow as tf
 
 import bosdyn.client
@@ -24,20 +24,20 @@ from bosdyn.api.spot import robot_command_pb2 as spot_command_pd2
 from bosdyn.util import seconds_to_duration
 
 from network_compute_server import TensorFlowObjectDetectionModel
-from game_objects import Actions
+from game_objects import Action
 from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE, PICK_PROPS, PICK_PROPS_INV, PLACE_PROPS, PLACE_PROPS_INV
 
 
 MODEL2PATHS = {
-    "book_pr": ("multiobj/exported_models/model_book_pr_hand_gray/saved_model",
-                "multiobj/annotations/label_map.pbtxt"),
-    "juice": ("multiobj/exported_models/juice_orange_hand_color/saved_model",
-              "multiobj/annotations_juice_hand_color/label_map.pbtxt")
+    "book_pr": ("fetch/multiobj/book/exported-models/book-model/saved_model",
+                "fetch/multiobj/book/annotations/label_map.pbtxt"),
+    # "juice": ("fetch/multiobj/juice/exported-models/juice-model/saved_model",
+    #           "fetch/multiobj/juice/annotations/label_map.pbtxt")
 }
 
 COORD2MODE = {
-    (6, 1): "book_pr",
-    (3, 10): "juice"
+    (11, 2): "book_pr",
+    (7, 9): "juice"
 }
 
 
@@ -47,7 +47,7 @@ def navigate(robot, config, robot_command_client, cur_loc, action, goal_prop):
 
     # Walk through a sequence of coordinates
     pose = action2pose(cur_loc, action, goal_prop)
-    print(f"adding pose to command: {pose}")
+    # print(f"adding pose to command: {pose}")
     point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
     loc_vision, rot_vision = COORD2LOC[pose[:2]], CODE2ROT[pose[2]]  # pose relative to vision frame
     point.pose.position.x, point.pose.position.y = loc_vision  # only x, y
@@ -63,7 +63,7 @@ def navigate(robot, config, robot_command_client, cur_loc, action, goal_prop):
     # command.synchronized_command.mobility_command.params.CopyFrom(RobotCommandBuilder._to_any(mobility_command))
 
     # Send the command using command client
-    robot.logger.info("Send body trajectory command.")
+    robot.logger.info(f"Send body trajectory command: {pose}.")
     robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
     time.sleep(config.time_per_move + 2)
 
@@ -73,21 +73,21 @@ def navigate(robot, config, robot_command_client, cur_loc, action, goal_prop):
 def action2pose(cur_loc, action, goal_prop):
     next_x, next_y = cur_loc
 
-    if action == Actions.up:
+    if action == Action.up:
         next_x -= 1
         rot_code = 0
-    if action == Actions.down:
+    if action == Action.down:
         next_x += 1
         rot_code = 2
-    if action == Actions.left:
+    if action == Action.left:
         next_y -= 1
         rot_code = 3
-    if action == Actions.right:
+    if action == Action.right:
         next_y += 1
         rot_code = 1
 
     if goal_prop == 'a' and (next_x, next_y) == PLACE_PROPS['a']:  # always facing desk_a if it is the destination
-        rot_code = 1
+        rot_code = 2
 
     if (next_x, next_y) == (1, 4):  # always facing desk_b if it is the destination
         rot_code = 1
@@ -139,16 +139,16 @@ def plan_trajectory(cur_loc, actions):
     traj = []
 
     for action in actions:
-        if action == Actions.up:
+        if action == Action.up:
             next_x -= 1
             rot_code = 0
-        if action == Actions.down:
+        if action == Action.down:
             next_x += 1
             rot_code = 2
-        if action == Actions.left:
+        if action == Action.left:
             next_y -= 1
             rot_code = 3
-        if action == Actions.right:
+        if action == Action.right:
             next_y += 1
             rot_code = 1
 
@@ -166,19 +166,10 @@ def plan_trajectory(cur_loc, actions):
     return traj, (next_x, next_y)
 
 
-def move_base(config):
+def move_base(robot, config):
     """
     Move robot base to a give pose in space
     """
-    # Initialize robot
-    sdk = create_standard_sdk("move_robot_base")
-    robot = sdk.create_robot(config.hostname)
-
-    robot.authenticate(username=config.username, password=config.password)
-    robot.time_sync.wait_for_sync()
-    assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
-                                    "such as the estop SDK example, to configure E-Stop."
-
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
 
@@ -209,9 +200,8 @@ def move_base(config):
 
         # Initialize a robot command message, which we will build out below
         command = robot_command_pb2.RobotCommand()
-
         # Walk to origin
-        poses = [(3, 3, 0)]
+        poses = [(10, 2, 2)]  # (8, 1, 0)
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
@@ -227,25 +217,24 @@ def move_base(config):
         time_full = config.time_per_move * len(poses)
         robot.logger.info("Send body trajectory command.")
         robot_command_client.robot_command(command, end_time_secs=time.time() + time_full)
-        time.sleep(time_full + 1)
+        time.sleep(time_full + 2)
 
+        # Move sequence
         cur_loc = poses[0][:2]
         actions = [
-            Actions.down, Actions.left, Actions.down, Actions.left, Actions.down,
-            Actions.up, Actions.right, Actions.right,
-            Actions.up, Actions.up, Actions.right, Actions.right, Actions.right, Actions.right, Actions.right, Actions.right, Actions.right,
-            Actions.left, Actions.left, Actions.left, Actions.left, Actions.left, Actions.left, Actions.left, Actions.down, Actions.down,
+            Action.down,
+            # Action.right, Action.down, Action.down, Action.down,  # book shelf
+            # Action.left, Action.down, Action.down,  # brown desk
+            # Action.up, Action.right, Action.right, Action.right, Action.right, Action.right, Action.right, Action.right, Action.right,  # kitchen counter
         ]
-        goal_prop = PLACE_PROPS_INV[plan_trajectory(cur_loc, actions)[1]]
-        for action in actions:
-            cur_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
-            cur_loc = cur_pose[:2]
+
+        spot_execute_actions(config, robot, cur_loc, actions, robot_state_client, robot_command_client)
 
         if config.dock_after_use:
             # Initialize a robot command message, which we will build out below
             command = robot_command_pb2.RobotCommand()
-            # Walk to initial location
-            poses = [(0, 0, 0)]
+            # Walk closer to docking station
+            poses = [(10, 1, 0)]
             point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
             pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
             point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
@@ -269,17 +258,7 @@ def move_base(config):
             robot.logger.info("Robot safely powered off")
 
 
-def nav_grasp(config):
-    # Initialize robot
-    sdk = create_standard_sdk("move_robot_arm")
-    robot = sdk.create_robot(config.hostname)
-
-    robot.authenticate(username=config.username, password=config.password)
-    robot.time_sync.wait_for_sync()
-    assert robot.has_arm(), "Robot requires an arm to run this program"
-    assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
-                                    "such as the estop SDK example, to configure E-Stop."
-
+def nav_grasp(robot, config):
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
     robot_image_client = robot.ensure_client(ImageClient.default_service_name)
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
@@ -325,7 +304,7 @@ def nav_grasp(config):
         command = robot_command_pb2.RobotCommand()
 
         # Walk to origin
-        poses = [(3, 3, 0)]
+        poses = [(8, 1, 0)]
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
@@ -346,7 +325,7 @@ def nav_grasp(config):
         time.sleep(time_full + 1)
 
         cur_loc = poses[0][:2]
-        actions = [Actions.down, Actions.down, Actions.place]
+        actions = [Action.down, Action.down, Action.place]
 
         final_loc = plan_trajectory(cur_loc, actions)[1]
         goal_prop = None
@@ -355,16 +334,16 @@ def nav_grasp(config):
         if final_loc in PICK_PROPS_INV:
             goal_prop = PICK_PROPS_INV[final_loc]
 
-        # actions = [Actions.right] * 7 + [Actions.pick] + [Actions.left] * 7 + [Actions.down, Actions.down, Actions.place]
+        # actions = [Action.right] * 7 + [Action.pick] + [Action.left] * 7 + [Action.down, Action.down, Action.place]
         # actions = [
-        #            Actions.down, Actions.down,   # to a
-        #            Actions.pick, Actions.up, Actions.right, Actions.right, Actions.place,  # to a
-        #            Actions.pick,
+        #            Action.down, Action.down,   # to a
+        #            Action.pick, Action.up, Action.right, Action.right, Action.place,  # to a
+        #            Action.pick,
         #            ]
         for action in actions:
-            if action == Actions.pick:
+            if action == Action.pick:
                 pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models["book_pr"], cur_loc)
-            elif action == Actions.place:
+            elif action == Action.place:
                 place(robot, robot_state_client, robot_command_client, cur_loc, 3)
             elif action == "capture_image":
                 move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[cur_loc[0], cur_loc[1]], 1.0, 10, True)
@@ -373,17 +352,7 @@ def nav_grasp(config):
                 cur_loc = cur_pose[:2]
 
 
-def test(config):
-    # Initialize robot
-    sdk = create_standard_sdk("move_robot_arm")
-    robot = sdk.create_robot(config.hostname)
-
-    robot.authenticate(username=config.username, password=config.password)
-    robot.time_sync.wait_for_sync()
-    assert robot.has_arm(), "Robot requires an arm to run this program"
-    assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
-                                    "such as the estop SDK example, to configure E-Stop."
-
+def test(robot, config):
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
     robot_image_client = robot.ensure_client(ImageClient.default_service_name)
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
@@ -429,7 +398,7 @@ def test(config):
         command = robot_command_pb2.RobotCommand()
 
         # Walk to origin
-        poses = [(3, 3, 0)]
+        poses = [(10, 2, 2)]  # (8, 1, 0)
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
@@ -451,20 +420,44 @@ def test(config):
 
         cur_loc = poses[0][:2]
         options = [
-            [Actions.left] * 2 + [Actions.down] * 3,
-            [Actions.up, Actions.right, Actions.right],
-            [Actions.up] * 2 + [Actions.right] * 7,
-            [Actions.left] * 7 + [Actions.down] * 2,
+            [Action.down],  # pick up book; start from (10, 2, 2)
+            # [Action.right, Action.down, Action.down, Action.down],  # pick up book start from origin (8, 1, 0)
+            [Action.up] * 5 + [Action.right],  # place at desk b
         ]
         for option in options:
-            cur_loc = spot_execute_actions(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
-                                           models, cur_loc, option)
+            cur_loc = spot_execute_actions(config, robot, cur_loc, option, robot_state_client, robot_command_client,
+                                           robot_image_client, robot_manipulation_client, models)
+
+        if config.dock_after_use:
+            # Initialize a robot command message, which we will build out below
+            command = robot_command_pb2.RobotCommand()
+            # Walk closer to docking station
+            poses = [(10, 1, 0)]
+            point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
+            pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
+            point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
+            point.pose.angle = yaw_angle(rot_vision)
+            point.time_since_reference.CopyFrom(seconds_to_duration(config.time_per_move))
+            # Support frame
+            command.synchronized_command.mobility_command.se2_trajectory_request.se2_frame_name = VISION_FRAME_NAME
+            # Send the command using command client
+            robot.logger.info("Send body trajectory command.")
+            robot_command_client.robot_command(command, end_time_secs=time.time() + config.time_per_move)
+            time.sleep(config.time_per_move + 1)
+
+            # Dock robot after mission complete
+            blocking_dock_robot(robot, config.dock_id)
+            robot.logger.info("Robot docked")
+
+        if config.poweroff_after_use:
+            # Power off
+            robot.power_off(cut_immediately=False, timeout_sec=20)
+            assert not robot.is_powered_on(), "Robot power off failed"
+            robot.logger.info("Robot safely powered off")
 
 
-def spot_execute_actions(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
-                         models, cur_loc, actions):
-    print(f"EXECUTE option: {actions}")
-
+def spot_execute_actions(config, robot, cur_loc, actions, robot_state_client, robot_command_client,
+                         robot_image_client=None, robot_manipulation_client=None, models=None):
     final_loc = plan_trajectory(cur_loc, actions)[1]
     goal_prop = None
     if final_loc in PLACE_PROPS_INV:
@@ -472,21 +465,26 @@ def spot_execute_actions(config, robot, robot_state_client, robot_command_client
     if final_loc in PICK_PROPS_INV:
         goal_prop = PICK_PROPS_INV[final_loc]
 
+    print(f"EXECUTE option: {actions}\nfinal location: {final_loc}\ngoal proposition: {goal_prop}")
+
     for action in actions:
-        cur_loc = spot_execute_action(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
-                                      models, cur_loc, action, goal_prop)
+        cur_loc = spot_execute_action(config, robot, cur_loc, action, goal_prop, robot_state_client, robot_command_client,
+                                      robot_image_client, robot_manipulation_client, models)
     return cur_loc
 
 
-def spot_execute_action(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client,
-                        models, cur_loc, action, goal_prop):
+def spot_execute_action(config, robot, cur_loc, action, goal_prop, robot_state_client, robot_command_client,
+                        robot_image_client, robot_manipulation_client, models):
     next_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
     cur_loc = next_pose[:2]
 
-    if goal_prop in PICK_PROPS.keys() and cur_loc == PICK_PROPS[goal_prop]:
-        pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models[COORD2MODE[cur_loc]], cur_loc)
-    if goal_prop in PLACE_PROPS.keys() and cur_loc == PLACE_PROPS[goal_prop]:
-        place(robot, robot_state_client, robot_command_client, cur_loc, 3)
+    if config.move == "nav_grasp":
+        if goal_prop in PICK_PROPS and cur_loc == PICK_PROPS[goal_prop]:
+            print(f"PICK: {goal_prop} at {cur_loc}")
+            pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, models[COORD2MODE[cur_loc]], cur_loc)
+        if goal_prop in PLACE_PROPS and cur_loc == PLACE_PROPS[goal_prop]:
+            print(f"PLACE: {goal_prop} at {cur_loc}")
+            place(robot, robot_state_client, robot_command_client, cur_loc, 3)
     return cur_loc
 
 
@@ -543,6 +541,8 @@ def pick(config, robot, robot_state_client, robot_command_client, robot_image_cl
 
 
 def place(robot, robot_state_client, robot_command_client, coord, hold_time):
+    breakpoint()
+
     arm_command = move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, 1)
     arm_command = move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 1, hold_time, arm_command)
     move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[coord[0], coord[1]], 0, hold_time, arm_command)
@@ -659,20 +659,10 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
     return box2conf, image_resps
 
 
-def move_arm(config):
+def move_arm(robot, config):
     """
     Move robot arm to a given pose in space
     """
-    # Initialize robot
-    sdk = create_standard_sdk("move_robot_arm")
-    robot = sdk.create_robot(config.hostname)
-
-    robot.authenticate(username=config.username, password=config.password)
-    robot.time_sync.wait_for_sync()
-    assert robot.has_arm(), "Robot requires an arm to run this program"
-    assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
-                                    "such as the estop SDK example, to configure E-Stop."
-
     robot_state_client = robot.ensure_client(RobotStateClient.default_service_name)
     robot_command_client = robot.ensure_client(RobotCommandClient.default_service_name)
 
@@ -705,7 +695,7 @@ def move_arm(config):
         #     block_until_arm_arrives(robot_command_client, unstow_command_id, 3.0)
         #     time.sleep(3)
 
-        move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[6, 1], 1.0, 25)
+        move_gripper(robot, robot_state_client, robot_command_client, COORD2GPOSE[11, 2], 1.0, 25)
 
         # Stow arm
         if robot_state_client.get_robot_state().manipulator_state.stow_state == 2:
@@ -830,10 +820,11 @@ def find_center_px(vertices):
 
 
 def main(argv):
+    # python3 src/spot_control.py tusker --dock_id=521 --move=base
     parser = argparse.ArgumentParser()
     bosdyn.client.util.add_base_arguments(parser)
     parser.add_argument("--username", type=str, default="user", help="Username of Spot")
-    parser.add_argument("--password", type=str, default="97qp5bwpwf2c", help="Password of Spot")  # dungnydsc8su
+    parser.add_argument("--password", type=str, default="bigbubbabigbubba", help="Password of Spot")
     parser.add_argument("--dock_id", required=True, type=int, help="Docking station ID to dock at")
     parser.add_argument("--move", required=True, type=str, help="Move base or arm")
     parser.add_argument('-d', '--debug', action='store_true', help='Disable writing debug images.')
@@ -843,15 +834,25 @@ def main(argv):
     config = parser.parse_args(argv)
     bosdyn.client.util.setup_logging(config.verbose)
 
+    # Initialize robot
+    sdk = create_standard_sdk("move_robot_arm")
+    robot = sdk.create_robot(config.hostname)
+
+    robot.authenticate(username=config.username, password=config.password)
+    robot.time_sync.wait_for_sync()
+    assert robot.has_arm(), "Robot requires an arm to run this program"
+    assert not robot.is_estopped(), "Robot is estopped. Please use an external E-Stop client, " \
+                                    "such as the estop SDK example, to configure E-Stop."
+
     try:
         if config.move == "base":
-            move_base(config)
+            move_base(robot, config)
         elif config.move == "arm":
-            move_arm(config)
-        elif config.move == "test":
-            test(config)
+            move_arm(robot, config)
+        elif config.move == "nav_grasp":
+            test(robot, config)
         else:
-            nav_grasp(config)
+            nav_grasp(robot, config)
         return True
     except Exception as exc:
         logger = bosdyn.client.util.get_logger()
