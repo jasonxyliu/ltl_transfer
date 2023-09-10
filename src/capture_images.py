@@ -33,9 +33,9 @@ def main(argv):
     parser = argparse.ArgumentParser()
     bosdyn.client.util.add_base_arguments(parser)
     parser.add_argument('--username', type=str, default='user', help='Username of Spot')
-    parser.add_argument('--password', type=str, default='97qp5bwpwf2c', help='Password of Spot')  # dungnydsc8su
+    parser.add_argument('--password', type=str, default='bigbubbabigbubba', help='Password of Spot')
     parser.add_argument('--image-source', default='hand_color_image', help=f'Get image from source(s). Available image sources: {str(IMG_SOURCES)}')
-    parser.add_argument('--image_dpath', default='./multiobj/images_test', help='Path to write images to')
+    parser.add_argument('--image_dpath', default='./fetch/multiobj/book/images', help='Path to write images to')
     parser.add_argument('--all_hand_cameras', action="store_true", help='Include to capture and save images from all hand camera')
     options = parser.parse_args(argv)
 
