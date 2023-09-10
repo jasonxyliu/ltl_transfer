@@ -86,13 +86,13 @@ def action2pose(cur_loc, action, goal_prop):
         next_y += 1
         rot_code = 1
 
-    if goal_prop == 'a' and (next_x, next_y) == PLACE_PROPS['a']:  # always facing desk_a if it is the destination
+    if goal_prop == 'a' and (next_x, next_y) == PLACE_PROPS['a']:  # always facing brown desk a if it is the destination
         rot_code = 2
 
-    if (next_x, next_y) == (1, 4):  # always facing desk_b if it is the destination
+    if goal_prop == 'b' and (next_x, next_y) == PLACE_PROPS['b']:  # always facing white desk b if it is the destination
         rot_code = 1
 
-    if (next_x, next_y) == (3, 10):  # always facing counter in kitchen
+    if (next_x, next_y) == (7, 9):  # always facing kitchen counter k
         rot_code = 2
 
     return next_x, next_y, rot_code
