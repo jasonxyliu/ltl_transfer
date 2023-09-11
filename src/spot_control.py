@@ -26,13 +26,14 @@ from bosdyn.util import seconds_to_duration
 from network_compute_server import TensorFlowObjectDetectionModel
 from game_objects import Action
 from env_map import COORD2LOC, CODE2ROT, COORD2GPOSE, PICK_PROPS, PICK_PROPS_INV, PLACE_PROPS, PLACE_PROPS_INV
+# from yolo import yolo_model
 
 
 MODEL2PATHS = {
-    "book_pr": ("fetch/multiobj/book/exported-models/book-model/saved_model",
-                "fetch/multiobj/book/annotations/label_map.pbtxt"),
-    # "juice": ("fetch/multiobj/juice/exported-models/juice-model/saved_model",
-    #           "fetch/multiobj/juice/annotations/label_map.pbtxt")
+    # "book_pr": ("fetch/multiobj/book/exported-models/book-model/saved_model",
+    #             "fetch/multiobj/book/annotations/label_map.pbtxt"),
+    "juice": ("fetch/multiobj/juice/exported-models/juice-model/saved_model",
+              "fetch/multiobj/juice/annotations/label_map.pbtxt")
 }
 
 COORD2MODE = {
@@ -398,7 +399,7 @@ def test(robot, config):
         command = robot_command_pb2.RobotCommand()
 
         # Walk to origin
-        poses = [(10, 2, 2)]  # (8, 1, 0)
+        poses = [(7, 8, 1)]  # origin: (8, 1, 0); close to bookshelf: (10, 2, 2); close to counter (7, 8, 1)
         point = command.synchronized_command.mobility_command.se2_trajectory_request.trajectory.points.add()
         pos_vision, rot_vision = COORD2LOC[poses[0][:2]], CODE2ROT[poses[0][2]]  # pose relative to vision frame
         point.pose.position.x, point.pose.position.y = pos_vision[0], pos_vision[1]  # only x, y
@@ -420,9 +421,12 @@ def test(robot, config):
 
         cur_loc = poses[0][:2]
         options = [
-            [Action.down],  # pick up book; start from (10, 2, 2)
-            # [Action.right, Action.down, Action.down, Action.down],  # pick up book start from origin (8, 1, 0)
-            [Action.up] * 5 + [Action.right],  # place at desk b
+            # [Action.down],  # pick up book; start from closeby (10, 2, 2)
+            # # [Action.right, Action.down, Action.down, Action.down],  # pick up book; start from origin (8, 1, 0)
+            # [Action.up] * 5 + [Action.right],  # place at desk b
+
+            # [Action.up] + [Action.right] * 8   # pick up juice; start from origin (8, 1, 0)
+            [Action.right] # pick up juice; start from closeby (7, 8, 1)
         ]
         for option in options:
             cur_loc = spot_execute_actions(config, robot, cur_loc, option, robot_state_client, robot_command_client,
@@ -478,6 +482,8 @@ def spot_execute_action(config, robot, cur_loc, action, goal_prop, robot_state_c
     next_pose = navigate(robot, config, robot_command_client, cur_loc, action, goal_prop)
     cur_loc = next_pose[:2]
 
+    breakpoint()
+
     if config.move == "nav_grasp":
         if goal_prop in PICK_PROPS and cur_loc == PICK_PROPS[goal_prop]:
             print(f"PICK: {goal_prop} at {cur_loc}")
@@ -489,6 +495,8 @@ def spot_execute_action(config, robot, cur_loc, action, goal_prop, robot_state_c
 
 
 def pick(config, robot, robot_state_client, robot_command_client, robot_image_client, robot_manipulation_client, model, coord):
+    breakpoint()
+
     box2conf, image_resps = get_boxes(config, robot, robot_state_client, robot_command_client, robot_image_client, COORD2GPOSE[coord[0], coord[1]], 25, model)
 
     # Find overlapping region
@@ -626,7 +634,9 @@ def get_boxes(config, robot, robot_state_client, robot_command_client, robot_ima
             print(label, score)
 
             box = tuple(boxes[0].tolist())
+            print(f"original box: {box}")
             box = [box[0] * image_width, box[1] * image_height, box[2] * image_width, box[3] * image_height]
+            print(f"scaled box: {box}")
 
             point1 = np.array([box[1], box[0]])
             point2 = np.array([box[3], box[0]])
