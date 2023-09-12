@@ -146,7 +146,7 @@ if __name__ == "__main__":
                         help='This parameter indicated which tasks to solve. The options are: ' + str(train_types))
     parser.add_argument('--train_size', default=50, type=int,
                         help='This parameter indicated the number of LTLs in the training set')
-    parser.add_argument('--test_type', default='soft', type=str,
+    parser.add_argument('--test_type', default='mixed', type=str,
                         help='This parameter indicated which test tasks to solve. The options are: ' + str(test_types))
     parser.add_argument('--map', default=0, type=int,
                         help='This parameter indicated which map to use. It must be a number between -1 and 9. Use "-1" to run experiments over the 10 maps, 3 times per map')
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
     if args.train_type not in train_types: raise NotImplementedError("Training tasks " + str(args.train_type) + " hasn't been defined yet")
     if args.test_type not in test_types: raise NotImplementedError("Test tasks " + str(args.test_type) + " hasn't been defined yet")
-    if not(-1 <= args.map < 10): raise NotImplementedError("The map must be a number between -1 and 9")
+    if not(-1 <= args.map < 10 or args. map == 20): raise NotImplementedError("The map must be a number between -1 and 9")
 
     # Running the experiment
     tasks_id = train_types.index(args.train_type)
