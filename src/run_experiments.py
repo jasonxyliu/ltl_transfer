@@ -168,7 +168,7 @@ if __name__ == "__main__":
                         help='This parameter indicated the number of times to run a transfer experiment')
     parser.add_argument('--save_dpath', default='..', type=str,
                         help='path to directory to save options and results')
-    parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot'],
+    parser.add_argument('--dataset_name', default='minecraft', type=str, choices=['minecraft', 'spot', 'spot_1', 'spot_mixed20-mixed50'],
                         help='This parameter indicated the dataset to read tasks from')
     args = parser.parse_args()
     if args.algo not in algos: raise NotImplementedError("Algorithm " + str(args.algo) + " hasn't been implemented yet")
