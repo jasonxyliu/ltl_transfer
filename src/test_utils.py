@@ -63,7 +63,7 @@ class Tester:
             elif train_type == 'random':
                 self.experiment = f"{train_type}/map_{map_id}"
                 self.experiment_train = f"{train_type}/map_{map_id}"
-                train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, 'hard', test_type, 50)
+                train_tasks, self.transfer_tasks = read_train_test_formulas(dataset_name, 'hard', test_type, train_size)
                 self.tasks = train_tasks[0: train_size]
                 self.transfer_results_dpath = os.path.join("..", "results_test", f"{train_type}_{test_type}_{edge_matcher}", f"map_{map_id}")
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
@@ -81,7 +81,7 @@ class Tester:
                 else:
                     self.experiment = f"{train_type}_{train_size}/map_{map_id}/prob_{self.prob}"
                     self.experiment_train = f"{train_type}_50/map_{map_id}/prob_{self.prob}"
-                    train_tasks, self.transfer_tasks = read_train_test_formulas(save_dpath, dataset_name, train_type, test_type, 50)
+                    train_tasks, self.transfer_tasks = read_train_test_formulas(save_dpath, dataset_name, train_type, test_type, train_size)
                     self.tasks = train_tasks[0: train_size]
                     self.transfer_results_dpath = os.path.join(save_dpath, "results_icra24", self.transition_type, f"{train_type}_{train_size}_{test_type}_{edge_matcher}", f"map_{map_id}", f"prob_{self.prob}")
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
