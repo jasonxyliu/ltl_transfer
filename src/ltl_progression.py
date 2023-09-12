@@ -237,7 +237,6 @@ if __name__ == "__main__":
         ('and', ('until', 'True', 'a'), ('until', 'True', 'b')),  # Fa & Fb
         ('and', ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')), ('until', 'True', 'd')),  # Fa & Fb & Fc & Fd
         ('until', 'True', 'a'),  # Fa
-        ('and', ('until', 'True', 'b'), ('until', 'True', 'a')),  # Fb & Fa
         ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')),  # Fa & Fb & Fc
 
         ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(a & F(b & F(c & Fd))))
@@ -246,7 +245,7 @@ if __name__ == "__main__":
         ('until', 'True', ('and', 'b', ('until', 'True', 'a'))),  # F(b & Fa)
         ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', 'c'))))),  # F(a & F(b & Fc))
         ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(b & F(a & F(c & Fd))))
-        ('until', 'True', ('and', 'k', ('until', 'True', 'b'))),  # F(k & Fb): fetch and deliver
+        # ('until', 'True', ('and', 'k', ('until', 'True', 'b'))),  # F(k & Fb): fetch and deliver
 
         ('until', 'True', ('and', 'a', ('next', ('until', 'True', 'b')))),  # F(a & XFb)
         ('until', 'True', ('and', 's', ('next', ('until', 'True', 'a')))),  # F(s & XFa): fetch and deliver
@@ -262,16 +261,20 @@ if __name__ == "__main__":
 
         ('and', ('until', 'True', 'a'), ('until', 'True', ('and', 'b', ('until', 'True', 'c')))),  # Fa & F(b & Fc)
         ('and', ('until', 'True', 'a'), ('and', ('until', ('not', 'c'), 'b'), ('until', 'True', 'c'))),  # Fa & !c U b & Fc
+        ('and', ('and', ('until', 'True', ('and', 'a', ('until', 'True', 'b'))), ('until', ('not', 'c'), 'a')), ('until', 'True', 'c')), # F(a & Fb) & !c U a & Fc
         ('and', ('until', 'True', 'a'), ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'c'))))),  # Fa & F(b & XFc)
+        ('and', ('and', ('until', 'True', ('and', 'b', ('until', 'True', 'a'))), ('until', ('not', 'c'), 'b')), ('until', 'True', 'c')), # F(b & Fa) & !c U b & Fc
     ]
 
     for ltl_formula in test_tasks:
         initial_state, accepting_states, ltl2state, edges = get_dfa(ltl_formula)
+        print(f"LTL: {ltl_formula}")
         print(initial_state)
         print(accepting_states)
         for ltl, state in ltl2state.items():
             print(state, ltl)
         for edge in edges:
             print(edge)
+        print()
 
         # breakpoint()
