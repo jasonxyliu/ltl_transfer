@@ -85,6 +85,7 @@ class Tester:
                     self.tasks = train_tasks[0: train_size]
                     self.transfer_results_dpath = os.path.join(save_dpath, "results_icra24", self.transition_type, f"{train_type}_{train_size}_{test_type}_{edge_matcher}", f"map_{map_id}", f"prob_{self.prob}")
                 os.makedirs(self.transfer_results_dpath, exist_ok=True)
+                print(f"Reults saved at: {self.transfer_results_dpath}")
                 self.transfer_log_fpath = os.path.join(self.transfer_results_dpath, "zero_shot_transfer_log.txt")
                 logging.basicConfig(filename=self.transfer_log_fpath, filemode='w', level=logging.INFO, format="%(message)s")
 
@@ -185,6 +186,7 @@ class Saver:
 
         self.exp_dir = os.path.join(tester.save_dpath, "options", tester.transition_type, tester.experiment_train)
         os.makedirs(self.exp_dir, exist_ok=True)
+        print(f"Options saved at: {self.exp_dir}")
 
         self.train_dpath = os.path.join(self.exp_dir, "train_data")
         os.makedirs(self.train_dpath, exist_ok=True)
