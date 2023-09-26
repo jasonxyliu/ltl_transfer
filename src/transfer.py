@@ -23,7 +23,7 @@ from game import *
 from test_utils import Loader, save_pkl, load_pkl, save_json
 from run_single_worker import single_worker_rollouts
 
-RELABEL_CHUNK_SIZE = 441
+RELABEL_CHUNK_SIZE = 441  # minecraft: 441; spot: 182
 TRANSFER_CHUNK_SIZE = 100
 
 
