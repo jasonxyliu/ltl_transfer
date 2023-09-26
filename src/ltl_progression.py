@@ -234,36 +234,60 @@ if __name__ == "__main__":
 
     # Test manually defined test tasks for Spot demos
     test_tasks = [
-        ('and', ('until', 'True', 'a'), ('until', 'True', 'b')),  # Fa & Fb
-        ('and', ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')), ('until', 'True', 'd')),  # Fa & Fb & Fc & Fd
         ('until', 'True', 'a'),  # Fa
+        ('and', ('until', 'True', 'a'), ('until', 'True', 'b')),  # Fa & Fb
         ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')),  # Fa & Fb & Fc
+        ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 's')),  # Fa & Fb & Fs
+        ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'k')),  # Fa & Fb & Fk
+        ('and', ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')), ('until', 'True', 'd')),  # Fa & Fb & Fc & Fd
+        ('and', ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')), ('until', 'True', 's')),  # Fa & Fb & Fc & Fs
+        ('and', ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')), ('until', 'True', 'k')),  # Fa & Fb & Fc & Fk
+        ('and', ('and', ('and', ('and', ('until', 'True', 'a'), ('until', 'True', 'b')), ('until', 'True', 'c')), ('until', 'True', 'k')), ('until', 'True', 's')),  # Fa & Fb & Fc & Fk & Fs
 
-        ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(a & F(b & F(c & Fd))))
+        ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(b & F(a & F(c & Fd))))
         ('until', 'True', ('and', 's', ('until', 'True', 'a'))),  # F(s & Fa): fetch and deliver
+        ('until', 'True', ('and', 's', ('until', 'True', 'b'))),  # F(s & Fb): fetch and deliver
         ('until', 'True', ('and', 'a', ('until', 'True', 'b'))),  # F(a & Fb)
         ('until', 'True', ('and', 'b', ('until', 'True', 'a'))),  # F(b & Fa)
+        ('until', 'True', ('and', 'a', ('until', 'True', ('and', 's', ('until', 'True', 'c'))))),  # F(a & F(s & Fc)): fetch and deliver
+        ('until', 'True', ('and', 'b', ('until', 'True', ('and', 's', ('until', 'True', 'c'))))),  # F(b & F(s & Fc)): fetch and deliver
+        ('until', 'True', ('and', 's', ('until', 'True', ('and', 'a', ('until', 'True', 'c'))))),  # F(s & F(a & Fc))
         ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', 'c'))))),  # F(a & F(b & Fc))
-        ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(b & F(a & F(c & Fd))))
-        # ('until', 'True', ('and', 'k', ('until', 'True', 'b'))),  # F(k & Fb): fetch and deliver
+        ('until', 'True', ('and', 's', ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'k', ('until', 'True', 'a'))))))),  # F(s & F(a & F(k & Fa)))): fetch and deliver
+        ('until', 'True', ('and', 'a', ('until', 'True', ('and', 'b', ('until', 'True', ('and', 'c', ('until', 'True', 'd'))))))),  # F(a & F(b & F(c & Fd))))
 
-        ('until', 'True', ('and', 'a', ('next', ('until', 'True', 'b')))),  # F(a & XFb)
         ('until', 'True', ('and', 's', ('next', ('until', 'True', 'a')))),  # F(s & XFa): fetch and deliver
+        ('until', 'True', ('and', 'b', ('next', ('until', 'True', 's')))),  # F(b & XFs)
+        ('until', 'True', ('and', 'a', ('next', ('until', 'True', 'b')))),  # F(a & XFb)
         ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'a')))),  # F(b & XFa)
         ('until', 'True', ('and', 'a', ('next', ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'c'))))))),  # F(a & XF(b & XFc))
+        ('until', 'True', ('and', 'a', ('next', ('until', 'True', ('and', 's', ('next', ('until', 'True', 'b'))))))),  # F(a & XF(s & XFb)): fetch and deliver
+        ('until', 'True', ('and', 'b', ('next', ('until', 'True', ('and', 's', ('next', ('until', 'True', 'a'))))))),  # F(b & XF(s & XFa)): fetch and deliver
+        ('until', 'True', ('and', 's', ('next', ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'a'))))))),  # F(s & XF(b & XFa))
         ('until', 'True', ('and', 'k', ('next', ('until', 'True', 'b')))),  # F(k & XFb): fetch and deliver
+        ('until', 'True', ('and', 'k', ('next', ('until', 'True', 'a')))),  # F(k & XFa): fetch and deliver
 
-        ('and', ('and', ('until', ('not', 'b'), 'a'), ('until', ('not', 'c'), 'b')), ('until', 'True', 'c')),  # !b U a & !c U b & Fc
         ('and', ('until', ('not', 'a'), 's'), ('until', 'True', 'a')),  # !a U s & Fa: fetch and deliver
         ('and', ('until', ('not', 'b'), 'a'), ('until', 'True', 'b')),  # !b U a & Fb
         ('and', ('until', ('not', 'a'), 'b'), ('until', 'True', 'a')),  # !a U b & Fa
+        ('and', ('and', ('until', ('not', 'b'), 'a'), ('until', ('not', 'c'), 'b')), ('until', 'True', 'c')),  # !b U a & !c U b & Fc
         ('and', ('until', ('not', 'b'), 'k'), ('until', 'True', 'b')),  # !b U k & Fb: fetch and deliver
+        ('and', ('until', ('not', 'b'), 'c'), ('until', 'True', 'b')),  # !b U c & Fb
+        ('and', ('and', ('until', ('not', 'a'), 's'), ('until', ('not', 'b'), 'a')), ('until', 'True', 'b')),  # !a U s & !b U a & Fb
+        ('and', ('and', ('until', ('not', 's'), 'a'), ('until', ('not', 'b'), 's')), ('until', 'True', 'b')),  # !s U a & !b U s & Fb
+        ('and', ('and', ('until', ('not', 'b'), 'a'), ('until', ('not', 's'), 'b')), ('until', 'True', 's')),  # !b U a & !s U b & Fs
+        ('and', ('and', ('until', ('not', 'a'), 'b'), ('until', ('not', 's'), 'a')), ('until', 'True', 's')),  # !a U b & !s U a & Fs
 
         ('and', ('until', 'True', 'a'), ('until', 'True', ('and', 'b', ('until', 'True', 'c')))),  # Fa & F(b & Fc)
         ('and', ('until', 'True', 'a'), ('and', ('until', ('not', 'c'), 'b'), ('until', 'True', 'c'))),  # Fa & !c U b & Fc
         ('and', ('and', ('until', 'True', ('and', 'a', ('until', 'True', 'b'))), ('until', ('not', 'c'), 'a')), ('until', 'True', 'c')), # F(a & Fb) & !c U a & Fc
         ('and', ('until', 'True', 'a'), ('until', 'True', ('and', 'b', ('next', ('until', 'True', 'c'))))),  # Fa & F(b & XFc)
+        ('and', ('and', ('until', 'True', ('and', 'a', ('until', 'True', 'b'))), ('until', ('not', 'c'), 'b')), ('until', 'True', 'c')), # F(a & Fb) & !c U b & Fc
         ('and', ('and', ('until', 'True', ('and', 'b', ('until', 'True', 'a'))), ('until', ('not', 'c'), 'b')), ('until', 'True', 'c')), # F(b & Fa) & !c U b & Fc
+        ('and', ('until', 'True', 'c'), ('and', ('until', ('not', 's'), 'a'), ('until', 'True', 's'))),  # Fc & (!s U a & Fs)
+        ('and', ('until', 'True', 'c'), ('and', ('until', ('not', 'a'), 's'), ('until', 'True', 'a'))),  # Fc & (!a U s & Fa)
+        ('and', ('until', 'True', 'c'), ('and', ('until', ('not', 's'), 'b'), ('until', 'True', 's'))),  # Fc & (!s U b & Fs)
+        ('and', ('until', 'True', 'c'), ('and', ('until', ('not', 'b'), 's'), ('until', 'True', 'b'))),  # Fc & (!b U s & Fb)
     ]
 
     for ltl_formula in test_tasks:
@@ -276,5 +300,3 @@ if __name__ == "__main__":
         for edge in edges:
             print(edge)
         print()
-
-        # breakpoint()
